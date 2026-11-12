@@ -13,7 +13,7 @@
   const CLASSES = ["Seconde", "Première générale", "Première technologique", "Terminale générale", "Terminale STI2D", "Terminale STMG", "Terminale ST2S", "Terminale STL", "Autre"];
   const COULEURS = ["#4a6cf0", "#f08c3a", "#18ae79", "#e0529c", "#8b5cf6", "#0ea5a4", "#e5484d", "#a16207"];
   const COULEUR_PAR_NOM = { "svt": "#18ae79", "maths": "#4a6cf0", "mathématiques": "#4a6cf0", "physique-chimie": "#f08c3a", "physique": "#f08c3a" };
-  const CARD_META = "id,chapter_id,due_at,state,stability,difficulty,elapsed_days,scheduled_days,reps,lapses,last_review,right_count,wrong_count";
+  const CARD_META = "id,chapter_id,due_at,state,stability,difficulty,elapsed_days,scheduled_days,reps,lapses,last_review,right_count,wrong_count,front,back,source_quote,image_path";
 
   const svg = (d, extra) => `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${extra || ""}>${d}</svg>`;
   const I = {
@@ -85,7 +85,16 @@
   }
 
   // ---------- données ----------
+  function queueReview(id, patch) { try { const q = JSON.parse(safeGet("merge.file") || "[]"); q.push({ id, patch }); safeSet("merge.file", JSON.stringify(q)); } catch (e) { /* file indisponible */ } }
+  async function flushQueue() {
+    let q = []; try { q = JSON.parse(safeGet("merge.file") || "[]"); } catch (e) { q = []; }
+    if (!q.length) return;
+    const rest = [];
+    for (const it of q) { try { const r = await sb.from("cards").update(it.patch).eq("id", it.id); if (r.error) rest.push(it); } catch (e) { rest.push(it); } }
+    safeSet("merge.file", JSON.stringify(rest));
+  }
   async function loadAll() {
+    await flushQueue();
     const uid = state.user.id; const since = new Date(); since.setDate(since.getDate() - 120);
     const [p, s, c, k, ss] = await Promise.all([
       sb.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
@@ -98,7 +107,12 @@
     state.profile = p.data; state.subjects = s.data || []; state.chapters = c.data || []; state.sessions = ss.data || [];
     state.chapters = state.chapters.filter(c => state.subjects.some(x => x.id === c.subject_id));
     state.cards = (k.data || []).filter(c => state.chapters.some(x => x.id === c.chapter_id));
+    state.offline = false;
+    safeSet("merge.cache." + uid, JSON.stringify({ profile: state.profile, subjects: state.subjects, chapters: state.chapters, cards: state.cards, sessions: state.sessions }));
     applyLook(state.profile);
+  }
+  function loadCache() {
+    try { const c = JSON.parse(safeGet("merge.cache." + state.user.id) || "null"); if (!c || !c.profile) return false; Object.assign(state, c, { offline: true }); applyLook(state.profile); return true; } catch (e) { return false; }
   }
   async function ai(body) {
     const { data, error } = await sb.functions.invoke("ai", { body });
@@ -189,7 +203,7 @@
     const next = state.subjects.filter(s => s.exam_date && daysUntil(s.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date))[0];
     const ready = state.chapters.filter(c => cardsOf(c.id).length).slice(-4).reverse();
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
-    app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
+    app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
       <h1>Salut ${esc(p.display_name || "")}</h1>
       <div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
@@ -224,7 +238,7 @@
       <div class="stack" style="--c:${esc(s.color)}"><div class="row"><span class="dot"></span><h1>${esc(s.name)}</h1></div>
       <div class="field"><label for="exam">Date du contrôle ou de l'examen</label><input id="exam" type="date" value="${esc(s.exam_date || "")}"></div>
       ${j != null && j >= 0 ? `<span class="pill" style="align-self:flex-start">${j === 0 ? "Aujourd'hui" : "Dans " + plural(j, "jour", "jours")}</span>` : ""}</div>
-      <div class="stack"><h2>Chapitres</h2>
+      <div class="stack"><div class="row between"><h2>Chapitres</h2>${chs.some(c => cardsOf(c.id).length) ? `<a class="btn sm" href="#revision-${id}">Réviser la matière</a>` : ""}</div>
       ${chs.length ? chs.map(c => { const cs = cardsOf(c.id); return `<a class="card subject" style="--c:${esc(s.color)}" href="#chapitre-${c.id}"><div class="row between"><b>${esc(c.name)}</b><span class="pill">${cs.length ? plural(cs.length, "carte", "cartes") : "À importer"}</span></div>${cs.length ? `<div class="row"><div class="bar grow"><i style="width:${mastery(cs)}%"></i></div><span class="small muted">${mastery(cs)} %</span></div>` : ""}</a>`; }).join("") : '<p class="muted">Aucun chapitre pour l\'instant.</p>'}
       <div class="field"><label for="cname">Nouveau chapitre</label><div class="row"><input id="cname" type="text" maxlength="80" placeholder="Ex. Les ondes mécaniques"><button class="btn" id="addCh" aria-label="Ajouter le chapitre">${I.plus}</button></div></div></div>
       ${subjectToolsHtml(s, chs)}`;
@@ -249,7 +263,7 @@
     const s = state.subjects.find(x => x.id === ch.subject_id) || { name: "", color: "#888", id: "" };
     app.innerHTML = `<p class="muted">Chargement…</p>`;
     const [cr, sr] = await Promise.all([
-      sb.from("cards").select("id,front,back,source_quote,needs_check,flagged,state").eq("chapter_id", id).order("created_at"),
+      sb.from("cards").select("id,front,back,source_quote,needs_check,flagged,state,image_path").eq("chapter_id", id).order("created_at"),
       sb.from("summaries").select("chapter_id").eq("chapter_id", id).maybeSingle()
     ]);
     if (cr.error) return fail(cr.error, "Cartes non chargées");
@@ -258,19 +272,20 @@
     app.innerHTML = `<div class="row"><a class="iconbtn" href="#matiere-${s.id}" aria-label="Retour à la matière">${I.back}</a><span class="row small muted" style="--c:${esc(s.color)}"><span class="dot"></span>${esc(s.name)}</span></div>
       <div class="stack"><h1>${esc(ch.name)}</h1>
       ${cards.length ? `<div class="row"><span class="pill">${plural(cards.length, "carte", "cartes")}</span><span class="small muted">Maîtrise ${m} %${due ? " · " + plural(due, "carte à revoir", "cartes à revoir") : ""}</span></div><div><div class="jalons">${[true, hasSum, m >= 50, m >= 100, false].map((on, i, a) => `<span class="${on ? "on" : ""}"></span>${i < a.length - 1 ? `<i class="${a[i + 1] ? "on" : ""}"></i>` : ""}`).join("")}</div><div class="jalabels"><span>Importé</span><span>Résumé</span><span>50 %</span><span>100 %</span><span>Contrôle</span></div></div>` : ""}</div>
-      ${cards.length ? `<div class="modes"><a class="card mode" href="#cartes-${id}">${I.cards}Cartes</a>${hasSum ? `<a class="card mode" href="#resume-${id}">${I.sum}Résumé</a>` : soon(I.sum, "Résumé")}<a class="card mode" href="#apprendre-${id}">${I.learn}Apprendre</a><a class="card mode" href="#quiz-${id}">${I.quiz}Quiz</a><a class="card mode" href="#associer-${id}">${I.match}Associer</a><a class="card mode" href="#ecouter-${id}">${I.listen}Écouter</a><a class="card mode" href="#questions-${id}">${I.ask}<span>Poser une question<span class="small">sur ton cours</span></span></a><a class="card mode" href="#controle-${id}">${I.lock}<span>Contrôle<span class="small">${m >= 100 ? "Débloqué" : "À 100 % de maîtrise"}</span></span></a></div>` : ""}
+      ${cards.length ? `<div class="modes"><a class="card mode" href="#cartes-${id}">${I.cards}Cartes</a>${hasSum ? `<a class="card mode" href="#resume-${id}">${I.sum}Résumé</a>` : soon(I.sum, "Résumé")}<a class="card mode" href="#apprendre-${id}">${I.learn}Apprendre</a><a class="card mode" href="#quiz-${id}">${I.quiz}Quiz</a><a class="card mode" href="#associer-${id}">${I.match}Associer</a><a class="card mode" href="#vraifaux-${id}">${I.quiz}Vrai ou faux</a><a class="card mode" href="#ecouter-${id}">${I.listen}Écouter</a><a class="card mode" href="#questions-${id}">${I.ask}<span>Poser une question<span class="small">sur ton cours</span></span></a><a class="card mode" href="#controle-${id}">${I.lock}<span>Contrôle<span class="small">${m >= 100 ? "Débloqué" : "À 100 % de maîtrise"}</span></span></a></div>` : ""}
       <div class="banner"><div><h2>${cards.length ? "Ajouter un cours" : "Importe ton cours"}</h2><p class="small">PDF, photos, PowerPoint ou texte. Merge prépare le résumé et les cartes à partir de ton cours, sans rien inventer.</p></div><a class="btn sm" href="#import-${id}">Importer</a></div>
       ${chapterToolsHtml(id)}
       ${cards.length ? `<div class="stack"><h2 class="small muted">${plural(cards.length, "carte", "cartes")} dans ce chapitre</h2><div class="stack" id="list"></div></div>` : ""}`;
     wireChapterTools(id, ch, cards);
     if (!cards.length) return;
     const list = $("list");
-    const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${esc(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${esc(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="tools"><button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
+    const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${esc(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${esc(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
     list.innerHTML = cards.map(drawCard).join("");
     list.onclick = async (e) => {
       const b = e.target.closest("button"); if (!b) return;
-      const cid = b.dataset.edit || b.dataset.flag || b.dataset.save || b.dataset.cancel || b.dataset.del || b.dataset.delyes; const c = cards.find(x => x.id === cid); if (!c) return;
+      const cid = b.dataset.edit || b.dataset.flag || b.dataset.save || b.dataset.cancel || b.dataset.del || b.dataset.delyes || b.dataset.img; const c = cards.find(x => x.id === cid); if (!c) return;
       const box = list.querySelector(`[data-id="${cid}"]`);
+      if (b.dataset.img) return showPage(c.image_path, box.querySelector(".pagebox"));
       if (b.dataset.del) { b.outerHTML = `<button class="mini" data-delyes="${cid}" style="color:var(--peach-ink)">Confirmer la suppression</button>`; return; }
       if (b.dataset.delyes) { const { error } = await sb.from("cards").delete().eq("id", cid); if (error) return fail(error, "Carte non supprimée"); state.cards = state.cards.filter(x => x.id !== cid); cards.splice(cards.indexOf(c), 1); box.remove(); return toast("Carte supprimée."); }
       if (b.dataset.flag) {
@@ -355,7 +370,14 @@
     const say = (m) => { const s = $("status"); if (s) s.textContent = m; };
 
     async function imageToJpeg(file) {
-      let bmp; try { bmp = await createImageBitmap(file); } catch (e) { throw new Error("Impossible de lire l'image « " + file.name + " ». Si c'est une photo HEIC, enregistre-la en JPEG puis réessaie."); }
+      let bmp;
+      try { bmp = await createImageBitmap(file); }
+      catch (e) {
+        try {
+          if (!window.heic2any) await new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "vendor/heic2any.min.js"; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+          const out = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(out) ? out[0] : out);
+        } catch (e2) { throw new Error("Impossible de lire l'image « " + file.name + " ». Enregistre-la en JPEG ou en PNG puis réessaie."); }
+      }
       const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
       cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
       return cv.toDataURL("image/jpeg", 0.82).split(",")[1];
@@ -409,7 +431,7 @@
           say("L'IA lit les pages avec photos ou schémas : " + Math.min(i + 4, imgs.length) + " sur " + imgs.length + "…");
           const batch = imgs.slice(i, i + 4), r = await ai({ action: "transcribe", images: batch.map(b => ({ mime: "image/jpeg", data: b.img })) });
           const partsTxt = String(r.text || "").split("[[PAGE]]").map(x => x.trim()).filter(Boolean);
-          batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); delete b.img; });
+          batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); b.jpg = b.img; delete b.img; });
         }
         const full = segs.map(s => s.text).filter(Boolean).join("\n\n[[PAGE]]\n\n");
         if (full.replace(/\s/g, "").length < 80) throw new Error("Je n'ai pas trouvé assez de texte dans ce cours.");
@@ -423,13 +445,22 @@
         try { const v = await ai({ action: "verify", text: full, cards }); (v.results || []).forEach(r => { if (r && r.ok === false) bad.add(r.i); }); }
         catch (e) { notes.push("La vérification automatique n'a pas pu se faire : relis les cartes."); cards.forEach((_, i) => bad.add(i)); }
         say("Enregistrement…");
+        const norm = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), stamp = Date.now();
+        for (let k = 0; k < segs.length; k++) {
+          const sg = segs[k]; if (!sg.jpg) continue;
+          try { const bin = atob(sg.jpg), arr = new Uint8Array(bin.length); for (let z = 0; z < bin.length; z++) arr[z] = bin.charCodeAt(z);
+            const path = state.user.id + "/" + id + "/" + stamp + "-" + k + ".jpg", up = await sb.storage.from("cours").upload(path, new Blob([arr], { type: "image/jpeg" }), { contentType: "image/jpeg" });
+            if (!up.error) sg.path = path; } catch (e) { /* image non gardée */ }
+          delete sg.jpg;
+        }
+        const pageOf = (quote) => { const q = norm(quote).slice(0, 40); if (q.length < 8) return null; const sg = segs.find(x => x.path && norm(x.text).includes(q)); return sg ? sg.path : null; };
         const src = await sb.from("sources").insert({ chapter_id: id, filename: d.tab === "text" ? "Texte collé" : d.files.map(f => f.name).join(", ").slice(0, 300), mime: d.tab === "text" ? "text/plain" : "mixte", pages: budget.pages || null, extracted_text: full });
         if (src.error) throw src.error;
         const old = await sb.from("summaries").select("edited_by_user").eq("chapter_id", id).maybeSingle();
         if (!old.data) { const r = await sb.from("summaries").insert({ chapter_id: id, markdown: g.summary || "" }); if (r.error) throw r.error; }
         else if (!old.data.edited_by_user) { const r = await sb.from("summaries").update({ markdown: g.summary || "", updated_at: new Date().toISOString() }).eq("chapter_id", id); if (r.error) throw r.error; }
         else notes.push("Ton résumé modifié à la main a été gardé.");
-        const ins = await sb.from("cards").insert(cards.map((c, i) => ({ chapter_id: id, front: String(c.front).slice(0, 500), back: String(c.back).slice(0, 2000), source_quote: c.source_quote ? String(c.source_quote).slice(0, 400) : null, needs_check: bad.has(i) || !c.source_quote })));
+        const ins = await sb.from("cards").insert(cards.map((c, i) => ({ chapter_id: id, front: String(c.front).slice(0, 500), back: String(c.back).slice(0, 2000), source_quote: c.source_quote ? String(c.source_quote).slice(0, 400) : null, needs_check: bad.has(i) || !c.source_quote, image_path: pageOf(c.source_quote) })));
         if (ins.error) throw ins.error;
         await sb.from("chapters").update({ status: "ready", lang: (g.lang || "fr").slice(0, 8), cards_target: d.n }).eq("id", id);
         await loadAll();
@@ -445,18 +476,17 @@
   }
 
   // ---------- session de cartes ----------
-  async function screenSession(scope, hard) {
+  async function screenSession(scope, hard, subj) {
     tabs.hidden = true; app.innerHTML = `<p class="muted">Chargement…</p>`;
-    const backHref = scope === "jour" ? "#accueil" : "#chapitre-" + scope;
-    let meta = scope === "jour" ? dueCards(state.cards) : dueCards(cardsOf(scope));
+    const backHref = scope === "jour" ? "#accueil" : subj ? "#matiere-" + scope : "#chapitre-" + scope;
+    const pool = subj ? state.cards.filter(c => state.chapters.some(ch => ch.id === c.chapter_id && ch.subject_id === scope)) : cardsOf(scope);
+    let meta = scope === "jour" ? dueCards(state.cards) : dueCards(pool);
     let training = false;
-    if (hard) { meta = cardsOf(scope).filter(c => (c.wrong_count || 0) > 0).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 20); training = true; if (!meta.length) { toast("Aucune carte difficile pour l'instant : tu n'as encore rien raté ici."); location.hash = backHref; return; } }
-    else if (!meta.length && scope !== "jour") { meta = cardsOf(scope); training = true; }
+    if (hard) { meta = pool.filter(c => (c.wrong_count || 0) > 0).sort((a, b) => b.wrong_count - a.wrong_count).slice(0, 20); training = true; if (!meta.length) { toast("Aucune carte difficile pour l'instant : tu n'as encore rien raté ici."); location.hash = backHref; return; } }
+    else if (!meta.length && scope !== "jour") { meta = shuffle(pool); training = true; }
     if (!meta.length) { location.hash = backHref; return; }
     meta = meta.slice(0, 60);
-    const { data, error } = await sb.from("cards").select("id,front,back,source_quote").in("id", meta.map(c => c.id));
-    if (error) return fail(error, "Cartes non chargées");
-    const text = Object.fromEntries((data || []).map(c => [c.id, c]));
+    const text = Object.fromEntries(meta.map(c => [c.id, c]));
     const S = { queue: meta.filter(c => text[c.id]).map(c => c.id), total: 0, known: 0, again: new Set(), flipped: false, start: Date.now(), reviews: 0, chapters: new Set() };
     S.total = S.queue.length;
     async function finish() {
@@ -473,7 +503,7 @@
       const now = new Date(), r = fsrs.next(toFsrs(row), now, ok ? F.Rating.Good : F.Rating.Again).card;
       const patch = { due_at: r.due.toISOString(), stability: r.stability, difficulty: r.difficulty, elapsed_days: r.elapsed_days, scheduled_days: r.scheduled_days, reps: r.reps, lapses: r.lapses, state: r.state, last_review: now.toISOString(), right_count: (row.right_count || 0) + (ok ? 1 : 0), wrong_count: (row.wrong_count || 0) + (ok ? 0 : 1) };
       Object.assign(row, patch); S.reviews++; S.chapters.add(row.chapter_id);
-      sb.from("cards").update(patch).eq("id", cid).then(res => { if (res.error) fail(res.error, "Réponse non enregistrée"); });
+      sb.from("cards").update(patch).eq("id", cid).then(res => { if (res.error) queueReview(cid, patch); }, () => queueReview(cid, patch));
       ping(ok);
       if (ok) S.known++; else { S.again.add(cid); S.queue.push(cid); }
       S.flipped = false; render();
@@ -484,7 +514,7 @@
         app.innerHTML = `<div class="row"><a class="iconbtn" href="${backHref}" aria-label="Fermer">${I.x}</a></div><div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(S.total, "carte sue", "cartes sues")}. ${S.again.size ? plural(S.again.size, "carte est revenue", "cartes sont revenues") + " pendant la session et reviendront bientôt." : "Aucune carte à revoir."}</p><a class="btn" href="${backHref}">Terminer</a></div>`;
         return;
       }
-      if (!S.offered && !hard && scope !== "jour" && S.total >= 6 && S.known >= Math.ceil(S.total / 2)) {
+      if (!S.offered && !hard && !subj && !state.offline && scope !== "jour" && S.total >= 6 && S.known >= Math.ceil(S.total / 2)) {
         S.offered = true;
         app.innerHTML = `<div class="card done"><h1>Tu es à la moitié</h1><p class="muted">Un petit quiz pour vérifier ce que tu viens de voir ?</p><button class="btn" id="goquiz">Faire le quiz</button><button class="btn ghost" id="keep">Continuer les cartes</button></div>`;
         $("goquiz").onclick = () => { finish(); location.hash = "#quiz-" + scope; }; $("keep").onclick = render; return;
@@ -498,7 +528,8 @@
           <div class="face b"><header>Réponse</header><div class="txt">${esc(c.back)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
         </button></div>
         <div class="answers"><button class="btn peach" id="no">Pas encore</button><button class="btn" id="yes">Je sais</button></div>
-        ${"speechSynthesis" in window ? '<button class="linkbtn" id="say">Lire la carte à voix haute</button>' : ""}</div>`;
+        <div class="row" style="justify-content:center;flex-wrap:wrap">${"speechSynthesis" in window ? '<button class="linkbtn" id="say">Lire à voix haute</button>' : ""}${c.image_path && !state.offline ? '<button class="linkbtn" id="see">Voir la page du cours</button>' : ""}</div><div id="pageimg"></div></div>`;
+      if ($("see")) $("see").onclick = () => showPage(c.image_path, $("pageimg"));
       if ($("say")) $("say").onclick = () => { const u = new SpeechSynthesisUtterance(S.flipped ? c.back : c.front); u.lang = "fr-FR"; speechSynthesis.cancel(); speechSynthesis.speak(u); };
       $("flip").onclick = () => { S.flipped = !S.flipped; $("flip").classList.toggle("back", S.flipped); };
       $("no").onclick = () => answer(false); $("yes").onclick = () => answer(true);
@@ -515,7 +546,13 @@
     };
     render();
   }
-  document.addEventListener("keydown", e => { if (/^#(cartes|difficiles)-/.test(location.hash) && screenSession.key && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) screenSession.key(e); });
+  document.addEventListener("keydown", e => { if (screenSession.key && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) screenSession.key(e); });
+  async function showPage(path, box) {
+    if (!box) return; if (box.innerHTML) { box.innerHTML = ""; return; }
+    box.innerHTML = '<p class="muted">Chargement de la page…</p>';
+    const { data, error } = await sb.storage.from("cours").createSignedUrl(path, 3600);
+    box.innerHTML = error || !data ? '<p class="err">Image indisponible.</p>' : `<img class="pageimg" src="${esc(data.signedUrl)}" alt="Page du cours d'où vient cette carte">`;
+  }
 
   // ---------- réglages ----------
   function screenSettings() {
@@ -533,10 +570,13 @@
         <div class="field"><span class="label">Taille du texte</span>${chips("s", [["small", "Petit"], ["normal", "Normal"], ["large", "Grand"]], p.text_size)}</div></div>
       <div class="card pad stack"><h2>Révision</h2>
         <div class="field"><span class="label">Sons et vibrations</span>${chips("snd", [["1", "Activés"], ["0", "Coupés"]], p.sounds === false ? "0" : "1")}</div>
-        <div class="field"><label for="rem">Heure de rappel (les notifications arriveront dans une prochaine version)</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
+        <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
+        <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
       <div class="card pad stack"><h2>IA</h2><p class="muted" id="quota">Limite : ${C.QUOTA_IA_PAR_JOUR} appels par jour.</p></div>
       <div class="card pad stack"><h2>Ce qui est partagé</h2><p class="muted">Tes cours, résumés et cartes restent toujours privés. Le partage de statistiques à deux se règle dans l'onglet Duo.</p><a class="btn sm ghost" href="#duo">Ouvrir Duo</a></div>
+      <div class="card pad stack"><h2>Archives</h2><p class="muted">En fin d'année, range tes anciennes matières. Elles restent consultables et tu peux les restaurer.</p><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" id="archShow">Voir mes archives</button><button class="btn sm ghost" id="archAll">Archiver toutes mes matières</button></div><div id="archBox" class="stack"></div></div>
+      <div class="card pad stack"><h2>Supprimer mes données</h2><p class="muted">Efface définitivement tes matières, chapitres, cartes, résumés, notes et statistiques. Impossible à annuler.</p><div class="field"><label for="delw">Écris SUPPRIMER pour confirmer</label><input id="delw" type="text" autocomplete="off"></div><button class="btn sm peach" id="delall">Supprimer toutes mes données</button></div>
       <button class="btn ghost" id="logout">Se déconnecter</button>
       <p class="note">${esc(state.user.email || "")}</p>`;
     let kind = p.daily_goal_kind;
@@ -547,6 +587,34 @@
     app.querySelectorAll("[data-snd]").forEach(b => b.onclick = () => patch({ sounds: b.dataset.snd === "1" }));
     $("rem").onchange = () => patch({ reminder_time: $("rem").value || null }, "Heure enregistrée.");
     $("tuto").onclick = tutorial;
+    $("pushon").onclick = async () => {
+      const msg = $("pushmsg");
+      try {
+        if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) throw new Error("Cet appareil ou ce navigateur ne gère pas les notifications. Sur iPhone, ouvre Merge depuis l'écran d'accueil.");
+        if (!p.reminder_time) throw new Error("Choisis d'abord une heure de rappel juste au-dessus.");
+        if ((await Notification.requestPermission()) !== "granted") throw new Error("Tu as refusé les notifications. Autorise-les dans les réglages du navigateur.");
+        const reg = await navigator.serviceWorker.ready, raw = atob(C.VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/") + "="), key = Uint8Array.from(raw, ch => ch.charCodeAt(0));
+        const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), j = sub.toJSON();
+        const { error } = await sb.from("push_subscriptions").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Paris" });
+        if (error) throw error;
+        msg.className = "note"; msg.textContent = "Rappels activés sur cet appareil, chaque jour vers " + String(p.reminder_time).slice(0, 5) + ".";
+      } catch (e) { msg.className = "err"; msg.textContent = e.message || "Activation impossible."; }
+    };
+    $("archShow").onclick = async () => {
+      const { data, error } = await sb.from("subjects").select("id,name,school_year").eq("archived", true).eq("user_id", state.user.id); if (error) return fail(error, "Archives non chargées");
+      $("archBox").innerHTML = (data || []).length ? data.map(a => `<div class="row between"><span>${esc(a.name)}${a.school_year ? " · " + a.school_year + "-" + (a.school_year + 1) : ""}</span><button class="mini" data-rest="${a.id}">Restaurer</button></div>`).join("") : '<p class="muted">Aucune matière archivée.</p>';
+      $("archBox").querySelectorAll("[data-rest]").forEach(b => b.onclick = async () => { const r = await sb.from("subjects").update({ archived: false }).eq("id", b.dataset.rest); if (r.error) return fail(r.error, "Restauration impossible"); await loadAll(); toast("Matière restaurée."); $("archShow").click(); });
+    };
+    $("archAll").onclick = async () => {
+      if ($("archAll").dataset.ok !== "1") { $("archAll").dataset.ok = "1"; $("archAll").textContent = "Confirmer l'archivage"; return; }
+      const r = await sb.from("subjects").update({ archived: true }).eq("user_id", state.user.id).eq("archived", false); if (r.error) return fail(r.error, "Archivage impossible");
+      await loadAll(); toast("Matières archivées."); screenSettings();
+    };
+    $("delall").onclick = async () => {
+      if ($("delw").value.trim() !== "SUPPRIMER") return toast("Écris SUPPRIMER en majuscules pour confirmer.");
+      const r = await sb.rpc("delete_my_data"); if (r.error) return fail(r.error, "Suppression impossible");
+      safeSet("merge.cache." + state.user.id, ""); await sb.auth.signOut(); state.user = null; state.profile = null; screenLogin("Tes données ont été supprimées.");
+    };
     $("saveP").onclick = () => {
       const name = $("prenom").value.trim(); if (!name) return toast("Le prénom ne peut pas être vide.");
       const o = { display_name: name, daily_goal_kind: kind, daily_goal_value: Math.min(500, Math.max(1, parseInt($("val").value, 10) || 15)) };
@@ -637,7 +705,7 @@
 
   // ---------- outils d'un chapitre ----------
   function chapterToolsHtml(id) {
-    return `<div class="card pad stack"><h2>Outils du chapitre</h2><div class="chips"><button class="chip" id="tAdd">Ajouter une carte</button><a class="chip" href="#difficiles-${id}">Cartes difficiles</a><a class="chip" href="#blanc-${id}">Examen blanc</a><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tDel">Supprimer</button></div><div id="toolbox"></div></div>`;
+    return `<div class="card pad stack"><h2>Outils du chapitre</h2><div class="chips"><button class="chip" id="tAdd">Ajouter une carte</button><a class="chip" href="#difficiles-${id}">Cartes difficiles</a><a class="chip" href="#blanc-${id}">Examen blanc</a><a class="chip" href="#fiche-${id}">Fiche à imprimer</a><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tDel">Supprimer</button></div><div id="toolbox"></div></div>`;
   }
   function wireChapterTools(id, ch, cards) {
     const box = $("toolbox"), s = state.subjects.find(x => x.id === ch.subject_id);
@@ -733,6 +801,7 @@
       <div class="tiles"><div class="card tile"><b>${streak()}</b><span>jours d'affilée</span></div><div class="card tile"><b>${cards7}</b><span>cartes en 7 jours</span></div><div class="card tile"><b>${mins}</b><span>minutes en 7 jours</span></div><div class="card tile"><b>${mastery(state.cards)} %</b><span>maîtrise moyenne</span></div></div>
       <div class="card pad stack"><h2>Cartes révisées, 14 derniers jours</h2><div class="bars" role="img" aria-label="Cartes révisées par jour sur 14 jours">${d14.map(d => `<div><i style="height:${Math.max(3, d.cards_reviewed / max * 100)}%" class="${d.cards_reviewed ? "" : "zero"}" title="${d.cards_reviewed}"></i><span>${d.label}</span></div>`).join("")}</div></div>
       <div class="stack"><h2>Par matière</h2><div class="grid">${state.subjects.map(s => { const chs = state.chapters.filter(c => c.subject_id === s.id), cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)), m = mastery(cs); return `<a class="card subject" style="--c:${esc(s.color)}" href="#matiere-${s.id}"><div class="row between"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div><span class="small muted">${m} %</span></div><div class="bar"><i style="width:${m}%"></i></div></a>`; }).join("") || '<p class="muted">Aucune matière.</p>'}</div></div>
+      <div class="card pad stack"><h2>Badges</h2><div class="chips">${badges().map(b => `<span class="badge ${b[1] ? "on" : ""}">${b[0]}</span>`).join("")}</div></div>
       <div class="card pad stack"><h2>Mes notes</h2><div id="notes"><p class="muted">Chargement…</p></div></div>`;
     Promise.all([sb.from("quiz_results").select("score,created_at").eq("user_id", state.user.id).order("created_at"), sb.from("exams").select("chapter_id,best_score").eq("user_id", state.user.id)]).then(([q, e]) => {
       if (!$("notes")) return; const qs = (q.data || []).slice(-12), ex = (e.data || []).filter(x => x.best_score != null);
@@ -749,7 +818,7 @@
     const p = (partners || [])[0];
     if (!p) {
       app.innerHTML = `<h1>Duo</h1>
-        <div class="card pad stack"><h2>Révisez à deux</h2><p class="muted">Invite une personne : vous verrez chacun les statistiques de l'autre (temps de révision, cartes révisées, série de jours). Vos cours, résumés et cartes restent privés. Chacun peut arrêter le partage quand il veut.</p>
+        <div class="card pad stack"><h2>Révisez à deux</h2><p class="muted">Invite une personne : vous verrez chacun les statistiques de l'autre (temps de révision, cartes révisées, série de jours, maîtrise, moyenne des quiz). Vos cours, résumés et cartes restent privés. Chacun peut arrêter le partage quand il veut.</p>
           <button class="btn" id="invite">Créer une invitation</button><p class="note" id="code" role="status"></p></div>
         <div class="card pad stack"><h2>J'ai reçu un code</h2><div class="field"><label for="incode">Code d'invitation</label><input id="incode" type="text" autocomplete="off"></div><button class="btn ghost" id="accept">Rejoindre</button></div>`;
       $("invite").onclick = async () => { const r = await sb.rpc("create_share_invite"); if (r.error) return fail(r.error, "Invitation non créée"); $("code").innerHTML = `Envoie ce code à la personne : <b style="user-select:all">${esc(r.data)}</b>. Elle le colle dans son onglet Duo.`; };
@@ -760,10 +829,12 @@
     const { data: theirs } = await sb.from("study_sessions").select("day,seconds,cards_reviewed").eq("user_id", p.partner_id).gte("day", localDay(since));
     const stat = (ss) => { const d7 = lastDays(7, ss || []); const days = new Set((ss || []).filter(s => s.cards_reviewed > 0).map(s => s.day)); let st = 0; const d = new Date(); if (!days.has(localDay(d))) d.setDate(d.getDate() - 1); while (days.has(localDay(d))) { st++; d.setDate(d.getDate() - 1); } return { min: Math.round(d7.reduce((s, x) => s + x.seconds, 0) / 60), cards: d7.reduce((s, x) => s + x.cards_reviewed, 0), streak: st }; };
     const me = stat(state.sessions), them = stat(theirs), name = p.display_name || "Ton duo";
+    const [ps, myq] = await Promise.all([sb.rpc("partner_stats", { partner: p.partner_id }), sb.from("quiz_results").select("score").eq("user_id", state.user.id)]);
+    const theirsX = (ps.data && ps.data[0]) || { mastery: 0, quiz_avg: null }, mq = (myq.data || []).map(x => +x.score), myAvg = mq.length ? Math.round(mq.reduce((a, b) => a + b, 0) / mq.length * 10) / 10 : 0;
     const line = (label, a, b, unit) => `<tr><th scope="row">${label}</th><td class="${a >= b ? "win" : ""}">${a} ${unit}</td><td class="${b >= a ? "win" : ""}">${b} ${unit}</td></tr>`;
     app.innerHTML = `<h1>Duo</h1>
-      <div class="card pad stack"><h2>Cette semaine</h2><table class="duo"><thead><tr><td></td><th scope="col">Toi</th><th scope="col">${esc(name)}</th></tr></thead><tbody>${line("Temps", me.min, them.min, "min")}${line("Cartes", me.cards, them.cards, "")}${line("Série", me.streak, them.streak, "j")}</tbody></table></div>
-      <div class="card pad stack"><h2>Ce qui est partagé</h2><p class="muted">${esc(name)} voit ton temps de révision, ton nombre de cartes révisées et ta série de jours, et tu vois les siens. Vos cours, résumés et cartes restent privés.</p><button class="btn ghost" id="stop">Arrêter le partage</button></div>`;
+      <div class="card pad stack"><h2>Cette semaine</h2><table class="duo"><thead><tr><td></td><th scope="col">Toi</th><th scope="col">${esc(name)}</th></tr></thead><tbody>${line("Temps", me.min, them.min, "min")}${line("Cartes", me.cards, them.cards, "")}${line("Série", me.streak, them.streak, "j")}${line("Maîtrise", mastery(state.cards), theirsX.mastery || 0, "%")}${line("Moyenne des quiz", myAvg, +(theirsX.quiz_avg || 0), "/ 20")}</tbody></table></div>
+      <div class="card pad stack"><h2>Ce qui est partagé</h2><p class="muted">${esc(name)} voit ton temps de révision, ton nombre de cartes révisées, ta série de jours, ta maîtrise et ta moyenne de quiz, et tu vois les siens. Vos cours, résumés et cartes restent privés.</p><button class="btn ghost" id="stop">Arrêter le partage</button></div>`;
     $("stop").onclick = async () => { const r = await sb.rpc("revoke_share", { link: p.link_id }); if (r.error) return fail(r.error, "Arrêt impossible"); toast("Partage arrêté."); screenDuo(); };
   }
 
@@ -803,6 +874,7 @@
       }
       const opts = shuffle([c, ...shuffle(all.filter(x => x.id !== c.id && x.back !== c.back)).slice(0, 3)]);
       app.innerHTML = head + `<div class="card pad stack"><span class="pill ${S.missed.includes(c) ? "warn" : ""}" style="align-self:flex-start">${S.missed.includes(c) ? "Essayons à nouveau" : "Question"}</span><h2 class="qtxt">${esc(c.front)}</h2><p class="fb" id="fb" role="status"></p><div class="opts">${opts.map((o, i) => `<button class="opt" data-i="${i}">${esc(o.back)}</button>`).join("")}</div><button class="btn" id="cont" hidden>Continuer</button></div>`;
+      screenSession.key = (e) => { const n = "1234".indexOf(e.key); const bs = app.querySelectorAll(".opt"); if (n >= 0 && bs[n] && !bs[n].disabled) bs[n].click(); else if (e.key === "Enter" && $("cont") && !$("cont").hidden) $("cont").click(); };
       app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
         const ok = opts[+b.dataset.i].id === c.id;
         app.querySelectorAll(".opt").forEach(x => { x.disabled = true; if (opts[+x.dataset.i].id === c.id) x.classList.add("good"); });
@@ -910,6 +982,44 @@
     };
   }
 
+  // ---------- badges ----------
+  function badges() {
+    const reviews = state.cards.reduce((s, c) => s + (c.right_count || 0) + (c.wrong_count || 0), 0), st = streak();
+    const full = state.chapters.filter(c => { const cs = cardsOf(c.id); return cs.length && mastery(cs) >= 100; }).length;
+    return [["Première carte", reviews >= 1], ["100 réponses", reviews >= 100], ["1 000 réponses", reviews >= 1000], ["3 jours d'affilée", st >= 3], ["7 jours d'affilée", st >= 7], ["30 jours d'affilée", st >= 30], ["Un chapitre à 100 %", full >= 1], ["5 chapitres à 100 %", full >= 5], ["100 cartes créées", state.cards.length >= 100]];
+  }
+
+  // ---------- mode vrai ou faux ----------
+  async function screenTrueFalse(id) {
+    tabs.hidden = true;
+    const all = cardsOf(id), back = "#chapitre-" + id, head = `<div class="row"><a class="iconbtn" href="${back}" aria-label="Fermer">${I.x}</a><div class="grow" style="text-align:center;font-weight:800">Vrai ou faux</div><span style="width:44px"></span></div>`;
+    if (all.length < 4) { app.innerHTML = head + `<div class="card done"><p class="muted">Il faut au moins 4 cartes pour ce mode.</p><a class="btn" href="${back}">Retour</a></div>`; return; }
+    const qs = shuffle(all).slice(0, 10).map(c => { const truth = Math.random() < 0.5, other = shuffle(all.filter(x => x.id !== c.id && x.back !== c.back))[0]; return { c, truth: truth || !other, shown: truth || !other ? c.back : other.back }; });
+    let i = 0, good = 0; const missed = [];
+    function ask() {
+      if (i >= qs.length) { app.innerHTML = head + `<div class="card done"><h1>${good === qs.length ? "Bon travail !" : "C'est fini"}</h1><div class="big">${good} / ${qs.length}</div>${missed.length ? `<div class="stack" style="text-align:left;width:100%"><p class="label">À revoir</p>${missed.map(c => `<div class="term" style="padding:8px 0"><b>${esc(c.front)}</b><p>${esc(c.back)}</p></div>`).join("")}</div>` : ""}<button class="btn" id="again">Rejouer</button><a class="btn ghost" href="${back}">Retour au chapitre</a></div>`; $("again").onclick = () => screenTrueFalse(id); return; }
+      const q = qs[i];
+      app.innerHTML = head + `<div class="bar"><i style="width:${i / qs.length * 100}%"></i></div><div class="card pad stack"><p class="small muted">Affirmation ${i + 1} sur ${qs.length}</p><h2 class="qtxt">${esc(q.c.front)}</h2><p class="expected" style="background:var(--accent-soft);color:var(--accent-ink)">${esc(q.shown)}</p><p class="fb" id="fb" role="status"></p><div class="answers"><button class="btn peach" id="faux">Faux</button><button class="btn" id="vrai">Vrai</button></div><button class="btn ghost" id="cont" hidden>Continuer</button></div>`;
+      const pick = (v) => { const ok = v === q.truth; ping(ok); if (ok) good++; else missed.push(q.c); $("vrai").disabled = $("faux").disabled = true; $("fb").className = "fb " + (ok ? "ok" : "ko"); $("fb").textContent = ok ? "Bon travail !" : (q.truth ? "C'était vrai." : "C'était faux. La bonne réponse : " + q.c.back); $("cont").hidden = false; $("cont").onclick = () => { i++; ask(); }; $("cont").focus(); };
+      $("vrai").onclick = () => pick(true); $("faux").onclick = () => pick(false);
+      screenSession.key = (e) => { if ($("vrai") && !$("vrai").disabled) { if (e.key === "ArrowRight" || e.key.toLowerCase() === "v") pick(true); if (e.key === "ArrowLeft" || e.key.toLowerCase() === "f") pick(false); } else if (e.key === "Enter" && $("cont")) $("cont").click(); };
+    }
+    ask();
+  }
+
+  // ---------- fiche de révision à imprimer ----------
+  async function screenSheet(id) {
+    const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
+    tabs.hidden = true; app.innerHTML = `<p class="muted">Chargement…</p>`;
+    const { data: sum } = await sb.from("summaries").select("markdown").eq("chapter_id", id).maybeSingle(), cards = cardsOf(id), s = state.subjects.find(x => x.id === ch.subject_id);
+    app.innerHTML = `<div class="row between noprint"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><button class="btn sm" id="print">Imprimer ou enregistrer en PDF</button></div>
+      <div class="sheet"><p class="small muted">${esc(s ? s.name : "")}</p><h1>${esc(ch.name)}</h1>
+      ${sum ? `<div class="md">${md(sum.markdown)}</div>` : ""}
+      ${ch.notes ? `<h2 style="margin-top:16px">Mes notes</h2><p style="white-space:pre-wrap">${esc(ch.notes)}</p>` : ""}
+      <h2 style="margin-top:16px">${plural(cards.length, "carte", "cartes")}</h2><table class="sheettable"><tbody>${cards.map(c => `<tr><th scope="row">${esc(c.front)}</th><td>${esc(c.back)}</td></tr>`).join("")}</tbody></table></div>`;
+    $("print").onclick = () => window.print();
+  }
+
   // ---------- navigation ----------
   function route() {
     if (!state.user) return screenLogin();
@@ -928,6 +1038,9 @@
     else if (h.startsWith("ecouter-")) screenListen(arg);
     else if (h.startsWith("questions-")) screenAsk(arg);
     else if (h.startsWith("difficiles-")) screenSession(arg, true);
+    else if (h.startsWith("revision-")) screenSession(arg, false, true);
+    else if (h.startsWith("vraifaux-")) screenTrueFalse(arg);
+    else if (h.startsWith("fiche-")) screenSheet(arg);
     else if (h.startsWith("blanc-")) screenQuestions(arg, "blanc");
     else if (h === "recherche") screenSearch();
     else if (h === "minuteur") screenTimer();
@@ -951,6 +1064,7 @@
     } catch (e) {
       console.error(e);
       if (!state.user) return screenLogin("Connexion impossible : " + (e.message || "erreur"));
+      if (loadCache()) { route(); return toast("Tu es hors ligne : tu peux réviser tes cartes, elles seront enregistrées au retour du réseau."); }
       app.innerHTML = `<div class="center"><p class="err">Impossible de charger tes données : ${esc(e.message || "erreur")}. Vérifie ta connexion puis réessaie.</p><button class="btn" id="retry">Réessayer</button></div>`;
       $("retry").onclick = start;
     }

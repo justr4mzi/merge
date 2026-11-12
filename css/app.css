@@ -193,3 +193,11 @@ a.chip{display:inline-flex;align-items:center;text-decoration:none}
 .jalons i{flex:1;height:3px;background:var(--track)}
 .jalons i.on{background:var(--accent)}
 .jalabels{display:flex;justify-content:space-between;font-size:.7em;color:var(--muted);margin-top:6px}
+.pageimg{width:100%;border-radius:12px;border:1px solid var(--line);margin-top:8px}
+.badge{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:99px;font-size:.85em;font-weight:700;background:var(--bg);color:var(--muted);border:1px dashed var(--line)}
+.badge.on{background:var(--chip-bg);color:var(--chip-fg);border-style:solid;border-color:transparent}
+.sheet{background:var(--card);border-radius:var(--radius);padding:24px}
+.sheettable{width:100%;border-collapse:collapse;margin-top:8px;font-size:.92em}
+.sheettable th,.sheettable td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}
+.sheettable th{width:40%;font-weight:700}
+@media print{.tabs,.noprint,.toast{display:none!important}body{background:#fff;color:#000;padding:0!important}.app{max-width:none;padding:0}.sheet{padding:0;box-shadow:none}.md h3{background:none;color:#000;padding:0}}
