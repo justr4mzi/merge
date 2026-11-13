@@ -17,11 +17,11 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 
 ## Fait le 13 nov. vers 23 h (commit suivant b5ea64b)
 - Flèche retour de « Nouvelle matière » (page avec sa propre adresse).
-- Pastille « jour d'affilée » masquée en haut sur téléphone (la série reste dans les chiffres).
+- Pastille « jour d'affilée » : sur téléphone elle affiche « 1 jour » sur une ligne, en entier sur PC.
 - Champ « Heure du rappel » : ne déborde plus (à confirmer sur iPhone).
 - Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou (à confirmer sur iPhone).
 - Calendrier : cases carrées sur PC, plus compactes sur téléphone.
-- « Écouter » en tête de « Réviser ».
+- « Écouter » dans « Réviser », en dernier.
 - Bouton « Modifier la carte » pendant les flashcards.
 - Classe libre : « Autre formation (à écrire)… » à l'inscription et dans Réglages.
 - Non fait faute de place dans la limite : suppression du quota de 40 (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut).

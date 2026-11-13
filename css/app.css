@@ -685,7 +685,7 @@ mark.hl.user{background:color-mix(in srgb,#f5b400 45%,transparent);color:inherit
 
 /* v12 : retours du 13 nov. au soir */
 .streak{white-space:nowrap}
-@media (max-width:520px){.app>.row>.homemusic~.streak{display:none}}
+@media (max-width:520px){.app>.row>.homemusic~.streak{padding:6px 10px;font-size:.78em;flex:none}.streak .stl{display:none}}
 input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;line-height:52px;text-align:left}
 input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
 /* Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou. */
