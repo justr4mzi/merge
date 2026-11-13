@@ -50,65 +50,21 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 ## Chasse aux bugs (au « go »)
 22. Passer tout le site en revue sur téléphone et PC pour trouver d'autres bugs : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
 
-## 20 idées proposées (Ramzi choisit)
-1. Mode sombre et clair retravaillé : le thème clair est moins soigné que le sombre.
-2. Écran d'accueil d'un nouveau compte guidé : « importe ton premier cours » avec un exemple tout prêt à essayer.
-3. Import depuis Google Drive ou un lien (Pronote, ENT, Classroom) plutôt que télécharger puis réimporter.
-4. Photo de cours directement depuis la caméra, avec redressement et recadrage automatiques de la page.
-5. Mode hors ligne complet : résumé, fiche et quiz déjà générés disponibles sans réseau, pas seulement les cartes.
-6. Objectif avant le bac : compte à rebours et pourcentage du programme maîtrisé, toutes matières.
-7. Révision mélangée : cartes de plusieurs matières à la suite, plus efficace que matière par matière.
-8. Cartes avec image : la page du cours ou un schéma directement au recto ou au verso.
-9. Formules : rendu mathématique partout et clavier simple pour taper une formule dans les réponses.
-10. Défis entre amis : même quiz, meilleur score, classement de la semaine (avec Duo).
-11. Groupes de classe : partager un chapitre avec toute la classe, chacun garde sa progression.
-12. Widgets et raccourcis : « réviser 5 cartes » depuis l'écran d'accueil du téléphone.
-13. Thèmes de couleur au choix (violet, bleu, vert, rose) et fonds animés discrets.
-14. Animations de réussite plus variées : série, niveau, chapitre maîtrisé, record battu.
-15. Corbeille : récupérer une matière, un chapitre ou une carte supprimés par erreur pendant 30 jours.
-16. Export : toutes les cartes en PDF, ou vers Anki et Quizlet.
-17. Historique des imports : voir et supprimer les fichiers envoyés, réimporter un chapitre.
-18. Recherche dans le texte du cours lui-même, pas seulement dans les cartes.
-19. Mode révision du soir : interface plus sombre et plus douce, sons coupés, minuteur de fin.
-20. Page « À propos et aide » : questions fréquentes, contact, version de l'appli, nouveautés de chaque mise à jour.
+## Idées retenues par Ramzi
 
-### Idées retenues par Ramzi (à faire au « go »)
-- 1. Thème clair aussi soigné que le sombre.
-- 4. Photo du cours avec la caméra, page redressée et recadrée automatiquement.
-- 5. Hors ligne complet (résumé, fiche, quiz déjà générés).
-- 7. Révision mélangée, qui tient compte des contrôles qui arrivent (priorité aux matières à date proche). Plus un bouton « Réviser tous les chapitres de la matière ».
-- 8. Images sur les cartes. Revoir aussi les fiches de révision imprimables : actuellement elles ne donnent pas envie de réviser, à rendre plus belles et plus visuelles.
+- Thème clair aussi soigné que le sombre.
+- Photo du cours avec la caméra, page redressée et recadrée automatiquement.
+- Hors ligne complet (résumé, fiche, quiz déjà générés).
+- Révision mélangée, qui tient compte des contrôles qui arrivent (priorité aux matières à date proche). Plus un bouton « Réviser tous les chapitres de la matière ».
+- Images sur les cartes. Revoir aussi les fiches de révision imprimables : actuellement elles ne donnent pas envie de réviser, à rendre plus belles et plus visuelles.
 - Partage d'un chapitre par lien : n'importe qui peut réviser, même sans compte et sans être jamais venu sur le site (invité). L'invité n'utilise que ce qui est déjà créé (résumé, cartes, quiz, fiche…), aucune génération IA.
-- 12. Widget sur l'écran d'accueil du téléphone : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
-- 14. Animations de réussite plus variées.
-- 15. Corbeille 30 jours.
-- 18. Recherche dans le texte du cours.
+- Widget sur l'écran d'accueil du téléphone : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
+- Animations de réussite plus variées.
+- Corbeille 30 jours.
+- Recherche dans le texte du cours.
 
-## 20 nouvelles idées proposées (Ramzi choisit)
-1. Fiche « méthode » par matière : comment rédiger en philo, une démonstration en maths, une analyse en SIN.
-2. Sujets type bac générés depuis plusieurs chapitres, avec barème et correction détaillée.
-3. Correction d'une copie prise en photo : l'IA compare à ton cours et annote.
-4. Planning de la semaine : créneaux de révision posés automatiquement autour de l'emploi du temps.
-5. Emploi du temps de cours saisi une fois, pour savoir quel chapitre réviser le soir même.
-6. Notes de classe : saisir ses vraies notes de contrôle et voir la moyenne par matière.
-7. Lien entre chapitres : « ce chapitre utilise des notions de… » pour réviser les prérequis.
-8. Glossaire automatique de tous les mots-clés d'une matière.
-9. Mode dictée : l'élève récite à l'oral, Merge vérifie avec le cours.
-10. Questions d'oral du Grand oral : préparation et chronomètre.
-11. Mode « je ne comprends pas » sur une carte : explication pas à pas par l'IA.
-12. Vidéo ou diaporama de révision généré à partir du résumé.
-13. Statistiques de l'heure où tu révises le mieux.
-14. Mode concentration : bloque l'écran sur la session, masque les notifications de l'appli.
-15. Récompenses à débloquer avec les points (thèmes, sons, fonds d'écran).
-16. Avatar ou mascotte qui évolue avec ta régularité.
-17. Classement Duo hebdomadaire et défis entre deux amis.
-18. Import d'un cours depuis une vidéo YouTube ou un enregistrement audio du prof.
-19. Fiche de synthèse audio de 5 minutes, à écouter avant le contrôle.
-20. Bilan de fin de trimestre : progrès, matières fortes et faibles, conseils.
-
-### Retenues dans la 2e liste (à faire au « go »)
-- 1. Fiche méthode par matière (rédiger en philo, démonstration en maths, analyse en SIN…).
-- 2. Sujets type bac à partir de VRAIS sujets des années précédentes. Rien d'automatique : quand l'élève clique, l'IA récupère sur le web le sujet officiel de l'année demandée (filière et matière de l'élève, ex. bac STI2D) et le transforme en épreuve interactive dans Merge (questions, barème, correction). Citer la source et l'année. Si le sujet n'est pas trouvé, le dire au lieu d'en inventer un.
-- 5. Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
-- 11. Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
-- 15. Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
+- Fiche méthode par matière (rédiger en philo, démonstration en maths, analyse en SIN…).
+- Sujets type bac à partir de VRAIS sujets des années précédentes. Rien d'automatique : quand l'élève clique, l'IA récupère sur le web le sujet officiel de l'année demandée (filière et matière de l'élève, ex. bac STI2D) et le transforme en épreuve interactive dans Merge (questions, barème, correction). Citer la source et l'année. Si le sujet n'est pas trouvé, le dire au lieu d'en inventer un.
+- Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
+- Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
+- Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
