@@ -673,3 +673,12 @@ mark.hl.user{background:color-mix(in srgb,#f5b400 45%,transparent);color:inherit
   body.pomo{padding-top:calc(env(safe-area-inset-top,0px) + 44px)}
 }
 @media (max-width:520px){.app>.row>.homemusic~.pill{display:none}}
+
+/* v11 : barre du bas, toutes les icônes au même gabarit, sans halo */
+.tabs a svg{width:24px;height:24px;flex:none;display:block}
+@media (max-width:899px){
+  .tabs{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));column-gap:0}
+  .tabs a{margin:4px 0;padding:0;gap:3px;border-radius:12px;text-align:center}
+  .tabs a[aria-current="page"] svg{filter:none}
+  .tabs a span{display:block;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis}
+}

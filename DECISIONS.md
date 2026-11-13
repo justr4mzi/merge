@@ -273,3 +273,9 @@ Liste retenue (sur 20 proposées) : plan de révision automatique, rappel la vei
 - **Reprise.** Pour les sessions de cartes seulement, pas pour un quiz en cours.
 - **Musique.** Fichiers dans la release GitHub `audio` (`Lofi.mp3`, `Lofi.chrismas.mp3`, 3 h chacun). Lecture et départ à une minute au hasard vérifiés dans Chromium. Le second titre s'affiche « Christmas Lofi ».
 - **Pomodoro.** Sur téléphone, c'est un bandeau en haut de l'écran pendant qu'il tourne, pour ne recouvrir aucun bouton.
+
+## 13 nov. 2026, 18 h 45 : musique sur iPhone, synchronisation entre appareils, barre du bas
+
+- **Musique.** Sur iPhone, la lecture depuis la release GitHub échouait (fichier servi sans type audio, derrière une redirection). Les deux titres sont maintenant réencodés en MP3 64 kbit/s et découpés en morceaux de 40 minutes (19 Mo, sous la limite de 25 Mo de Cloudflare) dans `audio/`, servis par le site. Départ : un morceau au hasard, à une minute au hasard, puis les morceaux s'enchaînent. Vérifié dans Chromium, pas sur un iPhone. La release `audio` ne sert plus.
+- **Synchronisation.** Favoris, notes de cartes, surlignages, caches des schémas, courbe et temps par chapitre, session à reprendre, demandes libres, astuces, réglage « écrire ma réponse » : gardés dans la table `user_kv` (une ligne par élément, le plus récent gagne). Chargés à l'ouverture et quand on revient sur l'onglet. Restent propres à l'appareil : la voix, le volume, le thème déjà dans le profil.
+- **Barre du bas.** Les 6 icônes ont exactement la même taille et sont centrées dans des colonnes égales (mesuré : 62 px par colonne, icône de 24 px, décalage 0). Icônes Duo et Réglages redessinées au même gabarit, halo de l'onglet actif retiré sur téléphone.

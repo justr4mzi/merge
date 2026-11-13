@@ -54,7 +54,7 @@
   const I = {
     back: svg('<path d="M15 6l-6 6 6 6"/>'), search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'), clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 3h5"/>'), star: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.8z"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'), spark: svg('<path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
     home: svg('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
-    gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'),
+    gear: svg('<circle cx="12" cy="12" r="2.6"/><path d="M12 4v2.4M12 17.6V20M4 12h2.4M17.6 12H20M6.35 6.35l1.7 1.7M15.95 15.95l1.7 1.7M17.65 6.35l-1.7 1.7M8.05 15.95l-1.7 1.7"/>'),
     cards: '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="15" height="11" rx="2.5"/><path d="M8 4h11a3 3 0 013 3v8a1 1 0 01-2 0V7a1 1 0 00-1-1H8a1 1 0 010-2z" opacity=".55"/></svg>',
     learn: svg('<path d="M20 12a8 8 0 11-3-6.2"/><path d="M20 4v4h-4"/>'),
     quiz: svg('<path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/>'),
@@ -65,7 +65,7 @@
     up: svg('<path d="M12 16V5M7 10l5-5 5 5M5 19h14"/>'),
     cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>'),
     chart: svg('<path d="M5 20V11M12 20V4M19 20v-6"/>'),
-    duo: svg('<circle cx="8" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0111 0M14.5 19a4 4 0 017 0"/>'),
+    duo: svg('<circle cx="9" cy="9" r="2.8"/><circle cx="16.6" cy="10" r="2.2"/><path d="M4 19a5 5 0 0110 0M15 19a3.4 3.4 0 015 -1.2"/>'),
     ask: svg('<path d="M5 5h14v10H10l-5 4z"/><path d="M10 8.500a2 2 0 113 1.700c-.6.4-1 .8-1 1.300M12 13.200v.1"/>'),
     subj: svg('<path d="M4 6h7v13H4zM13 6h7v13h-7z"/>'),
     check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'), minus: svg('<path d="M5 12h14"/>'),
@@ -93,7 +93,40 @@
   function toast(m) { toastEl.textContent = m; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (toastEl.hidden = true), 3200); }
   function $(id) { return document.getElementById(id); }
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function safeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ } }
+  // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+)$/;
+  let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
+  try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
+  const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
+  function safeSet(k, v) {
+    try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ }
+    if (SYNC.test(k)) { kvTs[k] = Date.now(); kvSaveTs(); kvQueue[k] = String(v); clearTimeout(kvTimer); kvTimer = setTimeout(kvFlush, 900); }
+  }
+  async function kvFlush() {
+    clearTimeout(kvTimer); if (!state.user || kvOff) return;
+    const rows = Object.entries(kvQueue).map(([key, value]) => ({ user_id: state.user.id, key, value: value.slice(0, 190000), updated_at: new Date(kvTs[key] || Date.now()).toISOString() })); kvQueue = {};
+    if (!rows.length) return;
+    try { const r = await sb.from("user_kv").upsert(rows); if (r.error) { if (/user_kv|schema cache|does not exist/i.test(r.error.message || "")) kvOff = true; else rows.forEach(x => { if (kvQueue[x.key] == null) kvQueue[x.key] = x.value; }); } }
+    catch (e) { rows.forEach(x => { if (kvQueue[x.key] == null) kvQueue[x.key] = x.value; }); }
+  }
+  // Récupère ce que les autres appareils ont enregistré ; le plus récent gagne. Renvoie true si quelque chose a changé ici.
+  async function kvPull() {
+    if (!state.user || kvOff) return false; kvAt = Date.now();
+    let r; try { r = await sb.from("user_kv").select("key,value,updated_at").eq("user_id", state.user.id); } catch (e) { return false; }
+    if (r.error) { if (/user_kv|schema cache|does not exist/i.test(r.error.message || "")) kvOff = true; return false; }
+    let changed = false; const remote = {};
+    (r.data || []).forEach(row => {
+      const ts = Date.parse(row.updated_at) || 0; remote[row.key] = ts; if (!SYNC.test(row.key)) return;
+      if (!kvTs[row.key] || ts > kvTs[row.key]) { try { if (localStorage.getItem(row.key) !== row.value) { localStorage.setItem(row.key, row.value); changed = true; } } catch (e) { /* rien */ } kvTs[row.key] = ts; }
+    });
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!SYNC.test(k)) continue; if (remote[k] == null || (kvTs[k] || 0) > remote[k]) { if (!kvTs[k]) kvTs[k] = Date.now(); kvQueue[k] = localStorage.getItem(k); } } } catch (e) { /* rien */ }
+    kvSaveTs(); kvFlush(); return changed;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") return void kvFlush();
+    if (state.user && state.profile && Date.now() - kvAt > 45000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier|chapitre-.*|matiere-.*)?$/.test(location.hash)) route(); });
+  });
+  window.addEventListener("pagehide", () => { kvFlush(); });
   function applyLook(p) {
     const r = document.documentElement;
     const theme = (p && p.theme) || safeGet("merge.theme") || "system";
@@ -174,6 +207,7 @@
     state.chapters = state.chapters.filter(c => state.subjects.some(x => x.id === c.subject_id));
     state.cards = (k.data || []).filter(c => state.chapters.some(x => x.id === c.chapter_id));
     state.offline = false;
+    try { await kvPull(); } catch (e) { /* synchronisation au prochain passage */ }
     safeSet("merge.cache." + uid, JSON.stringify({ profile: state.profile, subjects: state.subjects, groups: state.groups, chapters: state.chapters, cards: state.cards, sessions: state.sessions, legacy: state.legacy }));
     applyLook(state.profile);
   }
@@ -390,15 +424,24 @@
     const g = document.getElementById("sidego"); if (g) g.onclick = () => { location.hash = "#cartes-jour"; };
   }
   // Musique de fond (lofi) : un seul lecteur pour toute l'appli, qui démarre à une minute tirée au hasard.
-  const LOFI = (C.LOFI || []).filter(t => t && t.url);
+  const LOFI = (C.LOFI || []).filter(t => t && (t.url || (t.parts && t.parts.length)));
   const music = { el: null, i: -1, on: false, err: "" };
-  function musicPlay(i) {
-    const t = LOFI[i]; if (!t) return;
-    if (!music.el) { music.el = new Audio(); music.el.preload = "none"; music.el.loop = true; music.el.volume = Math.min(1, Math.max(0, parseFloat(safeGet("merge.lofivol")) || 0.4)); music.el.onerror = () => { music.on = false; music.err = "Cette musique n'est pas disponible pour l'instant."; musicPaint(); }; }
-    const a = music.el; music.err = "";
-    if (music.i !== i) { music.i = i; a.src = t.url; a.onloadedmetadata = () => { if (isFinite(a.duration) && a.duration > 180) { try { a.currentTime = Math.floor(Math.random() * Math.floor((a.duration - 60) / 60)) * 60; } catch (e) { /* lecture depuis le début */ } } }; }
-    a.play().then(() => { music.on = true; safeSet("merge.lofi", String(i)); musicPaint(); }).catch(() => { music.on = false; music.err = music.err || "Lecture impossible. Réessaie."; musicPaint(); });
+  const partsOf = t => t.parts || [t.url];
+  function musicPlay(i, part) {
+    const t = LOFI[i]; if (!t) return; const parts = partsOf(t);
+    if (!music.el) {
+      music.el = new Audio(); music.el.preload = "auto"; music.el.volume = Math.min(1, Math.max(0, parseFloat(safeGet("merge.lofivol")) || 0.4));
+      music.el.onerror = () => { music.on = false; music.err = "Cette musique n'est pas disponible pour l'instant. Vérifie ta connexion."; musicPaint(); };
+      music.el.onended = () => { if (music.on) musicPlay(music.i, (music.part + 1) % partsOf(LOFI[music.i]).length); };
+    }
+    const a = music.el, fresh = part == null; music.err = "";
+    // Départ : un morceau au hasard, à une minute au hasard. Ensuite les morceaux s'enchaînent.
+    if (music.i !== i || !fresh || !a.src) {
+      music.i = i; music.part = fresh ? Math.floor(Math.random() * parts.length) : part; a.src = parts[music.part];
+      a.onloadedmetadata = fresh ? () => { if (isFinite(a.duration) && a.duration > 180) { try { a.currentTime = Math.floor(Math.random() * Math.floor((a.duration - 60) / 60)) * 60; } catch (e) { /* lecture depuis le début */ } } } : null;
+    }
     music.on = true; musicPaint();
+    const pr = a.play(); if (pr && pr.then) pr.then(() => { safeSet("merge.lofi", String(i)); }).catch(() => { music.on = false; music.err = music.err || "Lecture impossible. Touche le titre encore une fois."; musicPaint(); });
   }
   function musicStop() { if (music.el) music.el.pause(); music.on = false; musicPaint(); }
   function musicPaint() {
@@ -1231,7 +1274,7 @@
       $("no").onclick = () => answer(false); $("yes").onclick = () => answer(true);
       $("hard").onclick = () => answer(true, F.Rating.Hard); $("easy").onclick = () => answer(true, F.Rating.Easy);
       $("typedsw").onclick = () => { if ($("mine")) S.mine = $("mine").value; safeSet("merge.typed", typed() ? "0" : "1"); render(); };
-      $("noteb").onclick = () => sheet(`<h1>Ta note sur cette carte</h1><p class="muted small">${esc(c.front)}</p><div class="field"><label for="nt">Ton moyen de retenir, une remarque du prof…</label><textarea id="nt" style="min-height:110px" maxlength="600">${esc(noteOf(c))}</textarea></div><p class="note">Ta note s'affiche au dos de la carte. Elle est gardée sur cet appareil.</p><div class="row"><button class="btn grow" id="ntok">Enregistrer</button><button class="btn ghost" data-close>Annuler</button></div>`, el => { el.querySelector("#ntok").onclick = () => { const v = el.querySelector("#nt").value.trim(); if (v) safeSet("merge.note." + c.id, v); else { try { localStorage.removeItem("merge.note." + c.id); } catch (e) { /* rien */ } } closeSheet(); render(); }; });
+      $("noteb").onclick = () => sheet(`<h1>Ta note sur cette carte</h1><p class="muted small">${esc(c.front)}</p><div class="field"><label for="nt">Ton moyen de retenir, une remarque du prof…</label><textarea id="nt" style="min-height:110px" maxlength="600">${esc(noteOf(c))}</textarea></div><p class="note">Ta note s'affiche au dos de la carte. Elle est gardée sur cet appareil.</p><div class="row"><button class="btn grow" id="ntok">Enregistrer</button><button class="btn ghost" data-close>Annuler</button></div>`, el => { el.querySelector("#ntok").onclick = () => { const v = el.querySelector("#nt").value.trim(); if (v) safeSet("merge.note." + c.id, v); else safeSet("merge.note." + c.id, ""); closeSheet(); render(); }; });
       $("quit").onclick = () => { if (S.reviews) finish(); };
       let x0 = null; const w = $("wrap");
       w.onpointerdown = e => { x0 = e.clientX; };

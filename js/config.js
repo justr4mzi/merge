@@ -7,10 +7,10 @@ window.CONFIG = {
   QUOTA_IA_PAR_JOUR: 40,
   // Lien du bouton « Contacter le créateur » (quota atteint, Réglages). Peut être un mailto:, un profil Instagram, etc.
   CONTACT_CREATEUR: "https://github.com/justr4mzi",
-  // Musiques de fond. Les fichiers sont trop lourds pour le dépôt : ils sont joints à une « release » GitHub nommée « audio ».
+  // Musiques de fond : chaque titre est découpé en morceaux de 40 minutes (moins de 25 Mo, limite de l'hébergeur), servis par le site.
   LOFI: [
-    { nom: "Lofi", url: "https://github.com/justr4mzi/merge/releases/download/audio/Lofi.mp3" },
-    { nom: "Christmas Lofi", url: "https://github.com/justr4mzi/merge/releases/download/audio/Lofi.chrismas.mp3" }
+    { nom: "Lofi", parts: [0, 1, 2, 3, 4].map(function (k) { return "audio/lofi-" + k + ".mp3"; }) },
+    { nom: "Christmas Lofi", parts: [0, 1, 2, 3, 4].map(function (k) { return "audio/christmas-" + k + ".mp3"; }) }
   ],
   CARTES_PAR_DEFAUT: 40,
   CARTES_MAX: 100,

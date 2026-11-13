@@ -5,9 +5,9 @@
   const legacy = opt("legacy") === "1", UID = "user-1";
   let quotaLeft = opt("quota") == null ? 40 : +opt("quota"), calls = 0, n = 0;
   const id = p => (p || "id") + "-" + (++n);
-  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [] };
-  const PK = { profiles: ["user_id"], study_sessions: ["user_id", "day"], ai_cache: ["chapter_id", "kind"], summaries: ["chapter_id"], push_subscriptions: ["endpoint"] };
-  const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes", "import_jobs"];
+  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [], user_kv: [] };
+  const PK = { profiles: ["user_id"], study_sessions: ["user_id", "day"], ai_cache: ["chapter_id", "kind"], summaries: ["chapter_id"], push_subscriptions: ["endpoint"], user_kv: ["user_id", "key"] };
+  const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes", "import_jobs", "user_kv"];
   const defaults = (t, r) => {
     const base = { user_id: UID, created_at: new Date(Date.now() + n).toISOString() };
     if (!PK[t]) base.id = id(t);
