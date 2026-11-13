@@ -5,6 +5,14 @@
 - Synchronisation PC / téléphone : table `user_kv` créée (migration v11 appliquée) et code de synchronisation en ligne. Rien d'interrompu côté Supabase.
 - Icônes du bas : 6 colonnes égales, icônes de 24 px centrées (mesuré).
 
+Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe, la sécurité par ligne est active (lecture, ajout et modification réservés au propriétaire) et elle contient déjà 7 éléments venus de l'appli (`merge.libre.*`, `merge.hist.*`, `merge.hl.*`, `merge.badges`, `merge.level`, `merge.typed`). Le code de synchronisation et la nouvelle barre du bas sont bien sur le site en ligne. Rien n'était resté à moitié.
+
+À revérifier au « go » (retours du message où la coupure a eu lieu) :
+- Synchronisation : modifier un favori, une note, un surlignage ou un cache de schéma sur le téléphone, puis le retrouver sur le PC, et l'inverse. Points à surveiller : suppressions (une note vidée doit se vider partout), premier chargement d'un appareil neuf, conflits (le plus récent gagne), connexion coupée.
+- Ce qui n'est PAS encore synchronisé : la voix choisie, le volume de la musique, l'interrupteur « couper la musique pendant la pause », « ne plus proposer l'installation ». À synchroniser aussi.
+- Icônes du bas : vérifier sur une capture de l'iPhone de Ramzi (pas seulement dans le simulateur) qu'elles sont toutes de la même taille et centrées.
+- Musique : écouter les deux titres sur l'iPhone.
+
 ## Bugs
 1. Flèche retour de « Nouvelle matière » sans effet (`01-retour-nouvelle-matiere.png`). Cause : `formSubject()` s'ouvre sans changer d'adresse, donc le lien `#matieres` ne déclenche rien.
 2. Pastille « 1 jour d'affilée » cassée sur 2 lignes en haut de l'accueil (`02-pastille-serie-accueil.png`).
