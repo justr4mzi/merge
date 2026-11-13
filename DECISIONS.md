@@ -220,5 +220,5 @@ Tant que le script SQL de l'étape 1 n'est pas passé, l'appli détecte les colo
 - Non lisibles directement : `.doc`, Keynote, Pages, tableurs. L'appli le dit et demande un export en PDF.
 - Testé avec de petits fichiers fabriqués pour les tests (`tests/run.js`), PAS avec de vrais diaporamas de profs : à essayer avec tes cours.
 - Lien de contact : il reste sur ton profil GitHub, aucune adresse mail n'est publiée.
-- Logo ajouté en haut du README.
+- Logo : le SEUL logo est le mot « Merge. » avec son point (décision de Ramzi, le M en trait est supprimé partout et ne doit plus revenir). `icons/logo.svg` et `icons/logo-dark.svg` pour le README, et les icônes d'appli (`icon.svg`, `icon-maskable.svg`) reprennent le même mot en blanc sur fond #4b39c8. Lettres tracées en courbes à partir de Nunito 800 (licence OFL, déjà dans NOTICE.md).
 - Migration v6 : demandée deux fois, la fenêtre de confirmation Supabase n'a pas reçu de réponse à temps (3 minutes). Elle n'est toujours pas appliquée : voir l'étape 1 plus haut.

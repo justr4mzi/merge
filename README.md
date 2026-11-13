@@ -1,6 +1,4 @@
-<p align="center"><img src="icons/icon.svg" width="96" height="96" alt="Merge. logo"></p>
-
-# Merge.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="icons/logo-dark.svg"><img src="icons/logo.svg" width="360" alt="Merge."></picture></p>
 
 Merge is a revision app for students. You import a lesson (PDF, photos of a notebook, PowerPoint or pasted text) and Merge turns it into a summary and flashcards, then helps you learn them with several study modes. Everything it generates comes from the imported lesson only.
 
