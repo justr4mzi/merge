@@ -71,3 +71,37 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 18. Recherche dans le texte du cours lui-même, pas seulement dans les cartes.
 19. Mode révision du soir : interface plus sombre et plus douce, sons coupés, minuteur de fin.
 20. Page « À propos et aide » : questions fréquentes, contact, version de l'appli, nouveautés de chaque mise à jour.
+
+### Idées retenues par Ramzi (à faire au « go »)
+- 1. Thème clair aussi soigné que le sombre.
+- 4. Photo du cours avec la caméra, page redressée et recadrée automatiquement.
+- 5. Hors ligne complet (résumé, fiche, quiz déjà générés).
+- 7. Révision mélangée, qui tient compte des contrôles qui arrivent (priorité aux matières à date proche). Plus un bouton « Réviser tous les chapitres de la matière ».
+- 8. Images sur les cartes. Revoir aussi les fiches de révision imprimables : actuellement elles ne donnent pas envie de réviser, à rendre plus belles et plus visuelles.
+- Partage d'un chapitre par lien : n'importe qui peut réviser, même sans compte et sans être jamais venu sur le site (invité). L'invité n'utilise que ce qui est déjà créé (résumé, cartes, quiz, fiche…), aucune génération IA.
+- 12. Widget sur l'écran d'accueil du téléphone : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
+- 14. Animations de réussite plus variées.
+- 15. Corbeille 30 jours.
+- 18. Recherche dans le texte du cours.
+
+## 20 nouvelles idées proposées (Ramzi choisit)
+1. Fiche « méthode » par matière : comment rédiger en philo, une démonstration en maths, une analyse en SIN.
+2. Sujets type bac générés depuis plusieurs chapitres, avec barème et correction détaillée.
+3. Correction d'une copie prise en photo : l'IA compare à ton cours et annote.
+4. Planning de la semaine : créneaux de révision posés automatiquement autour de l'emploi du temps.
+5. Emploi du temps de cours saisi une fois, pour savoir quel chapitre réviser le soir même.
+6. Notes de classe : saisir ses vraies notes de contrôle et voir la moyenne par matière.
+7. Lien entre chapitres : « ce chapitre utilise des notions de… » pour réviser les prérequis.
+8. Glossaire automatique de tous les mots-clés d'une matière.
+9. Mode dictée : l'élève récite à l'oral, Merge vérifie avec le cours.
+10. Questions d'oral du Grand oral : préparation et chronomètre.
+11. Mode « je ne comprends pas » sur une carte : explication pas à pas par l'IA.
+12. Vidéo ou diaporama de révision généré à partir du résumé.
+13. Statistiques de l'heure où tu révises le mieux.
+14. Mode concentration : bloque l'écran sur la session, masque les notifications de l'appli.
+15. Récompenses à débloquer avec les points (thèmes, sons, fonds d'écran).
+16. Avatar ou mascotte qui évolue avec ta régularité.
+17. Classement Duo hebdomadaire et défis entre deux amis.
+18. Import d'un cours depuis une vidéo YouTube ou un enregistrement audio du prof.
+19. Fiche de synthèse audio de 5 minutes, à écouter avant le contrôle.
+20. Bilan de fin de trimestre : progrès, matières fortes et faibles, conseils.
