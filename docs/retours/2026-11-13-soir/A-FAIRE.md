@@ -29,6 +29,7 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Notifications variées selon la situation (8 messages quand il y a des cartes, 3 sur la série, 4 quand tout est à jour).
 - Vacances zone A 2026-2027 dans le calendrier (cases vertes, légende, encart « Prochaines vacances »). Source : service-public.gouv.fr. À ajouter chaque année (tableau `VACANCES` dans app.js).
 - Tout est régénérable : « Nouveau quiz, nouvelles questions » et « Nouveau contrôle » à la fin ; « Créer d'autres cartes avec l'IA » (outils du chapitre, fin de session à 100 %, fin du mode Apprendre), sans doublons. Les outils préparés par l'IA (carte mentale, fiche, pièges, exercices, trous, face-à-face) avaient déjà « Refaire avec l'IA ».
+- Bouton « Je ne comprends pas » sous chaque flashcard (explication tirée du cours, 1 appel).
 - Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
 - Quota : `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (vérifié par l'empreinte SHA-256). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
@@ -73,7 +74,6 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Fiche méthode par matière (rédiger en philo, démonstration en maths, analyse en SIN…).
 - Sujets type bac à partir de VRAIS sujets des années précédentes. Rien d'automatique : quand l'élève clique, l'IA récupère sur le web le sujet officiel de l'année demandée (filière et matière de l'élève, ex. bac STI2D) et le transforme en épreuve interactive dans Merge (questions, barème, correction). Citer la source et l'année. Si le sujet n'est pas trouvé, le dire au lieu d'en inventer un.
 - Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
-- Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
 - Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
 
 ## Classes et premier lancement (ajouté par Ramzi)
