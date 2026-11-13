@@ -142,6 +142,21 @@ async function flows(browser) {
   ok(!page.errors.length, "modes : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | "));
   await page.context().close();
 
+  // --- formats de fichiers : pptx (texte, notes, image), odp, docx, ppt ancien, rtf, txt
+  page = await open(browser, { w: 390, h: 844, theme: "light" });
+  const fx = await fixtures();
+  const seg = async (files) => { await go(page, "#import-c2"); await page.setInputFiles("#pick", files); await page.click("#go"); await page.waitForFunction(() => /cartes? créées?/.test(document.getElementById("app").innerText) || document.querySelector("#status .err, #status .quotabox"), null, { timeout: 15000 }); const t = await txt(page); const src = await page.evaluate(() => window.__fake.DB.sources.filter(x => x.chapter_id === "c2").slice(-1)[0]); return { t, text: src ? src.extracted_text : "" }; };
+  let r = await seg([fx.pptx]); let c0 = await page.evaluate(() => window.__fake.calls);
+  ok(r.text.includes("La photosynthèse produit du dioxygène") && r.text.includes("Notes : Insister sur la chlorophylle") && r.text.includes("Deuxième diapositive"), "pptx : texte et notes de toutes les diapositives", r.t.slice(0, 200) + " | " + r.text.slice(0, 200));
+  ok(r.text.includes("La mitose est une division"), "pptx : image de la diapositive transcrite par l'IA");
+  r = await seg([fx.odp]); ok(r.text.includes("Diapositive LibreOffice un") && r.text.includes("énergie lumineuse & chimique"), "odp (LibreOffice) : texte lu", r.t.slice(0, 200));
+  r = await seg([fx.docx]); ok(r.text.includes("Le cycle de Krebs se déroule dans la mitochondrie") && r.text.includes("Deuxième paragraphe"), "docx : texte lu", r.t.slice(0, 200));
+  r = await seg([fx.ppt]); ok(r.text.includes("Ancien PowerPoint : la glycolyse a lieu dans le cytoplasme") && r.text.includes("Texte en octets"), "ppt ancien : texte récupéré", r.t.slice(0, 300));
+  r = await seg([fx.rtf, fx.txt]); ok(r.text.includes("La fermentation est réalisée sans dioxygène") && !/fonttbl|\\par/.test(r.text) && r.text.includes("Fichier texte : la respiration"), "rtf et txt : texte lu", r.text.slice(0, 300));
+  await go(page, "#import-c2"); await page.setInputFiles("#pick", [fx.doc]); await page.click("#go"); await page.waitForTimeout(400); ok((await txt(page)).includes("Exporte-le en PDF"), "format non lisible : message clair");
+  const fe = page.errors.filter(e => !e.includes("vieux.doc")); ok(!fe.length, "formats : aucune erreur JavaScript", fe.slice(0, 3).join(" | "));
+  await page.context().close();
+
   // --- quota atteint
   page = await open(browser, { w: 390, h: 844, theme: "light", quota: 0 });
   await go(page, "#carte-c1"); await page.click("#mk"); await page.waitForTimeout(300);
@@ -169,6 +184,37 @@ async function flows(browser) {
   await go(page, "#dossier-g1"); await page.click('[data-gt="controles"]'); ok(await page.locator('.rowlink a[href="#controle-c1"]').count() === 1, "dossier : contrôle débloqué à 100 %");
   await page.screenshot({ path: path.join(SHOTS, "flux-dossier-controles.png"), fullPage: true });
   await page.context().close();
+}
+
+// Fabrique de petits fichiers de test (pptx, odp, docx, ppt, rtf, txt) dans un dossier temporaire.
+async function fixtures() {
+  const JSZip = require(path.join(ROOT, "vendor", "jszip.min.js")), zlib = require("zlib"), os = require("os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "merge-fx-")), out = {};
+  const save = async (name, zip) => { out[name.split(".").pop()] = path.join(dir, name); fs.writeFileSync(out[name.split(".").pop()], Buffer.isBuffer(zip) ? zip : await zip.generateAsync({ type: "nodebuffer" })); };
+  // PNG 160x160 de bruit (plus de 20 Ko) pour simuler un schéma dans une diapositive
+  const W = 160, raw = Buffer.alloc((W * 3 + 1) * W); for (let i = 0; i < raw.length; i++) raw[i] = i % (W * 3 + 1) === 0 ? 0 : Math.floor(Math.random() * 256);
+  const crcT = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = b => { let c = 0xffffffff; for (const x of b) c = crcT[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const chunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]), c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(W, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(raw, { level: 0 })), chunk("IEND", Buffer.alloc(0))]);
+  const sl = t => `<p:sld xmlns:a="a" xmlns:p="p"><p:cSld><p:spTree><p:sp><p:txBody><a:bodyPr/>${t.map(x => `<a:p><a:pPr lvl="0"/><a:r><a:rPr lang="fr"/><a:t>${x}</a:t></a:r></a:p>`).join("")}</p:txBody></p:sp></p:spTree></p:cSld></p:sld>`;
+  let z = new JSZip();
+  z.file("ppt/slides/slide1.xml", sl(["La photosynthèse produit du dioxygène à partir d'eau et de dioxyde de carbone.", "Elle se déroule dans les chloroplastes des cellules végétales."]));
+  z.file("ppt/slides/slide2.xml", sl(["Deuxième diapositive : la chlorophylle capte l'énergie lumineuse."]));
+  z.file("ppt/slides/_rels/slide1.xml.rels", `<Relationships><Relationship Id="r1" Target="../notesSlides/notesSlide1.xml"/><Relationship Id="r2" Target="../media/image1.png"/></Relationships>`);
+  z.file("ppt/notesSlides/notesSlide1.xml", sl(["Insister sur la chlorophylle"])); z.file("ppt/media/image1.png", png);
+  await save("cours.pptx", z);
+  z = new JSZip(); z.file("content.xml", `<office:document-content><office:body><office:presentation><draw:page draw:name="p1"><draw:frame><draw:text-box><text:p>Diapositive LibreOffice un : la photosynthèse convertit l'énergie lumineuse &amp; chimique.</text:p></draw:text-box></draw:frame></draw:page><draw:page draw:name="p2"><text:p>Diapositive deux : les stomates permettent les échanges gazeux de la feuille.</text:p></draw:page></office:presentation></office:body></office:document-content>`);
+  await save("cours.odp", z);
+  z = new JSZip(); z.file("word/document.xml", `<w:document><w:body><w:p><w:pPr/><w:r><w:t>Le cycle de Krebs se déroule dans la mitochondrie et produit des composés réduits.</w:t></w:r></w:p><w:p><w:r><w:t xml:space="preserve">Deuxième paragraphe : </w:t></w:r><w:r><w:t>la chaîne respiratoire produit l'essentiel de l'ATP.</w:t></w:r></w:p></w:body></w:document>`);
+  await save("cours.docx", z);
+  const atom = (type, data) => { const h = Buffer.alloc(8); h.writeUInt16LE(0, 0); h.writeUInt16LE(type, 2); h.writeUInt32LE(data.length, 4); return Buffer.concat([h, data]); };
+  await save("cours.ppt", Buffer.concat([Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(504), atom(0x0fa0, Buffer.from("Ancien PowerPoint : la glycolyse a lieu dans le cytoplasme de la cellule.", "utf16le")), Buffer.alloc(40, 7), atom(0x0fa8, Buffer.from("Texte en octets : elle produit deux molécules de pyruvate.", "latin1")), Buffer.alloc(64)]));
+  await save("cours.rtf", Buffer.from("{\\rtf1\\ansi{\\fonttbl{\\f0 Arial;}}\\f0\\fs24 La fermentation est r\\'e9alis\\'e9e sans dioxyg\\'e8ne par certaines cellules.\\par Elle produit moins d'ATP que la respiration cellulaire.\\par}", "latin1"));
+  await save("cours.txt", Buffer.from("Fichier texte : la respiration cellulaire consomme du dioxygène et du glucose pour produire de l'ATP."));
+  await save("vieux.doc", Buffer.alloc(600, 1));
+  return out;
 }
 
 let BASE;

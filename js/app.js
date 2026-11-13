@@ -555,9 +555,9 @@
       app.innerHTML = `<div class="row"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><span class="small muted">${esc(ch.name)}</span></div>
         <h1>Importer un cours</h1>
         <div class="seg" role="group" aria-label="Type d'import"><button data-tab="files" aria-pressed="${d.tab === "files"}">Fichiers et photos</button><button data-tab="text" aria-pressed="${d.tab === "text"}">Coller du texte</button></div>
-        ${d.tab === "files" ? `<div class="drop" id="drop">${I.up}<p><b>Glisse tes fichiers ici</b></p><p class="small muted">PDF, photos de cahier (iPhone compris), PowerPoint : cours, diaporama, livret, vocabulaire. Ajoute autant de fichiers que tu veux, tout est lu page par page.</p>
+        ${d.tab === "files" ? `<div class="drop" id="drop">${I.up}<p><b>Glisse tes fichiers ici</b></p><p class="small muted">PDF, photos de cahier (iPhone compris), PowerPoint (.pptx, .ppt), LibreOffice (.odp, .odt), Word (.docx), texte (.txt, .rtf). Ajoute autant de fichiers que tu veux : tout est converti et lu en entier, images des diapositives comprises.</p>
           <div class="row" style="flex-wrap:wrap;justify-content:center"><label class="btn sm ghost" for="pick">Parcourir les fichiers</label><label class="btn sm ghost" for="cam">Prendre une photo</label></div>
-          <input id="pick" type="file" multiple accept=".pdf,.pptx,image/*" hidden><input id="cam" type="file" accept="image/*" capture="environment" hidden></div>
+          <input id="pick" type="file" multiple accept=".pdf,.pptx,.ppsx,.ppt,.pps,.odp,.docx,.odt,.rtf,.txt,.md,.csv,image/*" hidden><input id="cam" type="file" accept="image/*" capture="environment" hidden></div>
           <div class="filelist">${d.files.map((f, i) => `<div><span>${esc(f.name)}</span><button class="mini" data-rm="${i}" aria-label="Retirer ${esc(f.name)}">Retirer</button></div>`).join("")}</div>`
           : `<div class="field"><label for="txt">Texte du cours</label><textarea id="txt" placeholder="Colle ton cours ici">${esc(d.text)}</textarea></div>`}
         <div class="field"><label for="n">Combien de flashcards ? <b id="nv">${d.n}</b></label><input id="n" type="range" min="10" max="${C.CARTES_MAX}" step="5" value="${d.n}"></div>
@@ -606,15 +606,88 @@
         segs.push({ img: cv.toDataURL("image/jpeg", 0.8).split(",")[1] });
       }
     }
-    async function readPptx(file, segs) {
-      const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
-      const names = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
+    // ----- documents bureautiques : tout est converti en texte sur l'appareil, les images intégrées partent à l'IA -----
+    const unxml = t => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n)).replace(/&amp;/g, "&");
+    const tidy = t => t.replace(/[ \t]+/g, " ").replace(/ ?\n ?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    // XML d'Office (pptx, docx) : un paragraphe par ligne, texte dans les balises <x:t>.
+    const ooText = (xml, ns) => tidy(unxml((xml.match(new RegExp("<" + ns + ":p[ >][\\s\\S]*?</" + ns + ":p>", "g")) || []).map(p => p.replace(new RegExp("<" + ns + ":(tab|br)[^>]*/>", "g"), " ").replace(new RegExp("<" + ns + ":t[^>]*>([^<]*)</" + ns + ":t>|<[^>]+>", "g"), (m, t) => t || "")).join("\n")));
+    // XML d'OpenDocument (LibreOffice : odp, odt).
+    const odText = xml => tidy(unxml(xml.replace(/<text:(tab|s)[^>]*\/>/g, " ").replace(/<text:line-break\/>/g, "\n").replace(/<\/(text:p|text:h|table:table-row)>/g, "\n").replace(/<[^>]+>/g, "")));
+    const IMG_EXT = /\.(png|jpe?g|gif|bmp|webp)$/i;
+    // Images intégrées : on ignore les petites (icônes, puces, logos) et celles que le navigateur ne sait pas lire.
+    async function zipImages(zip, names, out, budget) {
       for (const n of names) {
-        const xml = await zip.files[n].async("string");
-        const t = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)].map(m => m[1]).join(" ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
-        if (t.trim()) segs.push({ text: t.trim() });
+        const f = zip.files[n]; if (!f || !IMG_EXT.test(n)) continue;
+        if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; return; }
+        try { const blob = await f.async("blob"); if (blob.size < 20000) continue; const ext = n.split(".").pop().toLowerCase(); out.push({ img: await imageToJpeg(new File([blob], n.split("/").pop(), { type: "image/" + (ext === "jpg" ? "jpeg" : ext) })) }); budget.pages++; }
+        catch (e) { /* image illisible : ignorée */ }
       }
-      return names.length;
+    }
+    const num = n => parseInt((n.match(/(\d+)\.xml/) || [0, 0])[1], 10);
+    // PowerPoint .pptx : texte de chaque diapositive, notes de l'orateur, images de la diapositive.
+    async function readPptx(file, segs, budget) {
+      const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+      const names = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => num(a) - num(b));
+      const rels = {}, uses = {};
+      for (const n of names) {
+        const r = zip.files[n.replace("slides/", "slides/_rels/") + ".rels"], x = r ? await r.async("string") : "";
+        rels[n] = [...x.matchAll(/Target="([^"]+)"/g)].map(m => m[1]);
+        rels[n].filter(t => /media\//.test(t)).forEach(t => { uses[t] = (uses[t] || 0) + 1; });
+      }
+      const seen = new Set();
+      for (const n of names) {
+        let t = ooText(await zip.files[n].async("string"), "a");
+        const note = rels[n].find(x => /notesSlide/.test(x)), nf = note && zip.files["ppt/notesSlides/" + note.split("/").pop()];
+        if (nf) { const nt = ooText(await nf.async("string"), "a").replace(/^\d+$/gm, "").trim(); if (nt) t += "\nNotes : " + nt; }
+        if (t.trim()) segs.push({ text: t.trim() });
+        // Une image reprise sur plus de 3 diapositives est un décor du modèle, pas du cours.
+        const imgs = rels[n].filter(x => /media\//.test(x) && uses[x] <= 3 && !seen.has(x)); imgs.forEach(x => seen.add(x));
+        await zipImages(zip, imgs.map(x => "ppt/media/" + x.split("/").pop()), segs, budget);
+      }
+      if (!names.length) throw new Error("« " + file.name + " » ne contient aucune diapositive lisible.");
+    }
+    // Word .docx : texte du document, notes de bas de page, images.
+    async function readDocx(file, segs, budget) {
+      const zip = await window.JSZip.loadAsync(await file.arrayBuffer()), doc = zip.files["word/document.xml"];
+      if (!doc) throw new Error("« " + file.name + " » n'est pas un document Word lisible.");
+      let t = ooText(await doc.async("string"), "w");
+      for (const extra of ["word/footnotes.xml", "word/endnotes.xml"]) if (zip.files[extra]) { const x = ooText(await zip.files[extra].async("string"), "w"); if (x) t += "\n\n" + x; }
+      for (let k = 0; k < t.length; k += 12000) segs.push({ text: t.slice(k, k + 12000) });
+      await zipImages(zip, Object.keys(zip.files).filter(n => n.startsWith("word/media/")).sort(), segs, budget);
+    }
+    // LibreOffice / OpenDocument : .odp (diaporama), .odt (texte).
+    async function readOdf(file, segs, budget) {
+      const zip = await window.JSZip.loadAsync(await file.arrayBuffer()), c = zip.files["content.xml"];
+      if (!c) throw new Error("« " + file.name + " » n'est pas un document LibreOffice lisible.");
+      const xml = await c.async("string"), pages = xml.split(/<draw:page[ >]/);
+      if (pages.length > 1) pages.slice(1).forEach(pg => { const t = odText("<" + pg); if (t) segs.push({ text: t }); });
+      else { const t = odText(xml.replace(/^[\s\S]*?<office:body>/, "")); for (let k = 0; k < t.length; k += 12000) segs.push({ text: t.slice(k, k + 12000) }); }
+      await zipImages(zip, Object.keys(zip.files).filter(n => /^(Pictures|media)\//.test(n)).sort(), segs, budget);
+    }
+    // Ancien PowerPoint .ppt (binaire) : on récupère les blocs de texte des diapositives (TextCharsAtom, TextBytesAtom, CString).
+    async function readPpt(file, segs) {
+      const b = new Uint8Array(await file.arrayBuffer()), v = new DataView(b.buffer), out = [], u16 = new TextDecoder("utf-16le"), l1 = new TextDecoder("windows-1252");
+      for (let i = 0; i + 8 < b.length; i++) {
+        if (b[i + 3] !== 0x0f || (b[i + 2] !== 0xa0 && b[i + 2] !== 0xa8) || b[i] !== 0 || b[i + 1] !== 0) continue;
+        const len = v.getUint32(i + 4, true); if (len < 2 || len > 200000 || i + 8 + len > b.length) continue;
+        const raw = b.subarray(i + 8, i + 8 + len), t = (b[i + 2] === 0xa0 ? u16.decode(raw) : l1.decode(raw)).replace(/[\r\v]/g, "\n").replace(/[\u0000-\u0008\u000e-\u001f]/g, "").trim();
+        if (t && /[A-Za-zÀ-ÿ]{2}/.test(t) && !/^(Cliquez|Click to|Modifiez le style)/.test(t)) out.push(t);
+        i += 7 + len;
+      }
+      const t = tidy([...new Set(out)].join("\n"));
+      if (t.length < 40) throw new Error("Je n'arrive pas à lire « " + file.name + " » (ancien format .ppt). Ouvre-le et enregistre-le en .pptx ou en PDF, puis réessaie.");
+      for (let k = 0; k < t.length; k += 12000) segs.push({ text: t.slice(k, k + 12000) });
+    }
+    // RTF : on retire les commandes de mise en forme pour garder le texte.
+    function rtfText(r) {
+      let prev; do { prev = r; r = r.replace(/\{\\(\*|fonttbl|colortbl|stylesheet|info|pict|themedata|datastore|generator)[^{}]*\}/g, ""); } while (r !== prev && /\{\\(\*|fonttbl|colortbl|stylesheet|info|pict)/.test(r));
+      const l1 = new TextDecoder("windows-1252");
+      return tidy(r.replace(/\\par[d]?\b ?|\\line\b ?/g, "\n").replace(/\\tab\b ?/g, " ").replace(/\\u(-?\d+)\??/g, (_, n) => String.fromCharCode((+n + 65536) % 65536)).replace(/\\'([0-9a-f]{2})/gi, (_, h) => l1.decode(new Uint8Array([parseInt(h, 16)]))).replace(/\\[a-z]+-?\d* ?/gi, "").replace(/\\([{}\\])/g, "$1").replace(/[{}]/g, ""));
+    }
+    async function readText(file, segs, rtf) {
+      let t = await file.text(); if (t.includes("�")) t = new TextDecoder("windows-1252").decode(await file.arrayBuffer());
+      t = rtf ? rtfText(t) : t.trim();
+      for (let k = 0; k < t.length; k += 12000) segs.push({ text: t.slice(k, k + 12000) });
     }
     async function run() {
       if (d.busy) return; keep();
@@ -630,9 +703,14 @@
           if (d.cache[key]) { segs.push(...d.cache[key]); budget.pages += d.cache[key].length; continue; }
           const fs = [], before = budget.cut;
           if (name.endsWith(".pdf") || f.type === "application/pdf") await readPdf(f, fs, budget);
-          else if (name.endsWith(".pptx")) { say("Lecture de « " + f.name + " »…"); await readPptx(f, fs); notes.push("Le texte du PowerPoint est lu en entier, mais pas ses images : exporte-le en PDF si des schémas comptent."); }
+          else if (/\.(pptx|ppsx|potx)$/.test(name)) { say("Lecture du diaporama « " + f.name + " »…"); await readPptx(f, fs, budget); }
+          else if (/\.(docx|dotx)$/.test(name)) { say("Lecture de « " + f.name + " »…"); await readDocx(f, fs, budget); }
+          else if (/\.(odp|odt|otp|ott)$/.test(name)) { say("Lecture de « " + f.name + " »…"); await readOdf(f, fs, budget); }
+          else if (/\.(ppt|pps)$/.test(name)) { say("Lecture de « " + f.name + " »…"); await readPpt(f, fs); notes.push("« " + f.name + " » est un ancien PowerPoint : son texte est lu, pas ses images. Enregistre-le en .pptx pour tout garder."); }
+          else if (/\.(txt|md|markdown|csv|tex|rtf)$/.test(name) || f.type.startsWith("text/")) { say("Lecture de « " + f.name + " »…"); await readText(f, fs, name.endsWith(".rtf")); }
+          else if (/\.(doc|key|pages|odg|xlsx?|ods)$/.test(name)) { notes.push("« " + f.name + " » : ce format ne se lit pas directement. Exporte-le en PDF (Fichier, Exporter en PDF) et importe le PDF."); continue; }
           else if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/.test(name)) { if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; continue; } budget.pages++; say("Préparation de « " + f.name + " »…"); fs.push({ img: await imageToJpeg(f) }); }
-          else { notes.push("« " + f.name + " » n'est pas un format accepté."); continue; }
+          else { notes.push("« " + f.name + " » n'est pas un format accepté. Exporte-le en PDF et importe le PDF."); continue; }
           if (budget.cut === before) d.cache[key] = fs;
           segs.push(...fs);
         }
@@ -645,7 +723,7 @@
           batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); b.jpg = b.img; delete b.img; });
         }
         const full = segs.map(s => s.text).filter(Boolean).join("\n\n[[PAGE]]\n\n");
-        if (full.replace(/\s/g, "").length < 80) throw new Error("Je n'ai pas trouvé assez de texte dans ce cours.");
+        if (full.replace(/\s/g, "").length < 80) throw new Error(notes[0] || "Je n'ai pas trouvé assez de texte dans ce cours.");
         const illisible = (full.match(/\[illisible\]/g) || []).length;
         // Un cours très long est découpé en parties : chaque partie est lue en entier par l'IA, rien n'est coupé.
         const LIM = 380000, pieces = []; segs.map(s => s.text).filter(Boolean).forEach(t => { for (let k = 0; k < t.length; k += LIM) pieces.push(t.slice(k, k + LIM)); });

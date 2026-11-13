@@ -211,5 +211,14 @@ Tant que le script SQL de l'étape 1 n'est pas passé, l'appli détecte les colo
 - La police Nunito n'était pas chargée pendant les tests (réseau bloqué) : les largeurs ont été vérifiées avec la police de secours.
 
 ### Toujours pas fait
-- Les images du PowerPoint ne sont pas lues (texte seulement) : exporter en PDF.
 - Voix naturelle Gemini, partage de chapitre entre élèves, classement.
+
+## 13 nov. 2026, matin : formats de fichiers et logo
+- Import élargi, tout est converti sur l'appareil, sans nouvelle bibliothèque (JSZip suffit) : PowerPoint `.pptx` / `.ppsx` (texte de chaque diapositive, notes de l'orateur, images), LibreOffice `.odp` et `.odt`, Word `.docx` (texte, notes de bas de page, images), `.rtf`, `.txt`, `.md`, `.csv`.
+- Images intégrées aux diaporamas et documents : envoyées à l'IA comme une photo de cours (paquets de 6 par appel). Sont ignorées : les images de moins de 20 Ko (icônes, puces), celles reprises sur plus de 3 diapositives (décor du modèle) et les formats que le navigateur ne lit pas (EMF, WMF).
+- Ancien PowerPoint `.ppt` (binaire) : le texte est récupéré en cherchant les blocs de texte du format (pas de bibliothèque), les images non. Si rien n'est lisible, l'appli demande de l'enregistrer en .pptx ou en PDF.
+- Non lisibles directement : `.doc`, Keynote, Pages, tableurs. L'appli le dit et demande un export en PDF.
+- Testé avec de petits fichiers fabriqués pour les tests (`tests/run.js`), PAS avec de vrais diaporamas de profs : à essayer avec tes cours.
+- Lien de contact : il reste sur ton profil GitHub, aucune adresse mail n'est publiée.
+- Logo ajouté en haut du README.
+- Migration v6 : demandée deux fois, la fenêtre de confirmation Supabase n'a pas reçu de réponse à temps (3 minutes). Elle n'est toujours pas appliquée : voir l'étape 1 plus haut.

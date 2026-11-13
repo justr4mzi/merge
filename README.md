@@ -1,3 +1,5 @@
+<p align="center"><img src="icons/icon.svg" width="96" height="96" alt="Merge. logo"></p>
+
 # Merge.
 
 Merge is a revision app for students. You import a lesson (PDF, photos of a notebook, PowerPoint or pasted text) and Merge turns it into a summary and flashcards, then helps you learn them with several study modes. Everything it generates comes from the imported lesson only.
@@ -7,7 +9,7 @@ The interface is in French. It works on phones (installable as a PWA) and on des
 ## Features
 
 - **Onboarding**: name, class, subjects, then the next exam date for each subject picked on a month-view calendar, with a "no exam, free revision" switch.
-- **Import**: PDF, photos (printed or handwritten, HEIC included), `.pptx`, pasted text, or the phone camera. Any number of files, up to 400 pages per import. Every page is read: text-only PDF pages are extracted locally, every other page is transcribed by the AI.
+- **Import**: PDF, photos (printed or handwritten, HEIC included), PowerPoint (`.pptx`, `.ppsx`, legacy `.ppt`), LibreOffice (`.odp`, `.odt`), Word (`.docx`), `.rtf`, `.txt`, `.md`, pasted text, or the phone camera. Any number of files, up to 400 pages per import. Everything is converted in the browser: text-only PDF pages and office documents are extracted locally (slide text, speaker notes, footnotes), and scanned pages, photos and pictures embedded in slides or documents are transcribed by the AI. Legacy `.ppt` yields text only; `.doc`, Keynote and Pages files must be exported to PDF first.
 - **Organisation**: subjects (one colour each), folders inside a subject (for example "Theme 1: Genetics"), chapters inside folders. A folder has four tabs: Summaries, Flashcards, Quizzes, Tests.
 - **Summary**: the purpose and key notions of the chapter, with "shorten" and "more detail" buttons. Editable by hand.
 - **Flashcards**: 10 to 100 cards per import. Each card keeps the sentence of the lesson that justifies it. A card marked wrong goes back into the session queue until it is answered right. A quiz is offered halfway through. At 100 % mastery the chapter test unlocks.
@@ -97,7 +99,7 @@ node tests/run.js
 
 ## Status
 
-Not verified against live services yet: Google sign-in, real Gemini calls, real PDF and HEIC imports, speech recognition and lock-screen audio on iOS. Not built: reading images inside `.pptx` files, a natural AI voice, chapter sharing.
+Not verified against live services yet: Google sign-in, real Gemini calls, real PDF and HEIC imports, speech recognition and lock-screen audio on iOS. Not built: a natural AI voice, chapter sharing.
 
 ## Licence
 
