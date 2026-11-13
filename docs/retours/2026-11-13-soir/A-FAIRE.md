@@ -28,6 +28,7 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Fiche de synthèse : le texte rétrécit automatiquement (jusqu'à 6 pt) pour tenir sur une page A4. Vérifié : une fiche très chargée passe sur 1 page à 8,25 pt.
 - Notifications variées selon la situation (8 messages quand il y a des cartes, 3 sur la série, 4 quand tout est à jour).
 - Vacances zone A 2026-2027 dans le calendrier (cases vertes, légende, encart « Prochaines vacances »). Source : service-public.gouv.fr. À ajouter chaque année (tableau `VACANCES` dans app.js).
+- Tout est régénérable : « Nouveau quiz, nouvelles questions » et « Nouveau contrôle » à la fin ; « Créer d'autres cartes avec l'IA » (outils du chapitre, fin de session à 100 %, fin du mode Apprendre), sans doublons. Les outils préparés par l'IA (carte mentale, fiche, pièges, exercices, trous, face-à-face) avaient déjà « Refaire avec l'IA ».
 - Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
 - Quota : Ramzi a mis `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (à confirmer). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
@@ -37,7 +38,6 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 ## Nouveautés
 9. Nouveau mode « Interro écrite » sur le modèle de `08-mode-question-reponse.png` : une question, l'élève tape sa réponse (nombre, mot, phrase), correction immédiate. Justifications corrigées par l'IA.
 10. Carte mentale beaucoup plus complète (plus de branches, de niveaux et de détails).
-13. Tout doit pouvoir se régénérer (`12-quiz-regenerer.png`) : nouveau QCM, nouvelles questions rédigées, nouveau contrôle, nouvelle carte mentale, fiche, pièges, exercices, textes à trous, et « Créer d'autres flashcards » quand toutes sont faites (sans doublons).
 
 ## Musique
 19. Écran « Musique de fond » plus beau (titre en cours, artiste, morceau suivant, lecture / pause / suivant).

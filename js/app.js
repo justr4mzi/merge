@@ -1272,7 +1272,8 @@
         const m = single ? mastery(cardsOf(scope)) : null;
         app.innerHTML = `<div class="row"><a class="iconbtn" href="${backHref}" aria-label="Fermer">${I.x}</a></div><div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(S.total, "carte réussie", "cartes réussies")}. ${S.again.size ? plural(S.again.size, "carte est revenue", "cartes sont revenues") + " pendant la session jusqu'à ce que tu la réussisses." : "Aucune erreur."}</p>
           ${m != null ? `<div style="width:100%"><div class="row between small muted" style="margin-bottom:6px"><span>Maîtrise du chapitre</span><b>${m} %</b></div><div class="bar"><i style="width:${m}%"></i></div></div>${m >= 100 ? `<p class="fb ok">Contrôle débloqué !</p><a class="btn" href="#controle-${scope}">Passer le contrôle</a><a class="btn ghost" href="#boss-${scope}">Affronter le boss</a>` : ""}` : ""}
-          <a class="btn${m != null && m >= 100 ? " ghost" : ""}" href="${backHref}">Terminer</a></div>`;
+          ${m != null && m >= 100 && !state.offline ? `<button class="btn ghost" id="morec">${I.spark}Créer d'autres cartes</button>` : ""}<a class="btn${m != null && m >= 100 ? " ghost" : ""}" href="${backHref}">Terminer</a></div>`;
+        if ($("morec")) $("morec").onclick = () => moreCards(scope, $("morec"));
         return;
       }
       if (!S.offered && single && !state.offline && S.total >= 4 && S.known >= Math.ceil(S.total / 2) && cardsOf(scope).length >= 4) {
@@ -1489,9 +1490,10 @@
 
   // ---------- outils d'un chapitre ----------
   function chapterToolsHtml(id) {
-    return `<div class="card pad stack"><h2>Outils du chapitre</h2><div class="chips"><button class="chip" id="tAdd">Ajouter une carte</button><a class="chip" href="#difficiles-${id}">Cartes difficiles</a><a class="chip" href="#blanc-${id}">Examen blanc</a><a class="chip" href="#fiche-${id}">Fiche à imprimer</a><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip" id="tMove">Ranger dans un dossier</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tDel">Supprimer</button></div><div id="toolbox"></div></div>`;
+    return `<div class="card pad stack"><h2>Outils du chapitre</h2><div class="chips"><button class="chip" id="tMore">Créer d'autres cartes avec l'IA</button><button class="chip" id="tAdd">Ajouter une carte</button><a class="chip" href="#difficiles-${id}">Cartes difficiles</a><a class="chip" href="#blanc-${id}">Examen blanc</a><a class="chip" href="#fiche-${id}">Fiche à imprimer</a><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip" id="tMove">Ranger dans un dossier</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tDel">Supprimer</button></div><div id="toolbox"></div></div>`;
   }
   function wireChapterTools(id, ch, cards) {
+    if ($("tMore")) $("tMore").onclick = () => moreCards(id, $("tMore"));
     const box = $("toolbox"), s = state.subjects.find(x => x.id === ch.subject_id);
     $("tAdd").onclick = () => {
       box.innerHTML = `<div class="stack"><div class="field"><label for="nf">Question</label><input id="nf" type="text" maxlength="500"></div><div class="field"><label for="nb">Réponse</label><textarea id="nb" style="min-height:90px"></textarea></div><button class="btn sm" id="nsave">Ajouter la carte</button></div>`;
@@ -1650,6 +1652,22 @@
   // kind : "apprendre" (QCM, les erreurs reviennent), "quiz" (QCM ou rédigé, note), "controle" (complet, note sur 20), "blanc" (chronométré).
   // Quiz et contrôle sont écrits par l'IA à partir du cours (1 appel, gardé ensuite) ; sans IA, ils se font avec les cartes.
   let midQuiz = null;
+  let freshAi = false;
+  // Nouvelles cartes à partir du cours, sans refaire celles qui existent déjà.
+  async function moreCards(id, btn, n) {
+    const ch = state.chapters.find(c => c.id === id); if (!ch) return;
+    const label = btn ? btn.innerHTML : ""; if (btn) { btn.disabled = true; btn.textContent = "L'IA écrit de nouvelles cartes…"; }
+    try {
+      const text = await courseText(id); if (text.trim().length < 80) throw new Error("Importe d'abord ton cours dans ce chapitre.");
+      const have = cardsOf(id), seen = new Set(have.map(c => norm(c.front)));
+      const r = await ai({ action: "generate", text, n: n || 20, avoid: have.map(c => c.front).filter(Boolean).slice(-200) });
+      const nt = norm(text), fresh = (r.cards || []).filter(c => c && c.front && c.back && !seen.has(norm(c.front)));
+      if (!fresh.length) throw new Error("Ton cours est déjà entièrement couvert par tes cartes. Importe un autre cours ou un complément pour en créer d'autres.");
+      const ins = await sb.from("cards").insert(fresh.map(c => ({ chapter_id: id, front: String(c.front).slice(0, 500), back: String(c.back).slice(0, 2000), source_quote: c.source_quote ? String(c.source_quote).slice(0, 400) : null, needs_check: !c.source_quote || !nt.includes(norm(c.source_quote).slice(0, 60)) })));
+      if (ins.error) throw ins.error;
+      await loadAll(); toast(plural(fresh.length, "nouvelle carte créée", "nouvelles cartes créées") + "."); location.hash = "#cartes-" + id;
+    } catch (e) { if (btn) { btn.disabled = false; btn.innerHTML = label; } toast(e.code === "quota" ? QUOTA_MSG : (e.message || "Création impossible.")); }
+  }
   async function screenQuestions(id, kind) {
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true; app.innerHTML = `<p class="muted">Chargement…</p>`;
@@ -1669,7 +1687,7 @@
     // Prépare (ou relit) le contenu IA puis lance ; en cas d'échec, propose la version avec les cartes.
     async function withAi(what, pick, fallback) {
       app.innerHTML = top(title) + `<div class="card done"><div class="spin" aria-hidden="true"></div><p class="muted" role="status">Merge prépare ${what === "quiz" ? "ton quiz" : "ton contrôle"} à partir de ton cours…</p></div>`;
-      try { const c = await study(id, what); if (location.hash !== here) return; const items = pick(c); if (!items.length) throw new Error("L'IA n'a pas renvoyé de questions utilisables."); begin(items); }
+      try { const fresh = freshAi; freshAi = false; const c = await study(id, what, fresh); if (location.hash !== here) return; const items = pick(c); if (!items.length) throw new Error("L'IA n'a pas renvoyé de questions utilisables."); begin(items); }
       catch (e) { if (location.hash !== here) return; app.innerHTML = top(title) + `<div class="card pad stack">${errHtml(e)}<button class="btn" id="fb2">${what === "quiz" ? "Faire le quiz avec mes cartes" : "Faire le contrôle avec mes cartes"}</button><a class="btn ghost" href="${back}">Retour au chapitre</a></div>`; $("fb2").onclick = fallback; }
     }
     if (kind === "quiz") {
@@ -1727,8 +1745,10 @@
       const resume = midQuiz === id; midQuiz = null;
       app.innerHTML = top(title) + `<div class="card done"><h1>${good === S.total ? "Bon travail !" : "C'est fini"}</h1>${kind === "apprendre" ? `<p class="muted">${plural(S.total, "notion vue", "notions vues")}, ${plural(S.missed.length, "à retravailler", "à retravailler")}.</p>` : `<div class="big">${String(note).replace(".", ",")} / 20</div><p class="muted">${good} bonnes réponses sur ${S.total}.</p>`}${extra}
         ${S.missed.length ? `<div class="stack" style="text-align:left;width:100%"><p class="label">À revoir</p>${S.missed.map(c => `<div class="term" style="padding:8px 0"><b>${esc(c.front)}</b><p>${esc(c.back)}</p></div>`).join("")}</div>` : ""}
-        ${resume ? `<a class="btn" href="#cartes-${id}">Reprendre mes cartes</a>` : ""}<button class="btn${resume ? " ghost" : ""}" id="again">Recommencer</button><a class="btn ghost" href="${back}">Retour au chapitre</a></div>`;
+        ${resume ? `<a class="btn" href="#cartes-${id}">Reprendre mes cartes</a>` : ""}<button class="btn${resume ? " ghost" : ""}" id="again">Recommencer</button>${kind === "quiz" || kind === "controle" ? `<button class="btn ghost" id="newai">${I.spark}${kind === "quiz" ? "Nouveau quiz, nouvelles questions" : "Nouveau contrôle, nouvelles questions"}</button>` : ""}${kind === "apprendre" ? `<button class="btn ghost" id="morec">${I.spark}Créer d'autres cartes</button>` : ""}<a class="btn ghost" href="${back}">Retour au chapitre</a></div>`;
       $("again").onclick = () => screenQuestions(id, kind);
+      if ($("newai")) $("newai").onclick = () => { freshAi = true; screenQuestions(id, kind); };
+      if ($("morec")) $("morec").onclick = () => moreCards(id, $("morec"));
     }
   }
 
