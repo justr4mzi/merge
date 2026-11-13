@@ -682,3 +682,17 @@ mark.hl.user{background:color-mix(in srgb,#f5b400 45%,transparent);color:inherit
   .tabs a[aria-current="page"] svg{filter:none}
   .tabs a span{display:block;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis}
 }
+
+/* v12 : retours du 13 nov. au soir */
+.streak{white-space:nowrap}
+@media (max-width:520px){.app>.row>.homemusic~.streak{display:none}}
+input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;line-height:52px;text-align:left}
+input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
+/* Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou. */
+body::after{content:"";position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 14px);background:linear-gradient(var(--bg) 0,var(--bg) calc(100% - 14px),transparent);pointer-events:none;z-index:25}
+body.pomo::after{display:none}
+/* Calendrier : cases carrées */
+.cal.calx .day{aspect-ratio:1/1;min-height:0}
+@media (min-width:900px){.cal.calx .day{min-height:0;aspect-ratio:1/1;padding:8px}.calwrap{grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr)}}
+@media print{body::after{display:none}}
+@media (max-width:640px){.cal.calx{gap:3px}.cal.calx .day{aspect-ratio:auto;min-height:46px}.calcard{padding-inline:10px}}

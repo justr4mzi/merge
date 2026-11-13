@@ -15,23 +15,27 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 
 RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre téléphone et PC sur le même compte, sans exception. Ça vaut pour tout ce qui existe déjà (voix, volume, musique, thème, réglages, Pomodoro, bandeaux masqués, favoris, notes, surlignages, caches, stats, sessions en cours…) et pour chaque nouvelle fonctionnalité (emploi du temps, récompenses, corbeille, partages, etc.). Plus rien ne doit être gardé seulement sur l'appareil. Faire l'inventaire de chaque `localStorage` du code et vérifier.
 
+## Fait le 13 nov. vers 23 h (commit suivant b5ea64b)
+- Flèche retour de « Nouvelle matière » (page avec sa propre adresse).
+- Pastille « jour d'affilée » masquée en haut sur téléphone (la série reste dans les chiffres).
+- Champ « Heure du rappel » : ne déborde plus (à confirmer sur iPhone).
+- Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou (à confirmer sur iPhone).
+- Calendrier : cases carrées sur PC, plus compactes sur téléphone.
+- « Écouter » en tête de « Réviser ».
+- Bouton « Modifier la carte » pendant les flashcards.
+- Classe libre : « Autre formation (à écrire)… » à l'inscription et dans Réglages.
+- Non fait faute de place dans la limite : suppression du quota de 40 (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut).
+
 ## Bugs
-1. Flèche retour de « Nouvelle matière » sans effet (`01-retour-nouvelle-matiere.png`). Cause : `formSubject()` s'ouvre sans changer d'adresse, donc le lien `#matieres` ne déclenche rien.
-2. Pastille « 1 jour d'affilée » cassée sur 2 lignes en haut de l'accueil (`02-pastille-serie-accueil.png`).
-3. Réglages : champ « Heure du rappel quotidien » vide et qui déborde à droite sur iPhone (`05-heure-rappel-deborde.jpg`).
-4. Haut de l'écran sur iPhone : le contenu qui passe sous la barre d'état est flou et trop visible. Fondu plus fort, moins de flou, contenu encore un peu visible.
 5. Fiche de synthèse en PDF : « Pour retenir » part sur une 2e page (`09-pdf-synthese-2e-page.png`). Tout doit tenir sur une page A4 (texte qui rétrécit si besoin).
 6. Résumé : LaTeX brut ($I$, $U_{AB}$, \times) (`10-resume-caracteres-latex.png`). NE PAS contourner : afficher vraiment les formules et symboles comme en cours (rendu mathématique, ex. KaTeX en local dans `vendor/`) : indices, exposants, ×, Ω, racines, et les fractions posées (barre horizontale, numérateur au-dessus, dénominateur en dessous), jamais avec un slash. Vaut pour résumé, cartes, quiz, fiche, carte mentale, prof IA. Demander à l'IA d'écrire les formules en LaTeX entre $…$ pour qu'elles soient rendues.
-7. Calendrier : cases trop allongées par rapport aux chiffres, à rendre plus carrées.
 
 ## Nouveautés
 8. Calendrier : vacances scolaires zone A (2025-2026 et 2026-2027, dates officielles à vérifier sur education.gouv.fr ou service-public.fr).
 9. Nouveau mode « Interro écrite » sur le modèle de `08-mode-question-reponse.png` : une question, l'élève tape sa réponse (nombre, mot, phrase), correction immédiate. Justifications corrigées par l'IA.
 10. Carte mentale beaucoup plus complète (plus de branches, de niveaux et de détails).
-11. « Écouter » dans la catégorie « Réviser », en haut (`11-ecouter-dans-reviser.png`).
 12. Notifications : une par jour avec le prénom pour pousser à réviser (même sans heure choisie), et des rappels avant chaque contrôle (J-7, J-3, la veille, le matin). Proposer d'activer les notifications plus tôt.
 13. Tout doit pouvoir se régénérer (`12-quiz-regenerer.png`) : nouveau QCM, nouvelles questions rédigées, nouveau contrôle, nouvelle carte mentale, fiche, pièges, exercices, textes à trous, et « Créer d'autres flashcards » quand toutes sont faites (sans doublons).
-14. Bouton « Modifier la carte » pendant les flashcards.
 
 ## Musique
 19. Écran « Musique de fond » plus beau (titre en cours, artiste, morceau suivant, lecture / pause / suivant).
@@ -70,6 +74,10 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
 - Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
 - Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
+
+## Classes et premier lancement (ajouté par Ramzi)
+- Classe libre : FAIT (choix « Autre formation » + champ). Reste : proposer des matières adaptées aux formations du supérieur (ex. licence informatique).
+- Revoir l'inscription et le tutoriel : tout expliquer avant de demander (à quoi sert Merge, pourquoi on demande la classe et les matières). Aujourd'hui ça « agresse direct » avec « Quelle classe, quelles matières ». Écrans d'accueil explicatifs, ton plus doux.
 
 ## Solidité (ajouté par Ramzi)
 - Sécurité du partage par lien : l'invité ne voit que le chapitre partagé, en lecture seule, sans IA ; lien imprévisible ; le propriétaire peut désactiver ou renouveler le lien à tout moment.
