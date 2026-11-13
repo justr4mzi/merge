@@ -70,3 +70,8 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
 - Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
 - Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
+
+## Solidité (ajouté par Ramzi)
+- Sécurité du partage par lien : l'invité ne voit que le chapitre partagé, en lecture seule, sans IA ; lien imprévisible ; le propriétaire peut désactiver ou renouveler le lien à tout moment.
+- Optimisation du code (`js/app.js` dépasse 200 Ko) : à toi de choisir la meilleure approche (découpage en modules chargés à la demande ou autre), avec un démarrage plus rapide sur téléphone et AUCUN bug. Tous les tests doivent repasser.
+- Sauvegarde de la base avant les grosses modifications (export des tables principales ou point de restauration), et le noter dans `DECISIONS.md`.
