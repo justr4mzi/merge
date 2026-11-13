@@ -82,7 +82,7 @@
     fiche: { essentiel: ["La mitose conserve l'information génétique.", "La méiose produit des cellules haploïdes.", "L'ADN se réplique pendant l'interphase.", "Un chromosome dupliqué a deux chromatides."], definitions: [{ terme: "Mitose", definition: "Division cellulaire qui donne deux cellules filles génétiquement identiques." }, { terme: "Méiose", definition: "Division qui donne quatre cellules haploïdes." }, { terme: "Centromère", definition: "Zone qui relie les deux chromatides." }, { terme: "Caryotype", definition: "Ensemble des chromosomes d'une cellule : 46 chez l'humain." }], formules: [{ nom: "Caryotype humain", formule: "2n = 46 chromosomes (23 paires)" }], pieges: ["Ne pas confondre mitose (2 cellules) et méiose (4 cellules).", "La réplication a lieu en interphase, pas pendant la division.", "Chromatide n'est pas synonyme de chromosome."], mnemos: ["PMAT : Prophase, Métaphase, Anaphase, Télophase.", "MIto = MI-me : les cellules filles sont les mêmes."] }
   };
   async function aiCall(b) {
-    await new Promise(r => setTimeout(r, 30));
+    await new Promise(r => setTimeout(r, b.action === "quota" ? 30 : +(opt("delay") || 30)));
     const fail = (status, j) => ({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { status, json: async () => j } } });
     if (b.action === "quota") return { data: { calls, quota: calls + quotaLeft }, error: null };
     if (quotaLeft <= 0) return fail(429, { error: "quota", calls, quota: calls });
@@ -121,7 +121,7 @@
 
   const client = {
     from: t => new Q(t),
-    rpc: async (name) => name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
+    rpc: async (name) => name === "shared_subject_names" ? { data: [{ name: "Chinois", uses: 2 }], error: null } : name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
     functions: { invoke: (name, o) => aiCall(o.body) },
     storage: { from: () => ({ upload: async () => ({ error: null }), createSignedUrl: async () => ({ data: null, error: { message: "indisponible" } }) }) },
     auth: {

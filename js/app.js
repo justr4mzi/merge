@@ -11,7 +11,36 @@
   const state = { user: null, profile: null, subjects: [], groups: [], chapters: [], cards: [], sessions: [], legacy: false };
 
   const CLASSES = ["Seconde", "Première générale", "Première technologique", "Terminale générale", "Terminale STI2D", "Terminale STMG", "Terminale ST2S", "Terminale STL", "Autre"];
-  const COULEURS = ["#3b82f6", "#18ae79", "#f08c3a", "#e0529c", "#8b5cf6", "#0ea5a4", "#e5484d", "#a16207"];
+  const COULEURS = ["#3b82f6", "#18ae79", "#f08c3a", "#e0529c", "#8b5cf6", "#0ea5a4", "#e5484d", "#a16207", "#6366f1", "#06b6d4", "#84cc16", "#eab308", "#f97316", "#f43f5e", "#d946ef", "#a855f7", "#14b8a6", "#22c55e", "#64748b", "#b45309", "#be123c", "#1d4ed8", "#0f766e", "#7c3aed"];
+  const TRONC = ["Philosophie", "Histoire-géo", "Anglais", "Espagnol", "Allemand", "EPS"];
+  const MATIERES = {
+    "Seconde": ["Maths", "Physique-chimie", "SVT", "Français", "Histoire-géo", "SES", "SNT", "Anglais", "Espagnol", "Allemand", "EPS"],
+    "Première générale": ["Maths", "Physique-chimie", "SVT", "Français", "Histoire-géo", "SES", "NSI", "HGGSP", "HLP", "LLCE", "SI", "Enseignement scientifique", "Anglais", "Espagnol", "Allemand", "EPS"],
+    "Première technologique": ["Maths", "Physique-chimie", "Français", "Innovation technologique", "I2D", "Sciences de gestion", "Droit-économie", "Management", "Histoire-géo", "Anglais", "Espagnol", "ETLV", "EPS"],
+    "Terminale générale": ["Maths", "Physique-chimie", "SVT", "Philosophie", "Histoire-géo", "SES", "NSI", "HGGSP", "HLP", "LLCE", "SI", "Enseignement scientifique", "Maths expertes", "Anglais", "Espagnol", "Allemand", "Grand oral", "EPS"],
+    "Terminale STI2D": ["Maths", "Physique-chimie", "2I2D", "SIN", "ITEC", "EE", "AC", "ETLV", "Grand oral"].concat(TRONC),
+    "Terminale STMG": ["Maths", "Management, sciences de gestion et numérique", "Droit-économie", "Gestion-finance", "Mercatique", "Ressources humaines", "SIG", "ETLV", "Grand oral"].concat(TRONC),
+    "Terminale ST2S": ["Maths", "STSS", "BPH", "Chimie", "Physique-chimie pour la santé", "ETLV", "Grand oral"].concat(TRONC),
+    "Terminale STL": ["Maths", "Physique-chimie", "Biochimie-biologie", "Biotechnologies", "SPCL", "ETLV", "Grand oral"].concat(TRONC),
+  };
+  const matieresFor = (classe) => MATIERES[classe] || MATIERES["Terminale générale"];
+  const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || "");
+  function colorPick(cur) {
+    const free = okColor(cur) && !COULEURS.includes(cur);
+    return `<div class="chips swatches">${COULEURS.map(c => `<button type="button" class="chip swatch" data-col="${c}" aria-pressed="${cur === c}" aria-label="Couleur ${c}" style="--c:${c}"><span class="dot"></span></button>`).join("")}<label class="chip swatch free" aria-label="Choisir une autre couleur" data-free aria-pressed="${free}" style="--c:${free ? cur : "transparent"}"><span class="dot"></span><input type="color" value="${okColor(cur) ? cur : "#4b39c8"}"></label></div>`;
+  }
+  function wireColor(root, onPick) {
+    const all = () => root.querySelectorAll("[data-col],[data-free]"), fr = root.querySelector("[data-free]");
+    root.querySelectorAll("[data-col]").forEach(b => b.onclick = () => { all().forEach(x => x.setAttribute("aria-pressed", x === b)); onPick(b.dataset.col); });
+    if (fr) fr.querySelector("input").oninput = (e) => { const v = e.target.value; if (!okColor(v)) return; all().forEach(x => x.setAttribute("aria-pressed", x === fr)); fr.style.setProperty("--c", v); onPick(v); };
+  }
+  const PEPS = ["Un peu chaque jour vaut mieux que tout la veille.", "Dix minutes maintenant, c'est ça de moins avant le contrôle.", "Ce que tu révises aujourd'hui, tu le sais encore dans un mois.", "Une carte après l'autre : c'est comme ça que ça rentre.", "Ton toi du contrôle te dira merci.", "Se tromper sur une carte, c'est déjà apprendre.", "Régulier bat intense. Toujours."];
+  function confetti() {
+    if (window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches) return;
+    const box = document.createElement("div"); box.className = "confetti"; box.setAttribute("aria-hidden", "true");
+    for (let i = 0; i < 36; i++) { const b = document.createElement("i"); b.style.cssText = "left:" + (Math.random() * 100) + "%;background:" + COULEURS[i % COULEURS.length] + ";animation-delay:" + (Math.random() * 0.5).toFixed(2) + "s;animation-duration:" + (1.6 + Math.random() * 1.2).toFixed(2) + "s;transform:rotate(" + Math.round(Math.random() * 360) + "deg)"; box.appendChild(b); }
+    document.body.appendChild(box); setTimeout(() => box.remove(), 3600);
+  }
   // SVT en vert, physique en bleu, puis une couleur par matière courante.
   const COULEUR_PAR_NOM = { "svt": "#18ae79", "physique-chimie": "#3b82f6", "physique": "#3b82f6", "chimie": "#0ea5a4", "maths": "#f08c3a", "mathématiques": "#f08c3a", "français": "#e0529c", "philosophie": "#8b5cf6", "histoire-géo": "#a16207", "anglais": "#0ea5a4", "espagnol": "#e5484d", "ses": "#8b5cf6", "nsi": "#e0529c" };
   const CARD_META = "id,chapter_id,due_at,state,stability,difficulty,elapsed_days,scheduled_days,reps,lapses,last_review,right_count,wrong_count,front,back,source_quote,image_path";
@@ -271,8 +300,20 @@
   function screenOnboarding() {
     tabs.hidden = true;
     const meta = state.user.user_metadata || {}, N = 4;
-    const d = { step: 1, prenom: (meta.given_name || (meta.full_name || "").split(" ")[0] || ""), classe: "Terminale générale", matieres: new Set(["Maths", "Physique-chimie", "SVT"]), exams: {}, cur: null, kind: "minutes", value: 15, theme: "system" };
-    const propositions = ["Maths", "Physique-chimie", "SVT", "Français", "Philosophie", "Histoire-géo", "Anglais", "Espagnol", "SES", "NSI"];
+    const d = { step: 1, prenom: (meta.given_name || (meta.full_name || "").split(" ")[0] || ""), classe: "Terminale générale", matieres: new Set(["Maths", "Physique-chimie", "SVT"]), touched: false, extra: [], shared: [], sharedFor: null, exams: {}, cur: null, kind: "minutes", value: 15, theme: "system" };
+    const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const props = () => { const out = matieresFor(d.classe).slice(); d.shared.concat(d.extra, [...d.matieres]).forEach(m => { if (!out.some(x => same(x, m))) out.push(m); }); return out; };
+    function addOwn() {
+      const el = $("newm"), v = (el ? el.value : "").trim().replace(/\s+/g, " ").slice(0, 40); if (v.length < 2) return toast("Écris le nom de la matière.");
+      const known = props().find(x => same(x, v)) || v; if (known === v) d.extra.push(v);
+      d.matieres.add(known); d.touched = true; draw(); const n = $("newm"); if (n) n.focus();
+    }
+    // Les matières déjà créées par d'autres élèves de la même classe sont proposées à tout le monde.
+    function loadShared() {
+      if (d.sharedFor === d.classe) return; d.sharedFor = d.classe; d.shared = [];
+      Promise.resolve(sb.rpc("shared_subject_names", { p_classe: d.classe })).then(r => { const rows = (r && r.data) || []; if (!Array.isArray(rows) || !rows.length) return; d.shared = rows.map(x => String(x.name || "").trim()).filter(x => x.length >= 2 && x.length <= 40).slice(0, 30); if (d.step === 2) { keepNew(); draw(); } }).catch(() => { /* propositions de base seulement */ });
+    }
+    let draftNew = ""; const keepNew = () => { if ($("newm")) draftNew = $("newm").value; };
     function keep() {
       if ($("prenom")) d.prenom = $("prenom").value; if ($("classe")) d.classe = $("classe").value;
       if ($("val")) d.value = Math.min(500, Math.max(1, parseInt($("val").value, 10) || 15));
@@ -285,7 +326,9 @@
         <div class="field"><label for="prenom">Ton prénom</label><input id="prenom" type="text" autocomplete="given-name" value="${esc(d.prenom)}"></div>
         <div class="field"><label for="classe">Ta classe</label><select id="classe">${CLASSES.map(c => `<option${c === d.classe ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>`;
       if (d.step === 2) body = `<h1>Tes matières</h1><p class="muted">Choisis celles que tu veux réviser.</p>
-        <div class="chips">${propositions.map(m => `<button class="chip" data-m="${esc(m)}" aria-pressed="${d.matieres.has(m)}">${esc(m)}</button>`).join("")}</div>`;
+        <div class="chips">${props().map(m => `<button class="chip" data-m="${esc(m)}" aria-pressed="${d.matieres.has(m)}">${esc(m)}</button>`).join("")}</div>
+        <form class="field" id="ownf"><label for="newm">Il en manque une ? Ajoute-la</label><div class="row"><input id="newm" class="grow" type="text" maxlength="40" placeholder="Ex. Arts plastiques" value="${esc(draftNew)}"><button class="btn sm" id="addm">${I.plus}Ajouter</button></div></form>
+        <p class="small muted">${plural(d.matieres.size, "matière choisie", "matières choisies")}. Les matières ajoutées par les élèves de ta classe sont proposées à tout le monde.</p>`;
       if (d.step === 3) body = `<h1>Tes prochains contrôles</h1><p class="muted">Choisis une matière, puis touche le jour du contrôle dans le calendrier. Rien de prévu ? Passe en révision libre.</p>
         ${list.length ? `<div class="chips" id="xchips">${xchips(list)}</div><div id="pick"></div>` : '<p class="note">Tu n\'as choisi aucune matière : tu pourras en ajouter depuis l\'accueil.</p>'}`;
       if (d.step === 4) body = `<h1>Ton objectif par jour</h1>
@@ -295,7 +338,9 @@
       app.innerHTML = `<div class="center"><p class="small muted">Étape ${d.step} sur ${N}</p><div class="bar"><i style="width:${d.step / N * 100}%"></i></div>${body}
         <p class="note">Tu pourras tout changer plus tard.</p>
         <div class="row">${d.step > 1 ? '<button class="btn ghost" id="prev">Retour</button>' : ""}<button class="btn grow" id="next">${d.step < N ? "Continuer" : "Commencer"}</button></div></div>`;
-      app.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { const m = b.dataset.m; d.matieres.has(m) ? d.matieres.delete(m) : d.matieres.add(m); draw(); });
+      draftNew = "";
+      app.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { keepNew(); const m = b.dataset.m; d.matieres.has(m) ? d.matieres.delete(m) : d.matieres.add(m); d.touched = true; draw(); });
+      if ($("ownf")) { $("ownf").onsubmit = (e) => { e.preventDefault(); addOwn(); }; loadShared(); }
       const wireX = () => app.querySelectorAll("[data-x]").forEach(b => b.onclick = () => { d.cur = b.dataset.x; draw(); });
       wireX();
       if ($("pick") && d.cur) examPicker($("pick"), d.exams[d.cur] || {}, v => { d.exams[d.cur] = v; $("xchips").innerHTML = xchips(list); wireX(); });
@@ -305,6 +350,8 @@
       $("next").onclick = async () => {
         keep();
         if (d.step === 1 && !d.prenom.trim()) return toast("Écris ton prénom pour continuer.");
+        if (d.step === 1 && !d.touched) d.matieres = new Set(matieresFor(d.classe).slice(0, 3));
+        if (d.step === 2 && $("newm") && $("newm").value.trim().length >= 2) { const v = $("newm").value.trim().replace(/\s+/g, " ").slice(0, 40), known = props().find(x => same(x, v)) || v; if (known === v) d.extra.push(v); d.matieres.add(known); }
         if (d.step < N) { d.step++; return draw(); }
         $("next").disabled = true;
         const year = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
@@ -328,6 +375,7 @@
   }
 
   // ---------- accueil ----------
+  let homeQuota = null, homeQuotaAt = 0;
   function screenHome() {
     drawTabs("accueil");
     const p = state.profile, due = dueCards(state.cards).length, st = streak();
@@ -338,30 +386,34 @@
     const ready = state.chapters.filter(c => cardsOf(c.id).length).slice(-4).reverse();
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
-      <h1>Salut ${esc(p.display_name || "")}</h1>
-      <div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
+      <div class="hello"><h1>Salut ${esc(p.display_name || "")}</h1><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
+      <div class="hero"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
         ${due ? '<a class="btn" href="#cartes-jour">Réviser maintenant</a>' : `<p class="small muted">${state.cards.length ? "Tu es à jour. Reviens plus tard ou ouvre un chapitre pour t'entraîner." : "Ajoute un chapitre et importe ton cours pour créer tes premières cartes."}</p>`}</div>
+        <div class="tiles homet"><div class="card tile t1"><b>${st}</b><span>${st > 1 ? "jours d'affilée" : "jour d'affilée"}</span></div><div class="card tile t2"><b>${state.cards.filter(isMastered).length}</b><span>cartes maîtrisées sur ${state.cards.length}</span></div><div class="card tile t3"><b>${next ? "J-" + daysUntil(next.exam_date) : "Libre"}</b><span>${next ? esc(next.name) : "aucun contrôle prévu"}</span></div><div class="card tile t4"><b id="hq">${homeQuota ? homeQuota.calls + "/" + homeQuota.quota : "…"}</b><span>appels IA aujourd'hui</span></div></div></div>
       ${newYear ? `<div class="banner"><div><h2>Nouvelle année scolaire</h2><p class="small">Tu passes en quelle classe ? Mets ta classe à jour dans Réglages.</p></div><a class="btn sm" href="#reglages">Mettre à jour</a></div>` : ""}
       ${ready.length ? `<div class="stack"><h2>Reprendre</h2><div class="grid">${ready.map(c => `<div class="card subject"><a href="#chapitre-${c.id}" style="text-decoration:none"><b>${esc(c.name)}</b></a><div class="row"><div class="bar grow"><i style="width:${mastery(cardsOf(c.id))}%"></i></div><span class="small muted">${mastery(cardsOf(c.id))} %</span></div><div class="row"><a class="btn sm" href="#cartes-${c.id}">Cartes</a><a class="btn sm ghost" href="#ecouter-${c.id}">Écouter</a><a class="btn sm ghost" href="#apprendre-${c.id}">Apprendre</a></div></div>`).join("")}</div></div>` : ""}
       <div class="stack"><div class="row between"><h2>Matières</h2><button class="linkbtn" id="addSubject">Ajouter</button></div>
-      <div class="grid">${state.subjects.length ? state.subjects.map(s => { const chs = state.chapters.filter(c => c.subject_id === s.id); const cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)); const m = mastery(cs); return `<a class="card subject" style="--c:${esc(s.color)}" href="#matiere-${s.id}"><div class="row between"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div><span class="small muted">${plural(chs.length, "chapitre", "chapitres")}</span></div>${cs.length ? `<div class="row"><div class="bar grow"><i style="width:${m}%"></i></div><span class="small muted">${m} %</span></div>` : ""}</a>`; }).join("") : '<p class="muted">Aucune matière. Ajoute ta première matière.</p>'}</div>
+      <div class="grid">${state.subjects.length ? state.subjects.map(s => { const chs = state.chapters.filter(c => c.subject_id === s.id); const cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)); const m = mastery(cs); return `<a class="card subject" style="--c:${esc(s.color)}" href="#matiere-${s.id}"><div class="row between"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div><span class="small muted">${plural(chs.length, "chapitre", "chapitres")}</span></div>${cs.length ? `<div class="row"><div class="bar grow"><i style="width:${m}%"></i></div><span class="small muted">${m} %</span></div>` : ""}</a>`; }).join("") : `<div class="card empty"><svg viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="22" width="58" height="50" rx="8" fill="var(--accent-soft)"/><rect x="34" y="12" width="58" height="50" rx="8" fill="var(--btn-bg)"/><path d="M48 30h30M48 40h22M48 50h26" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="98" cy="68" r="10" fill="var(--accent)"/><path d="M98 63v10M93 68h10" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/></svg><b>Aucune matière. Ajoute ta première matière.</b><p class="small muted">Crée une matière, ajoute un chapitre, importe ton cours : tes cartes et ton résumé arrivent tout seuls.</p></div>`}</div>
       ${next ? `<p class="small muted">Prochain contrôle : ${esc(next.name)}, ${daysUntil(next.exam_date) === 0 ? "aujourd'hui" : "dans " + plural(daysUntil(next.exam_date), "jour", "jours")}.</p>` : state.subjects.length ? '<p class="small muted">Aucun contrôle prévu : révision libre.</p>' : ""}</div>`;
     $("addSubject").onclick = formSubject;
+    if (!state.offline && Date.now() - homeQuotaAt > 60000) { homeQuotaAt = Date.now(); ai({ action: "quota" }).then(q => { homeQuota = q; if ($("hq")) $("hq").textContent = q.calls + "/" + q.quota; }).catch(() => { if ($("hq") && !homeQuota) $("hq").textContent = "–"; }); }
   }
 
   function formSubject() {
     tabs.hidden = true;
     const ex = { date: null, free: false };
     app.innerHTML = `<div class="row"><a class="iconbtn" href="#matieres" aria-label="Retour">${I.back}</a></div><h1>Nouvelle matière</h1>
-      <div class="field"><label for="sname">Nom</label><input id="sname" type="text" maxlength="60" placeholder="Ex. SVT"></div>
+      <div class="field"><label for="sname">Nom</label><input id="sname" type="text" maxlength="60" placeholder="Ex. SVT" list="snames"><datalist id="snames">${matieresFor((state.profile || {}).classe).filter(m => !state.subjects.some(x => x.name.toLowerCase() === m.toLowerCase())).map(m => `<option value="${esc(m)}">`).join("")}</datalist></div>
+      <div class="field"><span class="label">Couleur</span><div id="fcol">${colorPick(null)}</div></div>
       <div class="field"><span class="label">Date du prochain contrôle</span><div id="pick"></div></div>
       <button class="btn" id="save">Créer la matière</button>`;
     examPicker($("pick"), ex, v => Object.assign(ex, v));
+    let fcol = null; wireColor($("fcol"), c => { fcol = c; });
     $("save").onclick = async () => {
       const name = $("sname").value.trim(); if (!name) return toast("Donne un nom à la matière.");
       $("save").disabled = true;
-      const { data, error } = await sb.from("subjects").insert({ name, color: colorFor(name, state.subjects.length), exam_date: ex.free ? null : ex.date }).select("id").single();
+      const { data, error } = await sb.from("subjects").insert({ name, color: fcol || colorFor(name, state.subjects.length), exam_date: ex.free ? null : ex.date }).select("id").single();
       if (error) { $("save").disabled = false; return fail(error, "Création impossible"); }
       if (ex.free && data) await saveExam(data.id, ex);
       await loadAll(); location.hash = data ? "#matiere-" + data.id : "#matieres";
@@ -547,11 +599,75 @@
   }
 
   // ---------- import ----------
+  // ---------- import en tâche de fond : progression, estimation, notification ----------
+  const IMPORTS = {};
+  const STAGES = [["read", "Lecture des fichiers", 0, 20], ["img", "Photos et schémas", 20, 55], ["gen", "Résumé et cartes", 55, 92], ["save", "Enregistrement", 92, 100]];
+  function impProg(d, stage, frac) { const s = STAGES.find(x => x[0] === stage); d.stage = stage; d.target = Math.max(d.target || 0, s[2] + (s[3] - s[2]) * Math.max(0, Math.min(1, frac || 0))); }
+  function impEta(d) {
+    const el = (Date.now() - d.t0) / 1000; if ((d.shown || 0) < 8 || el < 4) return "estimation en cours…";
+    const r = Math.max(3, el * (100 - d.shown) / d.shown), n = r < 60 ? Math.max(5, Math.round(r / 5) * 5) : Math.round(r / 30) * 30;
+    return "environ " + (n < 60 ? n + " s" : (n / 60).toString().replace(".", ",") + " min") + " restantes";
+  }
+  function impBusyHtml(d, name) {
+    const idx = STAGES.findIndex(x => x[0] === d.stage);
+    return `<div class="center prog"><h1>Je prépare « ${esc(name)} »</h1>
+      <div class="bar big"><i id="progbar" style="width:${(d.shown || 0).toFixed(1)}%"></i></div>
+      <div class="row between small muted"><b id="progpct">${Math.round(d.shown || 0)} %</b><span id="progeta">${impEta(d)}</span></div>
+      <ol class="steps">${STAGES.map((x, i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${x[1]}</li>`).join("")}</ol>
+      <p id="status" class="note" role="status">${esc(d.msg || "")}</p>
+      <div class="card pad backsoon"><b>Tu peux partir réviser autre chose.</b><p class="small muted">L'import continue tout seul tant que l'onglet reste ouvert. ${"Notification" in window && Notification.permission === "granted" ? "Tu recevras une notification dès que ton cours est prêt." : "Une pastille en bas de l'écran te montre l'avancée et te prévient quand ton cours est prêt."}</p>${"Notification" in window && Notification.permission === "default" ? '<button class="btn sm ghost" id="askn">Me prévenir par notification</button>' : ""}</div>
+      <a class="btn ghost" href="#accueil">Continuer à naviguer</a></div>`;
+  }
+  function impPaint(d) {
+    const b = $("progbar"); if (b) {
+      b.style.width = (d.shown || 0).toFixed(1) + "%"; $("progpct").textContent = Math.round(d.shown || 0) + " %"; $("progeta").textContent = impEta(d);
+      const st = $("status"); if (st) st.textContent = d.msg || "";
+      const idx = STAGES.findIndex(x => x[0] === d.stage); document.querySelectorAll(".steps li").forEach((li, i) => { li.className = i < idx ? "done" : i === idx ? "now" : ""; });
+    }
+    chipUpdate();
+  }
+  function impTimer(d) {
+    clearInterval(d.timer);
+    d.timer = setInterval(() => {
+      const s = STAGES.find(x => x[0] === d.stage) || STAGES[0];
+      if (d.shown < d.target) d.shown += Math.max(0.3, (d.target - d.shown) * 0.2); else if (d.shown < s[3] - 1) d.shown += Math.max(0.02, (s[3] - 1 - d.shown) * 0.012);
+      impPaint(d);
+    }, 250);
+  }
+  function chipUpdate() {
+    let chip = document.getElementById("jobchip");
+    const hit = Object.entries(IMPORTS).find(([, v]) => v.busy || v.ready || v.failed), here = hit && location.hash === "#import-" + hit[0];
+    if (!hit || here) { if (chip) chip.hidden = true; return; }
+    if (!chip) { chip = document.createElement("a"); chip.id = "jobchip"; chip.className = "jobchip"; document.body.appendChild(chip); }
+    const [k, v] = hit; chip.hidden = false; chip.href = "#import-" + k;
+    chip.classList.toggle("ok", !!v.ready); chip.classList.toggle("ko", !!v.failed);
+    chip.innerHTML = v.busy ? `<span class="spin"></span>Import ${Math.round(v.shown || 0)} %` : v.ready ? "Cours prêt · Ouvrir" : "Import interrompu · Voir";
+  }
+  function impNotify(title, body) {
+    try {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r => r.showNotification(title, { body, icon: "icons/icon.svg", tag: "merge-import" })).catch(() => new Notification(title, { body }));
+      else new Notification(title, { body });
+    } catch (e) { /* notification non disponible */ }
+  }
+  window.addEventListener("beforeunload", e => { if (Object.values(IMPORTS).some(v => v.busy)) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("hashchange", () => chipUpdate());
+  // Contrôle gratuit d'une carte : sa citation doit se retrouver dans le cours (sans accents, ponctuation ni casse).
+  const normQ = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  function quoteFits(q, partNorm) {
+    const w = normQ(q).split(" ").filter(Boolean); if (w.length < 3) return false;
+    if (partNorm.includes(w.join(" "))) return true;
+    let hit = 0, tot = 0; for (let i = 0; i + 3 <= w.length; i++) { tot++; if (partNorm.includes(w.slice(i, i + 3).join(" "))) hit++; }
+    return tot > 0 && hit / tot >= 0.7;
+  }
+
   function screenImport(id) {
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true;
-    const d = { tab: "files", files: [], text: "", n: ch.cards_target || C.CARTES_PAR_DEFAUT, busy: false, cache: {} };
+    const d = IMPORTS[id] || (IMPORTS[id] = { tab: "files", files: [], text: "", n: ch.cards_target || C.CARTES_PAR_DEFAUT, busy: false, cache: {} });
     function draw() {
+      if (d.busy) { app.innerHTML = impBusyHtml(d, ch.name); chipUpdate(); if ($("askn")) $("askn").onclick = () => { try { Notification.requestPermission().then(() => { if (d.busy && location.hash === "#import-" + id) draw(); }); } catch (e) { /* facultatif */ } }; return; }
+      if (d.doneHtml) { const h = d.doneHtml; d.doneHtml = null; d.ready = false; d.files = []; app.innerHTML = h; chipUpdate(); confetti(); return; }
       app.innerHTML = `<div class="row"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><span class="small muted">${esc(ch.name)}</span></div>
         <h1>Importer un cours</h1>
         <div class="seg" role="group" aria-label="Type d'import"><button data-tab="files" aria-pressed="${d.tab === "files"}">Fichiers et photos</button><button data-tab="text" aria-pressed="${d.tab === "text"}">Coller du texte</button></div>
@@ -570,9 +686,10 @@
       if ($("pick")) { $("pick").onchange = e => add([...e.target.files]); $("cam").onchange = e => add([...e.target.files]);
         const z = $("drop"); z.ondragover = e => { e.preventDefault(); }; z.ondrop = e => { e.preventDefault(); add([...e.dataTransfer.files]); }; }
       $("go").onclick = run;
+      if (d.failed) { const s = $("status"); showErr(s, d.failed); d.failed = null; chipUpdate(); } else chipUpdate();
     }
     function keep() { if ($("txt")) d.text = $("txt").value; }
-    const say = (m) => { const s = $("status"); if (s) { s.className = "note"; s.textContent = m; } };
+    const say = (m) => { d.msg = m; impPaint(d); };
 
     async function imageToJpeg(file) {
       let bmp;
@@ -583,9 +700,9 @@
           const out = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(out) ? out[0] : out);
         } catch (e2) { throw new Error("Impossible de lire l'image « " + file.name + " ». Enregistre-la en JPEG ou en PNG puis réessaie."); }
       }
-      const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
+      const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
       cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
-      return cv.toDataURL("image/jpeg", 0.82).split(",")[1];
+      return cv.toDataURL("image/jpeg", 0.8).split(",")[1];
     }
     // PDF lu page par page : texte seul = lu ici gratuitement ; scan, photo, schéma ou tableau = envoyé à l'IA.
     async function readPdf(file, segs, budget) {
@@ -593,7 +710,7 @@
       const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
       for (let i = 1; i <= doc.numPages; i++) {
         if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; break; }
-        budget.pages++; say("Lecture de « " + file.name + " » : page " + i + " sur " + doc.numPages + "…");
+        budget.pages++; say("Lecture de « " + file.name + " » : page " + i + " sur " + doc.numPages + "…"); impProg(d, "read", ((d.fi || 0) + i / doc.numPages) / (d.fn || 1));
         const page = await doc.getPage(i);
         const txt = (await page.getTextContent()).items.map(t => t.str).join(" ").replace(/\s+/g, " ").trim();
         const ops = await page.getOperatorList(), O = lib.OPS;
@@ -693,11 +810,14 @@
       if (d.busy) return; keep();
       if (d.tab === "files" && !d.files.length) return toast("Ajoute au moins un fichier ou une photo.");
       if (d.tab === "text" && d.text.trim().length < 80) return toast("Colle un texte de cours plus long.");
-      d.busy = true; $("go").disabled = true;
+      d.busy = true; d.ready = false; d.failed = null; d.shown = 0; d.target = 1; d.t0 = Date.now(); d.stage = "read"; d.msg = "Je démarre…";
+      try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* facultatif */ }
+      impTimer(d); draw();
       try {
         const segs = [], budget = { pages: 0, cut: false }, notes = [];
         if (d.tab === "text") segs.push({ text: d.text.trim() });
-        else for (const f of d.files) {
+        else for (const [fi, f] of d.files.entries()) {
+          d.fi = fi; d.fn = d.files.length; impProg(d, "read", fi / d.fn);
           // Un fichier déjà lu (ou déjà transcrit par l'IA) n'est pas relu si l'import est relancé : aucun appel payé deux fois.
           const name = f.name.toLowerCase(), key = f.name + ":" + f.size + ":" + f.lastModified;
           if (d.cache[key]) { segs.push(...d.cache[key]); budget.pages += d.cache[key].length; continue; }
@@ -712,15 +832,27 @@
           else if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/.test(name)) { if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; continue; } budget.pages++; say("Préparation de « " + f.name + " »…"); fs.push({ img: await imageToJpeg(f) }); }
           else { notes.push("« " + f.name + " » n'est pas un format accepté. Exporte-le en PDF et importe le PDF."); continue; }
           if (budget.cut === before) d.cache[key] = fs;
-          segs.push(...fs);
+          segs.push(...fs); impProg(d, "read", (fi + 1) / d.fn);
         }
         if (budget.cut) notes.push("Seules les " + C.PAGES_MAX_PAR_IMPORT + " premières pages ont été lues. Refais un import pour la suite.");
         const imgs = segs.filter(s => s.img);
-        for (let i = 0; i < imgs.length; i += 6) {
-          say("L'IA lit les pages avec photos ou schémas : " + Math.min(i + 6, imgs.length) + " sur " + imgs.length + " (" + plural(Math.ceil(imgs.length / 6), "appel", "appels") + " en tout)…");
-          const batch = imgs.slice(i, i + 6), r = await ai({ action: "transcribe", images: batch.map(b => ({ mime: "image/jpeg", data: b.img })) });
-          const partsTxt = String(r.text || "").split("[[PAGE]]").map(x => x.trim()).filter(Boolean);
-          batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); b.jpg = b.img; delete b.img; });
+        // Les lots de photos partent en parallèle (3 à la fois) : 3 fois plus vite pour le même nombre d'appels.
+        if (imgs.length) {
+          const batches = []; for (let i = 0; i < imgs.length; i += 6) batches.push(imgs.slice(i, i + 6));
+          let next = 0, done = 0, stop = false; impProg(d, "img", 0);
+          say("L'IA lit " + plural(imgs.length, "page avec photo ou schéma", "pages avec photos ou schémas") + " (" + plural(batches.length, "appel", "appels") + ")…");
+          const worker = async () => {
+            while (!stop && next < batches.length) {
+              const batch = batches[next++];
+              try {
+                const r = await ai({ action: "transcribe", images: batch.map(b => ({ mime: "image/jpeg", data: b.img })) });
+                const partsTxt = String(r.text || "").split("[[PAGE]]").map(x => x.trim()).filter(Boolean);
+                batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); b.jpg = b.img; delete b.img; });
+              } catch (e) { stop = true; throw e; }
+              done++; impProg(d, "img", done / batches.length); say("Photos et schémas lus : " + done + " lot" + (done > 1 ? "s" : "") + " sur " + batches.length + "…");
+            }
+          };
+          await Promise.all(Array.from({ length: Math.min(3, batches.length) }, worker));
         }
         const full = segs.map(s => s.text).filter(Boolean).join("\n\n[[PAGE]]\n\n");
         if (full.replace(/\s/g, "").length < 80) throw new Error(notes[0] || "Je n'ai pas trouvé assez de texte dans ce cours.");
@@ -732,19 +864,20 @@
         if (!d.gen) d.gen = {};
         for (let ci = 0; ci < chunks.length; ci++) {
           const part = chunks[ci].join("\n\n[[PAGE]]\n\n"), suffix = chunks.length > 1 ? " (partie " + (ci + 1) + " sur " + chunks.length + ")" : "", gk = part.length + ":" + d.n + ":" + ci;
-          say("L'IA prépare le résumé et les cartes" + suffix + "…");
+          say("L'IA prépare le résumé et les cartes" + suffix + "…"); impProg(d, "gen", ci / chunks.length);
           const n = Math.max(5, Math.round(d.n * part.length / Math.max(1, full.length)));
           const gi = d.gen[gk] || (d.gen[gk] = await ai({ action: "generate", text: part, n, avoid: avoid.concat(cards.map(c => c.front)).slice(-200) }));
           const cs = (gi.cards || []).filter(c => c && c.front && c.back).slice(0, n), base = cards.length;
           if (gi.summary) g.summary += (g.summary ? "\n\n" : "") + gi.summary; if (ci === 0 && gi.lang) g.lang = gi.lang;
           cards = cards.concat(cs); if (!cs.length) continue;
-          say("Vérification des cartes par rapport au cours" + suffix + "…");
+          impProg(d, "gen", (ci + 0.85) / chunks.length); say("Contrôle des cartes par rapport au cours" + suffix + "…");
+          const pn = normQ(part); cs.forEach((c, i) => { if (!quoteFits(c.source_quote, pn)) bad.add(base + i); });
           try { const v = gi.checked || (gi.checked = await ai({ action: "verify", text: part, cards: cs })); (v.results || []).forEach(r => { if (r && r.ok === false) bad.add(base + r.i); }); }
-          catch (e) { if (e.code === "quota") notes.push("Limite d'IA atteinte pendant la vérification : relis les cartes marquées « À vérifier »."); else notes.push("La vérification automatique n'a pas pu se faire : relis les cartes."); cs.forEach((_, i) => bad.add(base + i)); }
+          catch (e) { if (e.code === "quota") notes.push("Limite d'IA atteinte pendant la vérification : relis les cartes marquées « À vérifier »."); else notes.push("La vérification par l'IA n'a pas pu se faire : seul le contrôle automatique a été fait."); }
         }
         cards = cards.slice(0, Math.max(d.n, 5 * chunks.length));
         if (!cards.length) throw new Error("L'IA n'a créé aucune carte à partir de ce cours.");
-        say("Enregistrement…");
+        impProg(d, "save", 0.3); say("Enregistrement…");
         const norm = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), stamp = Date.now();
         for (let k = 0; k < segs.length; k++) {
           const sg = segs[k]; if (!sg.jpg) continue;
@@ -768,9 +901,13 @@
         await loadAll();
         if (illisible) notes.push(plural(illisible, "passage illisible", "passages illisibles") + " dans tes photos : corrige les cartes concernées ou reprends la photo avec plus de lumière.");
         if (bad.size) notes.push(plural(bad.size, "carte est marquée", "cartes sont marquées") + " « À vérifier ».");
-        app.innerHTML = `<div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(cards.length, "carte créée", "cartes créées")} et un résumé pour « ${esc(ch.name)} ».</p>${notes.map(n => `<p class="note">${esc(n)}</p>`).join("")}<a class="btn" href="#cartes-${id}">Réviser maintenant</a><a class="btn ghost" href="#chapitre-${id}">Voir le chapitre</a></div>`;
+        d.busy = false; clearInterval(d.timer); d.shown = 100; d.ready = true; d.files = [];
+        d.doneHtml = `<div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(cards.length, "carte créée", "cartes créées")} et un résumé pour « ${esc(ch.name)} ».</p>${notes.map(n => `<p class="note">${esc(n)}</p>`).join("")}<a class="btn" href="#cartes-${id}">Réviser maintenant</a><a class="btn ghost" href="#chapitre-${id}">Voir le chapitre</a></div>`;
+        impNotify("Merge.", "« " + ch.name + " » est prêt : " + plural(cards.length, "carte créée", "cartes créées") + ".");
+        if (location.hash === "#import-" + id) draw(); else { toast("« " + ch.name + " » est prêt."); chipUpdate(); }
       } catch (e) {
-        console.error(e); d.busy = false; if ($("go")) $("go").disabled = false; const s = $("status"); if (s) { showErr(s, e); if (e.code === "quota") s.insertAdjacentHTML("beforeend", '<p class="note">Ce qui a déjà été lu est gardé sur cet écran : relance l\'import demain sans le fermer, ou réessaie avec moins de pages.</p>'); }
+        console.error(e); d.busy = false; clearInterval(d.timer); d.failed = e; impNotify("Merge.", "L'import de « " + ch.name + " » s'est arrêté : " + e.message);
+        if (location.hash === "#import-" + id) { draw(); if (e.code === "quota") { const s = $("status"); if (s) s.insertAdjacentHTML("beforeend", '<p class="note">Ce qui a déjà été lu est gardé : relance l\'import demain sans recharger la page, ou réessaie avec moins de pages.</p>'); } } else chipUpdate();
       }
     }
     draw();
@@ -1065,12 +1202,12 @@
     const j = daysUntil(s.exam_date), weak = chs.map(c => ({ c, m: mastery(cardsOf(c.id)), n: cardsOf(c.id).length })).filter(x => x.n).sort((a, b) => a.m - b.m);
     return `${j != null && j >= 0 && weak.length ? `<div class="card pad stack"><h2>Plan de révision</h2><p class="muted">${j === 0 ? "Le contrôle est aujourd'hui." : "Il reste " + plural(j, "jour", "jours") + "."} Commence par les chapitres les moins maîtrisés.</p>${weak.slice(0, 5).map((x, i) => `<a class="row between" style="text-decoration:none;min-height:44px" href="#cartes-${x.c.id}"><span><b>${i + 1}.</b> ${esc(x.c.name)}</span><span class="pill ${x.m < 50 ? "warn" : ""}">${x.m} %</span></a>`).join("")}</div>` : ""}
       <div class="card pad stack"><h2>Réglages de la matière</h2><div class="field"><label for="sn">Nom</label><input id="sn" type="text" maxlength="60" value="${esc(s.name)}"></div>
-        <div class="field"><span class="label">Couleur</span><div class="chips">${COULEURS.map(c => `<button class="chip swatch" data-col="${c}" aria-pressed="${s.color === c}" aria-label="Couleur ${c}" style="--c:${c}"><span class="dot"></span></button>`).join("")}</div></div>
+        <div class="field"><span class="label">Couleur</span><div id="scol">${colorPick(s.color)}</div></div>
         <div class="row"><button class="btn sm" id="ssave">Enregistrer</button><button class="btn sm ghost" id="sdel">Supprimer la matière</button></div><div id="sbox"></div></div>`;
   }
   function wireSubjectTools(s) {
     let col = s.color;
-    app.querySelectorAll("[data-col]").forEach(b => b.onclick = () => { col = b.dataset.col; app.querySelectorAll("[data-col]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+    if ($("scol")) wireColor($("scol"), c => { col = c; });
     $("ssave").onclick = async () => { const name = $("sn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const { error } = await sb.from("subjects").update({ name, color: col }).eq("id", s.id); if (error) return fail(error, "Matière non enregistrée"); await loadAll(); screenSubject(s.id); toast("Matière enregistrée."); };
     $("sdel").onclick = () => {
       $("sbox").innerHTML = `<div class="stack"><p>Supprimer « ${esc(s.name)} » et ses chapitres de ton appli ?</p><div class="row"><button class="btn sm peach" id="sdy">Oui, supprimer</button><button class="btn sm ghost" id="sdn">Annuler</button></div></div>`;
@@ -1083,7 +1220,7 @@
   function screenSubjects() {
     drawTabs("matieres");
     app.innerHTML = `<div class="row between"><h1>Matières</h1><div class="row"><a class="btn sm ghost" href="#recherche">Rechercher</a><button class="btn sm" id="addSubject">${I.plus}Ajouter</button></div></div>
-      <div class="grid">${state.subjects.length ? state.subjects.map(s => { const chs = state.chapters.filter(c => c.subject_id === s.id); const cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)); const m = mastery(cs), j = daysUntil(s.exam_date); return `<a class="card subject" style="--c:${esc(s.color)}" href="#matiere-${s.id}"><div class="row between"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div>${j != null && j >= 0 ? `<span class="pill">J-${j}</span>` : ""}</div><p class="small muted">${plural(chs.length, "chapitre", "chapitres")} · ${plural(cs.length, "carte", "cartes")}</p><div class="row"><div class="bar grow"><i style="width:${m}%"></i></div><span class="small muted">${m} %</span></div></a>`; }).join("") : '<p class="muted">Aucune matière. Ajoute ta première matière.</p>'}</div>`;
+      <div class="grid">${state.subjects.length ? state.subjects.map(s => { const chs = state.chapters.filter(c => c.subject_id === s.id); const cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)); const m = mastery(cs), j = daysUntil(s.exam_date); return `<a class="card subject" style="--c:${esc(s.color)}" href="#matiere-${s.id}"><div class="row between"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div>${j != null && j >= 0 ? `<span class="pill">J-${j}</span>` : ""}</div><p class="small muted">${plural(chs.length, "chapitre", "chapitres")} · ${plural(cs.length, "carte", "cartes")}</p><div class="row"><div class="bar grow"><i style="width:${m}%"></i></div><span class="small muted">${m} %</span></div></a>`; }).join("") : `<div class="card empty"><svg viewBox="0 0 120 90" aria-hidden="true"><rect x="14" y="22" width="58" height="50" rx="8" fill="var(--accent-soft)"/><rect x="34" y="12" width="58" height="50" rx="8" fill="var(--btn-bg)"/><path d="M48 30h30M48 40h22M48 50h26" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="98" cy="68" r="10" fill="var(--accent)"/><path d="M98 63v10M93 68h10" stroke="var(--accent-fg)" stroke-width="3" stroke-linecap="round"/></svg><b>Aucune matière. Ajoute ta première matière.</b><p class="small muted">Crée une matière, ajoute un chapitre, importe ton cours : tes cartes et ton résumé arrivent tout seuls.</p></div>`}</div>`;
     $("addSubject").onclick = formSubject;
   }
 
@@ -1848,7 +1985,9 @@
   }
 
   // ---------- navigation ----------
+  let enterT = null;
   function route() {
+    app.classList.remove("enter"); void app.offsetWidth; app.classList.add("enter"); clearTimeout(enterT); enterT = setTimeout(() => app.classList.remove("enter"), 700);
     if (!state.user) return screenLogin();
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);

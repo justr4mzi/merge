@@ -217,6 +217,42 @@ async function fixtures() {
   return out;
 }
 
+// v7 : matières par classe, matière perso, matières partagées, couleurs, progression d'import en tâche de fond.
+async function v7(browser) {
+  let page = await open(browser, { w: 1280, h: 800, theme: "dark", seed: "vide" });
+  await page.fill("#prenom", "Ramzi"); await page.selectOption("#classe", "Terminale STI2D"); await page.click("#next"); await page.waitForTimeout(250);
+  let t = await txt(page);
+  ok(["2I2D", "SIN", "ITEC", "EE", "AC"].every(m => t.includes(m)), "v7 inscription : matières STI2D proposées");
+  ok(t.includes("Chinois"), "v7 inscription : matières partagées par la classe proposées");
+  ok(await page.locator('[data-m="2I2D"][aria-pressed="true"]').count() === 1, "v7 inscription : sélection par défaut adaptée à la classe");
+  await page.fill("#newm", "Arts plastiques"); await page.click("#addm"); await page.waitForTimeout(150);
+  ok(await page.locator('[data-m="Arts plastiques"][aria-pressed="true"]').count() === 1, "v7 inscription : matière perso ajoutée et choisie");
+  let o = await overflow(page); ok(o.sw <= o.iw, "v7 inscription : pas de débordement", JSON.stringify(o));
+  ok(!page.errors.length, "v7 inscription : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+
+  page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#matiere-s1");
+  ok(await page.locator("#scol [data-col]").count() >= 20, "v7 matière : au moins 20 couleurs");
+  ok(await page.locator("#scol [data-free] input[type=color]").count() === 1, "v7 matière : couleur libre");
+  let s = await small(page); ok(!s.length, "v7 matière : boutons de 44 px minimum", s.join(" | "));
+  await page.evaluate(() => localStorage.setItem("fake.delay", "1200"));
+  await go(page, "#import-c1"); await page.click('[data-tab="text"]'); await page.fill("#txt", "La mitose est une division cellulaire qui donne deux cellules identiques. ".repeat(4));
+  await page.click("#go"); await page.waitForTimeout(500);
+  t = await txt(page);
+  ok(t.includes("Je prépare") && /\d+ %/.test(t) && t.includes("Résumé et cartes"), "v7 import : écran de progression avec pourcentage et étapes");
+  ok(await page.locator("#progbar").count() === 1 && t.includes("L'import continue"), "v7 import : barre et message « tu peux partir »");
+  o = await overflow(page); ok(o.sw <= o.iw, "v7 import : pas de débordement", JSON.stringify(o));
+  await go(page, "#accueil", 300);
+  ok(await page.locator("#jobchip:not([hidden])").count() === 1 && /Import \d+ %/.test(await page.locator("#jobchip").innerText()), "v7 import : pastille de progression sur les autres écrans");
+  ok((await txt(page)).includes("appels IA aujourd'hui"), "v7 accueil : tuile du quota IA");
+  await page.waitForFunction(() => /Cours prêt/.test((document.getElementById("jobchip") || {}).innerText || ""), null, { timeout: 15000 });
+  ok(true, "v7 import : la pastille annonce le cours prêt");
+  await page.click("#jobchip"); await page.waitForTimeout(300);
+  ok((await txt(page)).includes("Bon travail"), "v7 import : écran de fin après retour");
+  ok(await page.locator("#jobchip:not([hidden])").count() === 0, "v7 import : pastille retirée une fois vue");
+  ok(!page.errors.length, "v7 import : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -225,6 +261,7 @@ let BASE;
   try {
     for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
     await flows(browser);
+    await v7(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
   const bad = log.filter(l => !l.startsWith("ok"));

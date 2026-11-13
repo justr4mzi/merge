@@ -228,3 +228,17 @@ Tant que le script SQL de l'étape 1 n'est pas passé, l'appli détecte les colo
 - Vérifié après coup : les 2 tables existent, RLS activée, 1 règle chacune, les 3 colonnes sont là. L'étape 1 de la liste « À FAIRE AU RÉVEIL » est donc faite : IGNORE le script SQL collé plus haut.
 - Seule partie non appliquée : la nouvelle version de `delete_my_data` (c'est elle qui déclenchait la confirmation, parce qu'elle contient des `delete`). Pas grave : l'ancienne version supprime déjà tout, le carnet d'erreurs et le cache partent en cascade avec les chapitres. Seule différence : elle efface aussi le compteur d'appels IA du jour, donc un élève qui supprime toutes ses données récupère ses 40 appels. Script prêt dans `supabase/optional/delete_my_data_v6.sql` si tu veux fermer ça.
 - La ligne `update cards set mastered...` a été retirée : la table était vide, elle ne servait à rien.
+
+## 13 nov. 2026, midi : rapidité de l'import, matières par classe, design plus vivant
+
+Retours de Ramzi après le premier vrai test (import de 3 PDF, 16 pages avec schémas, resté bloqué à « 12 sur 16 » puis perdu au rafraîchissement).
+
+- **Pourquoi c'était lent.** Les lots de 6 pages étaient envoyés l'un après l'autre et le premier a pris 60 s. Maintenant : 3 lots en parallèle, réflexion interne de Gemini réduite (`thinkingLevel` « minimal » pour lire et vérifier, « low » ailleurs, avec repli automatique si le modèle refuse le réglage), images en 1280 px au lieu de 1600. Fonction `ai` déployée en version 4.
+- **Quota exact malgré le parallèle.** Le compteur passe par la fonction SQL `ai_usage_bump` (incrément atomique). Sans elle, deux appels simultanés n'en comptaient qu'un.
+- **Vérification des cartes.** Contrôle gratuit dans le navigateur (la citation de la carte doit se retrouver dans le cours) puis l'appel IA de vérification, gardé à la demande de Ramzi.
+- **Import en tâche de fond.** Barre de progression, pourcentage, étape en cours, estimation du temps restant. On peut changer d'écran : une pastille « Import 48 % » suit partout, puis « Cours prêt ». Notification du navigateur si elle est autorisée. Limite connue : l'import tourne dans l'onglet. Si l'onglet est fermé ou rechargé, il s'arrête (le navigateur demande confirmation avant de quitter). Le faire tourner côté serveur demanderait une file d'attente : pas fait.
+- **Matières.** Propositions selon la classe (STI2D : 2I2D, SIN, ITEC, EE, AC, ETLV…), champ pour ajouter la sienne, et les matières créées par les élèves de la même classe sont proposées à tous (`shared_subject_names` : noms seulement, 2 à 40 caractères, 30 au plus). Pas de modération : un nom déplacé tapé par un élève peut apparaître chez les autres de sa classe. À surveiller si l'appli s'ouvre largement.
+- **Couleurs.** 24 couleurs et un sélecteur libre, à la création et dans les réglages de la matière.
+- **Design.** Entrée animée des écrans, boutons qui réagissent, cartes qui se soulèvent, confettis en fin d'import, halo de couleur en fond, accueil avec date, phrase du jour et 4 tuiles (série, cartes maîtrisées, prochain contrôle, appels IA du jour). Sur PC : largeur jusqu'à 1440 px, écrans d'étapes dans un panneau centré. Tout est coupé si le système demande moins d'animations.
+- **Page de confidentialité** `privacy.html`, exigée par Google pour publier la connexion.
+- Migration `20261113110000_v7_quota_atomique_matieres_partagees.sql` : déjà appliquée, rien à faire.

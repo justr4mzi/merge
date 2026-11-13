@@ -47,7 +47,7 @@ async function accessToken(sa: { client_email: string; private_key: string; toke
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
 // deno-lint-ignore no-explicit-any
-async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean, temperature: number) {
+async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean, temperature: number, thinking = "low") {
   const token = await accessToken(sa);
   const host = LOCATION === "global" ? "aiplatform.googleapis.com" : `${LOCATION}-aiplatform.googleapis.com`;
   const url = `https://${host}/v1/projects/${sa.project_id}/locations/${LOCATION}/publishers/google/models/${MODEL}:generateContent`;
@@ -58,8 +58,12 @@ async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean,
     generationConfig: { temperature },
   };
   if (wantJson) body.generationConfig.responseMimeType = "application/json";
-  const res = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const data = await res.json();
+  // Peu de réflexion interne : les tâches (transcrire, résumer, vérifier) sont du travail sur un texte donné, pas du raisonnement.
+  body.generationConfig.thinkingConfig = { thinkingLevel: thinking };
+  const send = () => fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  let res = await send();
+  let data = await res.json();
+  if (res.status === 400 && /thinking/i.test(JSON.stringify(data))) { delete body.generationConfig.thinkingConfig; res = await send(); data = await res.json(); }
   if (!res.ok) {
     // deno-lint-ignore no-explicit-any
     const err: any = new Error("vertex: " + JSON.stringify(data).slice(0, 500));
@@ -140,8 +144,9 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     let out: any = {};
     let tin = 0, tout = 0;
+    const thin = body.action === "transcribe" || body.action === "verify" ? "minimal" : "low";
     const run = async (parts: Part[], wantJson: boolean, temp = 0.2) => {
-      const r = await gemini(sa, sys, parts, wantJson, temp);
+      const r = await gemini(sa, sys, parts, wantJson, temp, thin);
       tin += r.tin; tout += r.tout;
       return r.text;
     };
@@ -218,8 +223,12 @@ Deno.serve(async (req) => {
       return json({ error: "requete", detail: "Action inconnue." }, 400);
     }
 
-    await admin.from("ai_usage").upsert({ user_id: uid, day, calls: calls + 1, tokens_in: (usage?.tokens_in ?? 0) + tin, tokens_out: (usage?.tokens_out ?? 0) + tout });
-    return json({ ...out, usage: { calls: calls + 1, quota: QUOTA, tokens_in: tin, tokens_out: tout } });
+    // Compteur incrémenté côté base : plusieurs appels simultanés (lecture de plusieurs lots de photos) ne s'écrasent pas.
+    const bump = await admin.rpc("ai_usage_bump", { p_user: uid, p_day: day, p_in: tin, p_out: tout });
+    let used = calls + 1;
+    if (bump.error) await admin.from("ai_usage").upsert({ user_id: uid, day, calls: used, tokens_in: (usage?.tokens_in ?? 0) + tin, tokens_out: (usage?.tokens_out ?? 0) + tout });
+    else used = Number(bump.data) || used;
+    return json({ ...out, usage: { calls: used, quota: QUOTA, tokens_in: tin, tokens_out: tout } });
   } catch (e) {
     // deno-lint-ignore no-explicit-any
     const status = (e as any).status;
