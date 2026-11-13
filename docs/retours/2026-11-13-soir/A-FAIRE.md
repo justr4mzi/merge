@@ -13,6 +13,8 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 - Icônes du bas : vérifier sur une capture de l'iPhone de Ramzi (pas seulement dans le simulateur) qu'elles sont toutes de la même taille et centrées.
 - Musique : écouter les deux titres sur l'iPhone.
 
+RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre téléphone et PC sur le même compte, sans exception. Ça vaut pour tout ce qui existe déjà (voix, volume, musique, thème, réglages, Pomodoro, bandeaux masqués, favoris, notes, surlignages, caches, stats, sessions en cours…) et pour chaque nouvelle fonctionnalité (emploi du temps, récompenses, corbeille, partages, etc.). Plus rien ne doit être gardé seulement sur l'appareil. Faire l'inventaire de chaque `localStorage` du code et vérifier.
+
 ## Bugs
 1. Flèche retour de « Nouvelle matière » sans effet (`01-retour-nouvelle-matiere.png`). Cause : `formSubject()` s'ouvre sans changer d'adresse, donc le lien `#matieres` ne déclenche rien.
 2. Pastille « 1 jour d'affilée » cassée sur 2 lignes en haut de l'accueil (`02-pastille-serie-accueil.png`).
