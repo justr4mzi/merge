@@ -288,7 +288,7 @@ async function v8(browser) {
 // v10 : plan du jour, niveau, recherche rapide, pomodoro, réponse écrite, note, reprise, statistiques, bilan, surlignage, schémas à légender.
 async function v10(browser) {
   const page = await open(browser, { w: 390, h: 844, theme: "dark" });
-  await page.evaluate(() => localStorage.setItem("merge.typed", "1"));
+  await page.evaluate(() => { localStorage.setItem("merge.typed", "1"); localStorage.setItem("merge.cmore", "1"); });
   let t = await txt(page);
   ok(t.includes("Ton plan du jour") && t.includes("Niveau 1") && t.includes("Installe Merge"), "v10 accueil : plan du jour, niveau et installation");
   let o = await overflow(page); ok(o.sw <= o.iw, "v10 accueil : pas de débordement", JSON.stringify(o));
