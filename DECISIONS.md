@@ -22,7 +22,7 @@
 - Il veut à 23h45 la version la plus finie possible + les instructions exactes : quoi faire, où cliquer, où coller.
 
 ## 12 nov. 2026, 20h45 : nouvelles captures (haute résolution) à regarder à 23h45
-Dans scratchpad/captures_quizlet et copie dans /home/claude/merge/_captures : quizlet_10 (accueil : barre de recherche, bannière, listes, tuiles « Découvrir »), 11 (page d'une liste : 4 modes en cartes blanches avec icônes bleues pleines, liste de termes avec icônes son et étoile), 12 (Apprendre : pastille « Essayons à nouveau », 4 choix, bonne réponse en vert), 13 (Notes magiques : 4 boutons ronds, trait ondulé lilas, « Résumé » surligné, bouton « Raccourcir »), 14 (flashcard penchée, bandeau vert « Appris ! », compteurs collés aux bords), 15 (écran d'IMPORT : onglets « Collez du texte / Télécharger des fichiers », zone en pointillés, bouton « Parcourir les fichiers »). Lire ces images avec Read avant de refaire le mode clair et l'écran d'import. Ne pas inclure _captures dans le zip final ni sur Cloudflare.
+Dans scratchpad/captures_quizlet et copie dans _captures : quizlet_10 (accueil : barre de recherche, bannière, listes, tuiles « Découvrir »), 11 (page d'une liste : 4 modes en cartes blanches avec icônes bleues pleines, liste de termes avec icônes son et étoile), 12 (Apprendre : pastille « Essayons à nouveau », 4 choix, bonne réponse en vert), 13 (Notes magiques : 4 boutons ronds, trait ondulé lilas, « Résumé » surligné, bouton « Raccourcir »), 14 (flashcard penchée, bandeau vert « Appris ! », compteurs collés aux bords), 15 (écran d'IMPORT : onglets « Collez du texte / Télécharger des fichiers », zone en pointillés, bouton « Parcourir les fichiers »). Lire ces images avec Read avant de refaire le mode clair et l'écran d'import. Ne pas inclure _captures dans le zip final ni sur Cloudflare.
 
 ## 12 nov. 2026, 23h45 : deuxième séance
 - Design appliqué : clair proche des captures (fond gris-bleu, cartes blanches, accent indigo-violet #4b39c8, pastilles lilas, carte penchée à bandeau vert, compteurs collés aux bords), sombre = design 2 (tuiles teintées). Police Nunito.
@@ -42,3 +42,174 @@ Dans scratchpad/captures_quizlet et copie dans /home/claude/merge/_captures : qu
 - Fonction `ai` version 2 déployée (ajout de `ask`).
 - Toujours pas fait : notifications, voix naturelle Gemini, audio en arrière-plan garanti, images et formules en image sur les cartes, conversion HEIC, conservation des fichiers d'origine, hors-ligne des cartes, archivage automatique de fin d'année, suppression de compte, partage de chapitre.
 - Testé : parcours complet sur PC (1280 px) et téléphone (390 px), clair et sombre, avec une fausse base et une IA simulée. NON testé en vrai : connexion Google, appels IA réels, lecture de vrais PDF et photos, voix sur iPhone.
+
+## 13 nov. 2026, nuit : séance autonome v6 (dossiers, calendrier, 16 nouveaux modes)
+
+### À FAIRE AU RÉVEIL, dans cet ordre
+
+**1. Supabase : coller la migration v6 (2 minutes, obligatoire).**
+L'outil Supabase a demandé une confirmation humaine pour appliquer la migration et personne n'était là pour répondre : elle n'est donc PAS appliquée. En attendant, l'appli marche quand même (voir « Mode sans migration » plus bas), mais le cache et le carnet d'erreurs restent sur l'appareil.
+- Ouvre https://supabase.com/dashboard/project/dmevntylywocyumgotij/sql/new
+- Colle le script ci-dessous en entier (c'est aussi le fichier `supabase/migrations/20261113040000_v6_dossiers_cache_erreurs.sql`), clique sur Run. Il peut être relancé sans risque. Il ne supprime rien.
+- Vérifie dans Table Editor que `ai_cache` et `mistakes` existent et affichent « RLS enabled ».
+
+```sql
+-- Merge v6 : sous-dossiers, révision libre, cache des contenus générés, carnet d'erreurs, mnémotechniques.
+-- Migration additive : aucune colonne ni donnée supprimée.
+
+alter table public.subjects add column if not exists free_revision boolean not null default false;
+
+create index if not exists groups_subject_idx on public.groups (subject_id);
+create index if not exists chapters_group_idx on public.chapters (group_id);
+
+alter table public.cards add column if not exists mastered boolean not null default false;
+alter table public.cards add column if not exists mnemonic text;
+-- Reprise de l'existant : une carte déjà en révision espacée compte comme maîtrisée.
+update public.cards set mastered = true where state = 2 and mastered = false;
+
+-- Cache de tout ce que l'IA génère pour un chapitre : un seul appel par (chapitre, type).
+create table if not exists public.ai_cache (
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  chapter_id uuid not null references public.chapters (id) on delete cascade,
+  kind text not null check (char_length(kind) between 1 and 40),
+  content jsonb not null,
+  created_at timestamptz not null default now(),
+  primary key (chapter_id, kind)
+);
+alter table public.ai_cache enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'ai_cache' and policyname = 'ai_cache_own') then
+    create policy ai_cache_own on public.ai_cache for all to authenticated
+      using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+  end if;
+end $$;
+create index if not exists ai_cache_user_idx on public.ai_cache (user_id);
+
+-- Carnet d'erreurs.
+create table if not exists public.mistakes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  chapter_id uuid not null references public.chapters (id) on delete cascade,
+  card_id uuid references public.cards (id) on delete set null,
+  mode text not null default 'cartes',
+  question text not null,
+  expected text not null,
+  given text,
+  explanation text,
+  times integer not null default 1,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.mistakes enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'mistakes' and policyname = 'mistakes_own') then
+    create policy mistakes_own on public.mistakes for all to authenticated
+      using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+  end if;
+end $$;
+create index if not exists mistakes_user_idx on public.mistakes (user_id, updated_at desc);
+create index if not exists mistakes_chapter_idx on public.mistakes (chapter_id);
+create index if not exists mistakes_card_idx on public.mistakes (card_id);
+
+-- Maîtrise partagée en Duo : même règle que dans l'appli (part des cartes réussies).
+create or replace function public.partner_stats(partner uuid)
+ returns table(mastery integer, quiz_avg numeric, best_exam numeric)
+ language sql stable security definer set search_path to ''
+as $$
+  select
+    (select coalesce(round(avg(case when c.mastered then 1 else 0 end) * 100), 0)::int
+       from public.cards c join public.chapters ch on ch.id = c.chapter_id
+      where c.user_id = partner and ch.archived = false),
+    (select round(avg(r.score), 1) from public.quiz_results r where r.user_id = partner),
+    (select max(e.best_score) from public.exams e where e.user_id = partner)
+  where public.shares_stats_with(partner);
+$$;
+
+-- Suppression de compte : couvre les nouvelles tables. Seul le compteur d'appels IA du jour est gardé
+-- pour qu'on ne puisse pas remettre son quota à zéro en supprimant ses données.
+create or replace function public.delete_my_data()
+ returns void language plpgsql security definer set search_path to ''
+as $$
+declare uid uuid := (select auth.uid());
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  delete from public.mistakes where user_id = uid;
+  delete from public.ai_cache where user_id = uid;
+  delete from public.quiz_results where user_id = uid;
+  delete from public.quizzes where user_id = uid;
+  delete from public.exams where user_id = uid;
+  delete from public.cards where user_id = uid;
+  delete from public.summaries where user_id = uid;
+  delete from public.sources where user_id = uid;
+  delete from public.chapters where user_id = uid;
+  delete from public.groups where user_id = uid;
+  delete from public.subjects where user_id = uid;
+  delete from public.study_sessions where user_id = uid;
+  delete from public.share_links where a_id = uid or b_id = uid;
+  delete from public.push_subscriptions where user_id = uid;
+  delete from public.ai_usage where user_id = uid and day < current_date;
+  delete from public.profiles where user_id = uid;
+end; $$;
+```
+
+**2. Supabase : la clé Google (si pas déjà fait).**
+- Dashboard, Edge Functions, Secrets : ajoute `GCP_SERVICE_ACCOUNT_JSON` et colle tout le contenu de ton fichier de clé JSON Google.
+- Ne crée PAS de secret `AI_DAILY_QUOTA` (le quota de 40 est dans le code). S'il existe déjà avec 20, supprime-le ou mets 40.
+- Si le premier appel IA répond « vertex: ... not found », ajoute le secret `GEMINI_LOCATION` avec `europe-west1`.
+
+**3. Cloudflare Pages.**
+- dash.cloudflare.com, Workers & Pages, Create, onglet Pages, Connect to Git, choisis `justr4mzi/merge`, branche `main`.
+- Framework preset : None. Build command : vide. Build output directory : `/`. Save and Deploy.
+- Note l'adresse obtenue, du type `https://merge-xxx.pages.dev`.
+
+**4. Supabase : autoriser l'adresse du site.**
+- Dashboard, Authentication, URL Configuration. Site URL : ton adresse pages.dev. Redirect URLs : ajoute `https://merge-xxx.pages.dev/**`.
+
+**5. Google OAuth.**
+- console.cloud.google.com, APIs & Services, Credentials, Create credentials, OAuth client ID, type Web application.
+- Authorized JavaScript origins : ton adresse pages.dev. Authorized redirect URIs : `https://dmevntylywocyumgotij.supabase.co/auth/v1/callback`.
+- Copie le Client ID et le Client secret dans Supabase, Authentication, Providers, Google, puis active Google.
+- Écran de consentement OAuth : passe-le en « In production », sinon seuls les comptes testeurs peuvent se connecter.
+
+**6. Le lien « Contacter le créateur ».**
+Dans `js/config.js`, `CONTACT_CREATEUR` pointe vers `https://github.com/justr4mzi` (je n'ai pas voulu publier une adresse mail sans ton accord). Remplace-le par ce que tu veux : `mailto:...`, Instagram, Snapchat.
+
+### Ce qui a été fait cette nuit
+- Fonction `ai` version 3 DÉPLOYÉE et versionnée dans `supabase/functions/ai/index.ts`. Quota 40 appels par jour et par utilisateur. Nouvelles actions : `study` (kinds : quiz, controle, pieges, faceaface, exercices, mindmap, cloze, fiche), `prof`, `concret`, `blurting`, `feynman`, `khole`, `pourquoi`, `mnemo`. Toutes les consignes sont côté serveur (le navigateur n'envoie jamais de consigne libre) et contiennent toutes la phrase « Base-toi UNIQUEMENT sur le cours fourni ».
+- Inscription en 4 étapes : la nouvelle étape 3 demande la date du prochain contrôle de chaque matière avec un calendrier en vue mois, et un interrupteur « Pas de contrôle prévu, révision libre ». Même calendrier à la création d'une matière, dans la page de la matière, et l'onglet Calendrier permet de toucher un jour pour y placer un contrôle.
+- Dossiers (sous-catégories) : bouton + dans la matière, tuiles teintées à la couleur de la matière. Un dossier a 4 onglets : Résumés, Flashcards, Quiz, Contrôles, avec une ligne par chapitre. La table `groups` existait déjà, je l'ai réutilisée (pas de nouvelle table). Supprimer un dossier ne supprime pas ses chapitres.
+- Session de cartes : croix rouge « Faux » et bouton « Juste ». Une carte fausse revient dans la file jusqu'à être réussie. Jauge en pourcentage. Quiz proposé à la moitié. À 100 % : « Contrôle débloqué ».
+- Quiz et Contrôle écrits par l'IA à partir du cours (1 appel, puis gardés). Réponse rédigée : l'appli montre la réponse idéale et l'élève se valide lui-même. Sans IA ou quota atteint : la version « avec mes cartes » reste disponible.
+- Nouveaux modes : Chasse aux pièges, Feuille blanche (blurting), Méthode Feynman, Professeur IA avec « Rends ça concret » (pop culture, mangas, sport, vie quotidienne), Khôlle au micro, Combat de boss, Flash 60 secondes, Face-à-face, Mains libres, Exercices guidés, Carte mentale en SVG pur, Texte à trous, Fiche de synthèse A4, Carnet d'erreurs avec « Pourquoi ? », mnémotechnique à la 2e erreur, Planche de cartes A4.
+- Mode sombre : boutons en #4b39c8, accents en #9483ff. SVT en vert, physique en bleu.
+- Tests : `node tests/run.js` (Playwright + fausse base en mémoire dans `tests/fake-supabase.js`). 432 vérifications passent : tous les écrans en 390 px et 1280 px, clair et sombre, aucun débordement horizontal, aucun bouton sous 44 px, plus les parcours complets, le quota atteint et la base sans migration.
+
+### Choix techniques
+- Maîtrise d'un chapitre : part des cartes dont la dernière réponse est « Juste » (nouvelle colonne `cards.mastered`). Avant, il fallait que FSRS passe la carte « en révision », donc 2 bonnes réponses espacées : impossible d'atteindre 100 % en une session. FSRS continue de planifier les révisions comme avant.
+- Session d'un chapitre : cartes à revoir + toutes les cartes pas encore réussies (60 maximum par session), pour pouvoir monter à 100 %.
+- Cache « jamais deux appels » : chaque contenu généré est gardé à 3 niveaux (mémoire, stockage local, table `ai_cache` avec une ligne par chapitre et par type). Les outils demandent un clic « Préparer avec l'IA » la première fois, pour que l'élève sache qu'il dépense un appel. « Refaire avec l'IA » demande une confirmation.
+- Ce qui n'est PAS mis en cache car ça dépend de ce que l'élève écrit : feuille blanche, Feynman, questions au professeur, correction de khôlle (1 appel chacun, c'est indiqué sous le bouton). La dernière feuille blanche corrigée est gardée.
+- Sans IA du tout : boss, flash 60 secondes, mains libres, planche de cartes, associer, vrai ou faux, et les statistiques d'aisance de la khôlle (mots par minute, hésitations) sont calculés sur l'appareil.
+- Mnémotechnique : demandée automatiquement quand une carte atteint 2 erreurs, une seule fois par carte, puis gardée dans `cards.mnemonic`. Ça consomme 1 appel sans clic de l'élève : c'est ce que demandait le cahier des charges. Si le quota est atteint, un simple message, pas de blocage.
+- Message de quota : texte exact demandé, avec le bouton « Contacter le créateur », affiché partout où un appel IA échoue pour cause de quota. Pendant un import, ce qui a déjà été lu ou transcrit est gardé sur l'écran : relancer ne repaie pas.
+- Import « tout le contenu » : limite passée de 50 à 400 pages. Une page de PDF sans image ni dessin est lue en texte sur l'appareil (gratuit), même courte ; toute autre page part en image à l'IA, par paquets de 6. Le texte n'est plus coupé à 120 000 caractères : limite de 400 000 côté serveur, et au-delà l'appli découpe le cours en parties, chacune lue en entier (2 appels par partie). Un PDF scanné de 60 pages coûte donc 10 appels de lecture + 2.
+- Plusieurs imports dans un chapitre : le résumé du nouvel import s'ajoute sous un titre « Complément », et l'IA reçoit les questions existantes pour ne pas faire de doublons.
+- « Rends ça concret » : la consigne interdit de prêter des faits précis à une œuvre ou à une personne réelle, et impose une ligne « Dans ton cours : » avec la définition exacte. La comparaison est une image, les faits viennent du cours.
+- Mains libres : la voix est celle de l'appareil (Web Speech). Un son silencieux en boucle garde la session Media Session ouverte pour les boutons de l'écran verrouillé.
+- Suppression de compte (`delete_my_data`) : couvre les nouvelles tables et garde le compteur d'appels du jour, sinon on remettait son quota à zéro en supprimant ses données.
+- Chargement des cartes par pages de 1000 (limite de Supabase), sinon un élève avec plus de 1000 cartes en perdait.
+- Aucune nouvelle bibliothèque : NOTICE.md ne change pas.
+
+### Mode sans migration
+Tant que le script SQL de l'étape 1 n'est pas passé, l'appli détecte les colonnes manquantes et se rabat : maîtrise calculée avec l'état FSRS, cache et carnet d'erreurs et mnémotechniques en stockage local, révision libre gardée en local. Rien ne casse, mais rien de tout ça ne suit l'élève d'un appareil à l'autre.
+
+### Non testé en vrai (aucun compte ni clé disponible cette nuit)
+- La connexion Google, tous les appels IA réels (la fonction est déployée mais n'a jamais reçu d'appel), la qualité des contenus de `gemini-3.8-flash`, la lecture de vrais PDF et de photos iPhone (HEIC).
+- La khôlle au micro : Web Speech API marche sur Chrome et Safari récents, pas sur Firefox (l'appli propose alors d'écrire la réponse).
+- Mains libres sur écran verrouillé d'iPhone : iOS peut couper la voix de synthèse en arrière-plan. À essayer sur ton téléphone.
+- L'impression réelle de la planche en recto verso (l'alignement dépend de l'imprimante ; le mode « À plier » évite le problème).
+- La police Nunito n'était pas chargée pendant les tests (réseau bloqué) : les largeurs ont été vérifiées avec la police de secours.
+
+### Toujours pas fait
+- Les images du PowerPoint ne sont pas lues (texte seulement) : exporter en PDF.
+- Voix naturelle Gemini, partage de chapitre entre élèves, classement.
