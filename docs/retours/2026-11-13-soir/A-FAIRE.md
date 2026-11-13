@@ -105,3 +105,10 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 18. Import d'un cours depuis une vidéo YouTube ou un enregistrement audio du prof.
 19. Fiche de synthèse audio de 5 minutes, à écouter avant le contrôle.
 20. Bilan de fin de trimestre : progrès, matières fortes et faibles, conseils.
+
+### Retenues dans la 2e liste (à faire au « go »)
+- 1. Fiche méthode par matière (rédiger en philo, démonstration en maths, analyse en SIN…).
+- 2. Sujets type bac à partir de VRAIS sujets des années précédentes. Rien d'automatique : quand l'élève clique, l'IA récupère sur le web le sujet officiel de l'année demandée (filière et matière de l'élève, ex. bac STI2D) et le transforme en épreuve interactive dans Merge (questions, barème, correction). Citer la source et l'année. Si le sujet n'est pas trouvé, le dire au lieu d'en inventer un.
+- 5. Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
+- 11. Bouton « Je ne comprends pas » sur une carte : explication pas à pas, à partir du cours.
+- 15. Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
