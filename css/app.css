@@ -702,3 +702,8 @@ body.pomo::after{display:none}
 .synth.fit header,.synth.fit section.wide{grid-column:1/-1}
 .synth.fit section{padding:2mm 3mm}
 @media print{.synth{break-inside:avoid;page-break-inside:avoid}}
+/* Formules (KaTeX) */
+span.m{font-family:"KaTeX_Main","Times New Roman",serif}
+span.m .katex{font-size:1.08em}
+span.m.md{display:block;margin:.4em 0;overflow-x:auto;overflow-y:hidden;text-align:center}
+.face .txt span.m .katex{font-size:1em}

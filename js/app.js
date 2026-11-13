@@ -143,9 +143,30 @@
   function colorFor(name, i) { return COULEUR_PAR_NOM[name.trim().toLowerCase()] || COULEURS[i % COULEURS.length]; }
   function fail(error, quoi) { console.error(quoi, error); toast(quoi + " : " + (error && error.message ? error.message : "erreur inconnue")); }
   function plural(n, un, des) { return n + " " + (n > 1 ? des : un); }
+  // Formules : $…$ et $$…$$ (ou \(…\) et \[…\]) sont affichées comme en cours avec KaTeX (fractions posées, indices, symboles).
+  const TEXSYM = { times: "×", cdot: "·", div: "÷", Omega: "Ω", omega: "ω", pi: "π", alpha: "α", beta: "β", lambda: "λ", mu: "µ", Delta: "Δ", delta: "δ", theta: "θ", rho: "ρ", sigma: "σ", phi: "φ", leq: "≤", geq: "≥", le: "≤", ge: "≥", neq: "≠", approx: "≈", infty: "∞", to: "→", rightarrow: "→", Rightarrow: "⇒", leftrightarrow: "↔", pm: "±", degree: "°", circ: "°", sqrt: "√" };
+  function mathify(text, bold) {
+    const out = [], re = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g; let last = 0, m;
+    const plain = t => esc(t.replace(/\\([A-Za-z]+)/g, (x, k) => TEXSYM[k] || x));
+    while ((m = re.exec(text))) { out.push(plain(text.slice(last, m.index))); const tex = m[1] || m[2] || m[3] || m[4], disp = !!(m[1] || m[2]); out.push(`<span class="m${disp ? " md" : ""}" data-tex="${esc(tex)}">${esc(tex)}</span>`); last = re.lastIndex; }
+    out.push(plain(text.slice(last))); const h = out.join(""); return bold ? h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>") : h;
+  }
+  const mx = t => mathify(String(t == null ? "" : t), false);
+  let katexP = null;
+  function loadKatex() {
+    if (window.katex) return Promise.resolve(); if (katexP) return katexP;
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "vendor/katex/katex.min.css"; document.head.appendChild(css);
+    katexP = new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "vendor/katex/katex.min.js"; sc.onload = ok; sc.onerror = () => { katexP = null; ko(); }; document.head.appendChild(sc); });
+    return katexP;
+  }
+  function renderMath(root) {
+    const els = (root || document).querySelectorAll("span.m:not([data-ok])"); if (!els.length) return;
+    loadKatex().then(() => els.forEach(el => { if (el.dataset.ok) return; try { window.katex.render(el.dataset.tex, el, { displayMode: el.classList.contains("md"), throwOnError: false, strict: false, output: "html" }); } catch (e) { /* formule laissée en texte */ } el.dataset.ok = "1"; })).catch(() => {});
+  }
+  new MutationObserver(() => renderMath(document.body)).observe(document.body, { childList: true, subtree: true });
   function md(text) {
     const out = []; let list = false;
-    const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    const inline = s => mathify(s, true);
     String(text || "").split(/\r?\n/).forEach(l => {
       const t = l.trim();
       if (/^[-*•]\s+/.test(t)) { if (!list) { out.push("<ul>"); list = true; } out.push("<li>" + inline(t.replace(/^[-*•]\s+/, "")) + "</li>"); return; }
@@ -795,7 +816,7 @@
     wireChapterTools(id, ch, cards); wireModes();
     if (!cards.length) return;
     const list = $("list");
-    const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${esc(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${esc(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
+    const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${mx(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${mx(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
     list.innerHTML = cards.map(drawCard).join("");
     list.onclick = async (e) => {
       const b = e.target.closest("button"); if (!b) return;
@@ -1264,8 +1285,8 @@
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progression de la session"><i style="width:${pct}%"></i></div>
         <div class="counters"><span class="counter no" aria-label="Cartes à revoir">${S.again.size}</span><span class="counter yes" aria-label="Cartes réussies">${S.known}</span></div>
         <div class="flipwrap" id="wrap"><button class="flip${S.flipped ? " back" : ""}" id="flip" aria-label="Retourner la carte">
-          <div class="face"><header>${training ? "Entraînement" : S.again.has(c.id) ? "On la revoit" : "Question"}</header><div class="txt">${esc(c.front)}</div><footer>Touche la carte pour voir la réponse</footer></div>
-          <div class="face b"><header>Réponse</header><div class="txt">${esc(c.back)}</div><div id="mnemo">${mnemoHtml(c)}</div><div id="extra" class="extra">${backExtra(c)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
+          <div class="face"><header>${training ? "Entraînement" : S.again.has(c.id) ? "On la revoit" : "Question"}</header><div class="txt">${mx(c.front)}</div><footer>Touche la carte pour voir la réponse</footer></div>
+          <div class="face b"><header>Réponse</header><div class="txt">${mx(c.back)}</div><div id="mnemo">${mnemoHtml(c)}</div><div id="extra" class="extra">${backExtra(c)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
         </button></div>
         ${typed() ? `<div class="field typedbox"><label for="mine">Ta réponse, avant de retourner la carte</label><textarea id="mine" style="min-height:70px" placeholder="Écris ce que tu répondrais">${esc(S.mine)}</textarea></div>` : ""}
         <div class="answers"><button class="btn bad" id="no" aria-label="Faux, pas compris">${I.x}Faux</button><button class="btn good" id="yes">${I.check}Juste</button></div>
@@ -1812,7 +1833,7 @@
     for (const s of spans) { if (s.a < pos) continue; out += esc(text.slice(pos, s.a)) + `<mark class="hl ${s.cls}"${s.tip ? ` title="${esc(s.tip)}"` : ""}>${esc(text.slice(s.a, s.b))}</mark>`; pos = s.b; }
     return out + esc(text.slice(pos));
   }
-  const li = (arr) => (arr || []).filter(Boolean).map(x => `<li>${esc(typeof x === "string" ? x : JSON.stringify(x))}</li>`).join("");
+  const li = (arr) => (arr || []).filter(Boolean).map(x => `<li>${mx(typeof x === "string" ? x : JSON.stringify(x))}</li>`).join("");
   const emptyTool = (id, title, msg) => { app.innerHTML = toolHead(id, title) + `<div class="card done"><p class="muted">${msg}</p><a class="btn" href="#chapitre-${id}">Retour au chapitre</a></div>`; };
   // Voix : on prend la meilleure voix installée (voix « naturelles » ou Google d'abord), ou celle choisie dans Réglages.
   function voicesFor(lang) { if (!("speechSynthesis" in window)) return []; const p = (lang || "fr").slice(0, 2).toLowerCase(); return speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith(p)); }
@@ -2353,8 +2374,8 @@
       app.innerHTML = `<div class="row between noprint"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><button class="btn sm" id="print">${I.print}Imprimer ou enregistrer en PDF</button></div>
         <div class="a4wrap"><article class="a4 synth" style="--c:${esc(s.color)}"><header><span>${esc(s.name)}</span><h1>${esc(ch.name)}</h1><span>Merge.</span></header>
           ${box("L'essentiel", (f.essentiel || []).length ? `<ul>${li(f.essentiel)}</ul>` : "", "wide")}
-          ${box("Définitions", (f.definitions || []).length ? `<dl>${f.definitions.map(d => `<div><dt>${esc(d.terme)}</dt><dd>${esc(d.definition)}</dd></div>`).join("")}</dl>` : "", "wide")}
-          ${box("Formules et lois", (f.formules || []).length ? `<dl class="formules">${f.formules.map(d => `<div><dt>${esc(d.nom)}</dt><dd>${esc(d.formule)}</dd></div>`).join("")}</dl>` : "")}
+          ${box("Définitions", (f.definitions || []).length ? `<dl>${f.definitions.map(d => `<div><dt>${mx(d.terme)}</dt><dd>${mx(d.definition)}</dd></div>`).join("")}</dl>` : "", "wide")}
+          ${box("Formules et lois", (f.formules || []).length ? `<dl class="formules">${f.formules.map(d => `<div><dt>${mx(d.nom)}</dt><dd>${mx(d.formule)}</dd></div>`).join("")}</dl>` : "")}
           ${box("Pièges à éviter", (f.pieges || []).length ? `<ul>${li(f.pieges)}</ul>` : "", "warn")}
           ${box("Pour retenir", (f.mnemos || []).length ? `<ul>${li(f.mnemos)}</ul>` : "")}
         </article></div>${regenHtml}`;

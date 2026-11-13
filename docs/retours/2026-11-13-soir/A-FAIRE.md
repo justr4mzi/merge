@@ -31,7 +31,7 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Quota : Ramzi a mis `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (à confirmer). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
 ## Bugs
-6. Résumé : LaTeX brut ($I$, $U_{AB}$, \times) (`10-resume-caracteres-latex.png`). NE PAS contourner : afficher vraiment les formules et symboles comme en cours (rendu mathématique, ex. KaTeX en local dans `vendor/`) : indices, exposants, ×, Ω, racines, et les fractions posées (barre horizontale, numérateur au-dessus, dénominateur en dessous), jamais avec un slash. Vaut pour résumé, cartes, quiz, fiche, carte mentale, prof IA. Demander à l'IA d'écrire les formules en LaTeX entre $…$ pour qu'elles soient rendues.
+6. Formules : RENDU FAIT (KaTeX dans `vendor/katex`, chargé seulement quand une formule apparaît ; résumé, prof IA, demande libre, flashcards, liste des cartes, fiche de synthèse ; symboles \times, \Omega… hors $ convertis). RESTE : (a) consignes IA (fonctions `ai` et `studio`) : écrire toutes les formules en LaTeX entre $…$ et les fractions avec \frac, jamais avec « / » ; (b) appliquer le rendu aux quiz, contrôles, carte mentale, textes à trous, exercices, pièges, face-à-face.
 
 ## Nouveautés
 8. Calendrier : vacances scolaires zone A (2025-2026 et 2026-2027, dates officielles à vérifier sur education.gouv.fr ou service-public.fr).
