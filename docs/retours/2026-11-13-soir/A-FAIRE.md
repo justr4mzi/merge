@@ -46,3 +46,28 @@ Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe,
 
 ## Voix
 18. Lister toutes les solutions pour une voix correcte (voix du navigateur actuelle, Google Cloud Text-to-Speech couvert par les crédits, voix Gemini, OpenAI, ElevenLabs…). Ramzi choisit avant toute installation.
+
+## Chasse aux bugs (au « go »)
+22. Passer tout le site en revue sur téléphone et PC pour trouver d'autres bugs : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
+
+## 20 idées proposées (Ramzi choisit)
+1. Mode sombre et clair retravaillé : le thème clair est moins soigné que le sombre.
+2. Écran d'accueil d'un nouveau compte guidé : « importe ton premier cours » avec un exemple tout prêt à essayer.
+3. Import depuis Google Drive ou un lien (Pronote, ENT, Classroom) plutôt que télécharger puis réimporter.
+4. Photo de cours directement depuis la caméra, avec redressement et recadrage automatiques de la page.
+5. Mode hors ligne complet : résumé, fiche et quiz déjà générés disponibles sans réseau, pas seulement les cartes.
+6. Objectif avant le bac : compte à rebours et pourcentage du programme maîtrisé, toutes matières.
+7. Révision mélangée : cartes de plusieurs matières à la suite, plus efficace que matière par matière.
+8. Cartes avec image : la page du cours ou un schéma directement au recto ou au verso.
+9. Formules : rendu mathématique partout et clavier simple pour taper une formule dans les réponses.
+10. Défis entre amis : même quiz, meilleur score, classement de la semaine (avec Duo).
+11. Groupes de classe : partager un chapitre avec toute la classe, chacun garde sa progression.
+12. Widgets et raccourcis : « réviser 5 cartes » depuis l'écran d'accueil du téléphone.
+13. Thèmes de couleur au choix (violet, bleu, vert, rose) et fonds animés discrets.
+14. Animations de réussite plus variées : série, niveau, chapitre maîtrisé, record battu.
+15. Corbeille : récupérer une matière, un chapitre ou une carte supprimés par erreur pendant 30 jours.
+16. Export : toutes les cartes en PDF, ou vers Anki et Quizlet.
+17. Historique des imports : voir et supprimer les fichiers envoyés, réimporter un chapitre.
+18. Recherche dans le texte du cours lui-même, pas seulement dans les cartes.
+19. Mode révision du soir : interface plus sombre et plus douce, sons coupés, minuteur de fin.
+20. Page « À propos et aide » : questions fréquentes, contact, version de l'appli, nouveautés de chaque mise à jour.
