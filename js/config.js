@@ -10,7 +10,7 @@ window.CONFIG = {
   // Musiques de fond. Les fichiers sont trop lourds pour le dépôt : ils sont joints à une « release » GitHub nommée « audio ».
   LOFI: [
     { nom: "Lofi", url: "https://github.com/justr4mzi/merge/releases/download/audio/Lofi.mp3" },
-    { nom: "Lofi de Noël", url: "https://github.com/justr4mzi/merge/releases/download/audio/Lofi.chrismas.mp3" }
+    { nom: "Christmas Lofi", url: "https://github.com/justr4mzi/merge/releases/download/audio/Lofi.chrismas.mp3" }
   ],
   CARTES_PAR_DEFAUT: 40,
   CARTES_MAX: 100,

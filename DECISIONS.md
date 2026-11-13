@@ -258,3 +258,18 @@ Retours de Ramzi après le premier vrai test (import de 3 PDF, 16 pages avec sch
 ## 13 nov. 2026, 16 h : retours téléphone
 
 Détail et captures dans `docs/retours/2026-11-13/A-FAIRE-22h05.md`. En bref : barre du bas en 6 colonnes égales, champs et listes à 52 px, flou retiré sur la barre du bas (bug de défilement iOS, non reproduit ici), classes réduites à 5 (dont PASS et médecine 2e et 3e année), réglages de la matière repliés, lecteur de musique de fond (fichiers à joindre à une release GitHub `audio`), un import entier compte pour 1 appel IA.
+
+## 13 nov. 2026, soir : 15 fonctionnalités choisies par Ramzi
+
+Liste retenue (sur 20 proposées) : plan de révision automatique, rappel la veille d'un contrôle, niveaux et badges, gel de série, recherche rapide (PC et téléphone), schémas à légender, statistiques par chapitre, installation guidée, réponse écrite avant de retourner la carte (mode activable), « Trop facile » et « À revoir bientôt », Pomodoro, bilan de la semaine, note perso sur une carte, surlignage du résumé, reprise de la session quittée. Écartées : examen blanc par matière, partage de chapitre, session 5 minutes, révision espacée visible, mode veille de contrôle.
+
+- **Plan de révision.** Calculé chaque jour, sans IA : les chapitres non maîtrisés d'une matière sont répartis sur les jours restants (30 au plus), les plus faibles d'abord ; la veille ajoute une révision générale. Affiché sur l'accueil et dans le calendrier.
+- **Rappel la veille.** Dans la fonction `remind` (version 2, code maintenant dans le dépôt) : à l'heure du rappel de l'élève, ou à 18 h s'il n'en a pas. Il faut que l'appareil ait accepté les notifications. Pas testé avec une vraie notification.
+- **Niveau.** 10 points par bonne réponse, 2 par erreur, 100 par chapitre à 100 %. Calculé à partir des cartes, donc identique sur tous les appareils.
+- **Gel de série.** Automatique : un jour raté par semaine (lundi à dimanche) ne casse pas la série, s'il est entouré de jours révisés.
+- **Gardé sur l'appareil seulement** (pas dans la base, donc pas partagé entre téléphone et PC) : favoris, notes de cartes, surlignages, caches des schémas, courbe de maîtrise et temps par chapitre, session à reprendre, réglage « écrire ma réponse ». À passer en base si Ramzi veut les retrouver partout.
+- **Courbe de maîtrise.** Elle commence le 13 novembre : il n'y avait pas d'historique avant.
+- **Surlignage.** Marche sur un passage sans mise en forme au milieu (pas de gras à cheval).
+- **Reprise.** Pour les sessions de cartes seulement, pas pour un quiz en cours.
+- **Musique.** Fichiers dans la release GitHub `audio` (`Lofi.mp3`, `Lofi.chrismas.mp3`, 3 h chacun). Lecture et départ à une minute au hasard vérifiés dans Chromium. Le second titre s'affiche « Christmas Lofi ».
+- **Pomodoro.** Sur téléphone, c'est un bandeau en haut de l'écran pendant qu'il tourne, pour ne recouvrir aucun bouton.

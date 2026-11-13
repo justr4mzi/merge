@@ -285,6 +285,43 @@ async function v8(browser) {
   ok(!page.errors.length, "v8 téléphone : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+// v10 : plan du jour, niveau, recherche rapide, pomodoro, réponse écrite, note, reprise, statistiques, bilan, surlignage, schémas à légender.
+async function v10(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await page.evaluate(() => localStorage.setItem("merge.typed", "1"));
+  let t = await txt(page);
+  ok(t.includes("Ton plan du jour") && t.includes("Niveau 1") && t.includes("Installe Merge"), "v10 accueil : plan du jour, niveau et installation");
+  let o = await overflow(page); ok(o.sw <= o.iw, "v10 accueil : pas de débordement", JSON.stringify(o));
+  let sm = await small(page); ok(!sm.length, "v10 accueil : boutons de 44 px minimum", sm.join(" | "));
+  await page.click("[data-qs]"); await page.fill("#qs", "mito"); await page.waitForTimeout(150);
+  ok(await page.locator("#qsr a").count() >= 2, "v10 recherche rapide : résultats"); await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+k"); await page.waitForTimeout(100); ok(await page.locator("#qs").count() === 1, "v10 recherche rapide : Ctrl+K"); await page.keyboard.press("Escape");
+  await page.click("[data-pomo]"); await page.click("#pgo"); await page.waitForTimeout(1200);
+  ok(/Travail 24:5/.test(await page.locator("#pomochip").innerText()), "v10 pomodoro : le minuteur tourne dans la pastille"); await page.click("#prs"); await page.keyboard.press("Escape");
+  await go(page, "#cartes-c1", 400); await page.fill("#mine", "deux cellules"); await page.click("#flip"); await page.waitForTimeout(500);
+  ok((await page.locator("#extra").innerText()).includes("deux cellules"), "v10 cartes : ma réponse écrite s'affiche au dos");
+  await page.click("#noteb"); await page.fill("#nt", "penser à la photocopieuse"); await page.click("#ntok"); await page.waitForTimeout(150); await page.click("#flip"); await page.waitForTimeout(450);
+  ok((await page.locator("#extra").innerText()).includes("photocopieuse"), "v10 cartes : note perso au dos");
+  sm = await small(page); ok(!sm.length, "v10 cartes : boutons de 44 px minimum", sm.join(" | ")); o = await overflow(page); ok(o.sw <= o.iw, "v10 cartes : pas de débordement", JSON.stringify(o));
+  await page.click("#easy"); await page.waitForTimeout(150); await page.click("#hard"); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => window.__fake.DB.cards.filter(c => c.mastered).length) === 2, "v10 cartes : « Trop facile » et « À revoir bientôt » comptent comme justes");
+  await go(page, "#accueil", 300); ok((await txt(page)).includes("Reprendre : Chapitre 1"), "v10 accueil : reprendre la session quittée");
+  await go(page, "#stats-c1", 300); ok((await txt(page)).includes("Les cartes que tu rates le plus"), "v10 statistiques du chapitre"); o = await overflow(page); ok(o.sw <= o.iw, "v10 statistiques : pas de débordement", JSON.stringify(o));
+  await go(page, "#bilan", 300); ok((await txt(page)).includes("Objectif de la semaine prochaine"), "v10 bilan de la semaine"); o = await overflow(page); ok(o.sw <= o.iw, "v10 bilan : pas de débordement", JSON.stringify(o));
+  await go(page, "#resume-c1", 400);
+  await page.evaluate(() => { const n = [...document.querySelectorAll("#sumbox li, #sumbox p")].pop(), r = document.createRange(); r.selectNodeContents(n.lastChild.nodeType === 3 ? n.lastChild : n); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  await page.waitForTimeout(150); await page.click("#hlb"); await page.waitForTimeout(250);
+  ok(await page.locator("#sumbox mark.user").count() === 1 && await page.locator("#hlbox [data-hd]").count() === 1, "v10 résumé : passage surligné et listé");
+  await go(page, "#schema-c1", 400); ok((await txt(page)).includes("Aucune page avec schéma"), "v10 schémas : état vide");
+  await page.setInputFiles("#oadd", path.join(SHOTS, "390-dark-accueil.png")); await page.waitForSelector("#occl", { timeout: 8000 }).catch(() => {});
+  const bx = await page.locator("#occl").count() ? await page.locator("#occl").boundingBox() : null;
+  if (bx) { await page.mouse.move(bx.x + 40, bx.y + 40); await page.mouse.down(); await page.mouse.move(bx.x + 160, bx.y + 110, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(250); }
+  ok(await page.locator(".omask").count() === 1, "v10 schémas : cache placé en glissant");
+  await page.click('[data-om="train"]'); await page.waitForTimeout(150); await page.click(".omask");
+  ok((await page.locator("#ocount").innerText()).startsWith("1 / 1"), "v10 schémas : cache découvert à l'entraînement");
+  ok(!page.errors.length, "v10 : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -295,6 +332,7 @@ let BASE;
     await flows(browser);
     await v7(browser);
     await v8(browser);
+    await v10(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
   const bad = log.filter(l => !l.startsWith("ok"));

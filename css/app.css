@@ -620,3 +620,56 @@ details.fold>.pad{padding-top:4px}
 .sidemusic{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0 14px;margin-bottom:10px;border:0;border-radius:14px;background:none;color:var(--muted);font-weight:700;font-size:.92em}
 .sidemusic:hover{background:var(--card2);color:var(--fg)}
 @media (min-width:900px){body.nav .tabs,body.nav .tabs[hidden]{display:flex!important}.homemusic{display:none}}
+
+/* v10 : niveau, plan, recherche, pomodoro, statistiques, schémas à légender, notes, surlignage */
+.level{display:flex;align-items:center;gap:12px}
+.lvl{flex:none;font-weight:800;font-size:.85em;padding:6px 12px;border-radius:99px;background:linear-gradient(135deg,#4b39c8,#8f62f7);color:#fff}
+.level .bar{height:8px;border-radius:4px}.level .bar i{border-radius:4px;background:linear-gradient(90deg,#4b39c8,#9483ff)}
+.banner{flex-wrap:wrap}
+.banner.resume{background:linear-gradient(135deg,color-mix(in srgb,#18ae79 22%,var(--card)),var(--card));border:1px solid color-mix(in srgb,#18ae79 40%,transparent)}
+.badgewin{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.badgewin .mico{--mc:#f5b400}.badgewin .mico svg{fill:currentColor}
+.badge.on{background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--accent)}
+.qsr{display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto}
+.qsr .exam{min-height:56px}
+.sidemusic kbd{margin-left:auto;font-size:.72em;padding:2px 7px}
+.pomochip{position:fixed;left:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:30;min-height:44px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--fg);font-weight:800;font-size:.86em;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-variant-numeric:tabular-nums}
+.pomochip.pause{background:var(--mint-bg);color:var(--mint-ink);border-color:transparent}
+.pomochip svg{width:18px;height:18px}
+.pclock{text-align:center;font-size:3.4em}
+.curve{width:100%;height:140px;overflow:visible}
+.curve polyline{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.curve circle{fill:var(--accent)}
+.curve .gl{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
+.srow span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.srow b{text-align:right}
+.ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.othumb{display:flex;flex-direction:column;gap:8px;padding:10px;text-align:left;min-height:44px;color:inherit}
+.othumb:hover{border-color:var(--accent);transform:translateY(-2px)}
+.oimg{display:grid;place-items:center;aspect-ratio:4/3;border-radius:10px;background:var(--card2);overflow:hidden}
+.oimg img{width:100%;height:100%;object-fit:cover}
+.occl{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);user-select:none;-webkit-user-select:none;max-width:1100px}
+.occl.edit{touch-action:none;cursor:crosshair}
+.occl img{display:block;width:100%;pointer-events:none}
+.omask{position:absolute;border:2px solid #fff;border-radius:6px;background:#4b39c8;color:#fff;font-weight:800;font-size:.8em;padding:0;display:grid;place-items:center;min-width:0;min-height:0;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.omask.ghost{background:rgba(148,131,255,.45);pointer-events:none}
+.omask.open{background:transparent;border-color:var(--mint-solid);box-shadow:none}
+.omask.open span{display:none}
+.occl.edit .omask:not(.ghost):hover{background:var(--red-solid)}
+.typedbox textarea{min-height:70px}
+.extra{padding:0 18px}
+.mnemo.mine{background:var(--card2);color:var(--fg)}
+.mnemo.mynote{background:var(--peach-bg);color:var(--peach-ink)}
+.rate2{gap:12px}
+.rate2 .chip{justify-content:center;text-align:center}
+mark.hl.user{background:color-mix(in srgb,#f5b400 45%,transparent);color:inherit;border-radius:4px;padding:1px 2px}
+#hlbox:empty{display:none}
+@media (min-width:640px){.ogrid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}}
+@media (min-width:900px){.pomochip{left:272px;bottom:28px}}
+@media print{.pomochip{display:none!important}}
+.homemusic{display:flex;flex:none;gap:2px}
+@media (max-width:899px){
+  .pomochip{left:0;right:0;top:0;bottom:auto;border-radius:0;border:0;border-bottom:1px solid var(--line);justify-content:center;box-shadow:none;min-height:calc(44px + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px)}
+  body.pomo{padding-top:calc(env(safe-area-inset-top,0px) + 44px)}
+}
+@media (max-width:520px){.app>.row>.homemusic~.pill{display:none}}
