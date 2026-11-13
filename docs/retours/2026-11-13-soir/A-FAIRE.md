@@ -24,7 +24,9 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - « Écouter » dans « Réviser », en dernier.
 - Bouton « Modifier la carte » pendant les flashcards.
 - Classe libre : « Autre formation (à écrire)… » à l'inscription et dans Réglages.
-- Non fait faute de place dans la limite : suppression du quota de 40 (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut).
+- Notifications (fonction `remind` v3) : chaque jour avec le prénom (18 h par défaut, ou l'heure choisie), contrôles annoncés à J-7, J-3 et la veille, et message le matin du contrôle à 7 h 30. Reste : proposer d'activer les notifications plus tôt (à l'inscription).
+- Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
+- Non fait : suppression du quota de 40 (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
 ## Bugs
 5. Fiche de synthèse en PDF : « Pour retenir » part sur une 2e page (`09-pdf-synthese-2e-page.png`). Tout doit tenir sur une page A4 (texte qui rétrécit si besoin).
@@ -34,7 +36,6 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 8. Calendrier : vacances scolaires zone A (2025-2026 et 2026-2027, dates officielles à vérifier sur education.gouv.fr ou service-public.fr).
 9. Nouveau mode « Interro écrite » sur le modèle de `08-mode-question-reponse.png` : une question, l'élève tape sa réponse (nombre, mot, phrase), correction immédiate. Justifications corrigées par l'IA.
 10. Carte mentale beaucoup plus complète (plus de branches, de niveaux et de détails).
-12. Notifications : une par jour avec le prénom pour pousser à réviser (même sans heure choisie), et des rappels avant chaque contrôle (J-7, J-3, la veille, le matin). Proposer d'activer les notifications plus tôt.
 13. Tout doit pouvoir se régénérer (`12-quiz-regenerer.png`) : nouveau QCM, nouvelles questions rédigées, nouveau contrôle, nouvelle carte mentale, fiche, pièges, exercices, textes à trous, et « Créer d'autres flashcards » quand toutes sont faites (sans doublons).
 
 ## Musique

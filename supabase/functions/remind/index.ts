@@ -1,6 +1,6 @@
 // Fonction `remind` de Merge : envoie les rappels (notifications push).
 // Appelée toutes les 15 minutes par la base. Protégée par un secret interne (table app_secrets).
-// Deux rappels : le rappel quotidien à l'heure choisie, et « contrôle demain » la veille d'un contrôle.
+// Rappel chaque jour avec le prénom (18 h par défaut), contrôles à J-7, J-3 et la veille, et le matin du contrôle à 7 h 30.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -46,27 +46,29 @@ Deno.serve(async (req) => {
         else console.error("push", code, (e as Error).message);
       }
     };
+    const CHEERS = ["Dix minutes maintenant, c'est ça de moins avant le contrôle.", "Une carte après l'autre, c'est comme ça que ça rentre.", "Ta série t'attend, ne la casse pas.", "Régulier bat intense. Toujours.", "Ce que tu révises aujourd'hui, tu le sais encore dans un mois."];
+    const dueOf = async (uid: string) => { const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("user_id", uid).lte("due_at", now.toISOString()); return count ?? 0; };
+    const plus = (here: Any, n: number) => { const [y, m, d] = here.day.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return t.toISOString().slice(0, 10); };
     for (const s of subs as Any[]) {
-      const p = byUser[s.user_id], here = local(s.tz, now);
-      // Veille de contrôle : à l'heure du rappel, ou à 18 h si l'élève n'a pas choisi d'heure.
-      const [eh, em] = String(p?.reminder_time ?? "18:00").split(":").map(Number);
-      const etarget = eh * 60 + em;
-      if (here.minutes >= etarget && here.minutes < etarget + 15 && s.last_exam_sent !== here.day) {
-        const { data: exams } = await admin.from("subjects").select("id,name").eq("user_id", s.user_id).eq("archived", false).eq("exam_date", here.tomorrow);
-        if (exams?.length) {
-          const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("user_id", s.user_id).lte("due_at", now.toISOString());
-          const due = count ?? 0, names = exams.map((x: Any) => x.name).join(", ");
-          await push(s, `Contrôle de ${names} demain.${due > 0 ? ` ${due} carte${due > 1 ? "s" : ""} à revoir ce soir.` : " Un dernier tour de révision ?"}`, exams.length === 1 ? "./#matiere-" + exams[0].id : "./#accueil", { last_exam_sent: here.day, last_sent: here.day });
-          continue;
-        }
+      const p = byUser[s.user_id], here = local(s.tz, now), name = String(p?.display_name ?? "").trim();
+      const hi = name ? name + ", " : "";
+      // Le matin du contrôle (7 h 30) : un dernier encouragement.
+      if (here.minutes >= 450 && here.minutes < 465 && s.last_exam_sent !== here.day) {
+        const { data: today } = await admin.from("subjects").select("id,name").eq("user_id", s.user_id).eq("archived", false).eq("exam_date", here.day);
+        if (today?.length) { await push(s, `${hi}c'est le jour du contrôle de ${today.map((x: Any) => x.name).join(", ")}. Un dernier tour de tes cartes avant d'y aller ?`, today.length === 1 ? "./#matiere-" + today[0].id : "./#accueil", { last_exam_sent: here.day }); continue; }
       }
-      if (!p?.reminder_time) continue;
-      const [rh, rm] = String(p.reminder_time).split(":").map(Number);
+      // Rappel du jour, à l'heure choisie (18 h par défaut), avec les contrôles à J-7, J-3 et la veille.
+      const [rh, rm] = String(p?.reminder_time ?? "18:00").split(":").map(Number);
       const target = rh * 60 + rm;
       if (here.minutes < target || here.minutes >= target + 15 || s.last_sent === here.day) continue;
-      const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("user_id", s.user_id).lte("due_at", now.toISOString());
-      const due = count ?? 0;
-      await push(s, due > 0 ? `${due} carte${due > 1 ? "s" : ""} à réviser aujourd'hui.` : "Un petit tour de révision ?", "./#accueil", { last_sent: here.day });
+      const { data: soon } = await admin.from("subjects").select("id,name,exam_date").eq("user_id", s.user_id).eq("archived", false).in("exam_date", [plus(here, 1), plus(here, 3), plus(here, 7)]);
+      const due = await dueOf(s.user_id), cards = due > 0 ? `${due} carte${due > 1 ? "s" : ""} à revoir` : "un petit tour de révision";
+      let body: string, url = "./#accueil";
+      if (soon?.length) {
+        const x = soon.sort((a: Any, b: Any) => String(a.exam_date).localeCompare(String(b.exam_date)))[0], j = x.exam_date === plus(here, 1) ? "demain" : x.exam_date === plus(here, 3) ? "dans 3 jours" : "dans une semaine";
+        body = `${hi}contrôle de ${x.name} ${j}. ${due > 0 ? cards[0].toUpperCase() + cards.slice(1) + " ce soir." : "Un petit tour de révision ce soir ?"}`; url = "./#matiere-" + x.id;
+      } else body = `${hi}${cards} aujourd'hui. ${CHEERS[Number(here.day.slice(8)) % CHEERS.length]}`;
+      await push(s, body, url, { last_sent: here.day });
     }
     return json({ sent, removed, subscriptions: subs.length });
   } catch (e) {
