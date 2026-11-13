@@ -10,7 +10,9 @@
   const toastEl = document.getElementById("toast");
   const state = { user: null, profile: null, subjects: [], groups: [], chapters: [], cards: [], sessions: [], legacy: false };
 
-  const CLASSES = ["Seconde", "Première générale", "Première technologique", "Terminale générale", "Terminale STI2D", "Terminale STMG", "Terminale ST2S", "Terminale STL", "Autre"];
+  const CLASSES = ["Terminale générale", "Terminale STI2D", "PASS (1re année de médecine)", "Médecine 2e année", "Médecine 3e année"];
+  // Une classe choisie avant la réduction de la liste reste proposée à celui qui l'a.
+  const classOpts = (cur) => (cur && !CLASSES.includes(cur) ? [cur] : []).concat(CLASSES).map(c => `<option${c === cur ? " selected" : ""}>${esc(c)}</option>`).join("");
   const COULEURS = ["#3b82f6", "#18ae79", "#f08c3a", "#e0529c", "#8b5cf6", "#0ea5a4", "#e5484d", "#a16207", "#6366f1", "#06b6d4", "#84cc16", "#eab308", "#f97316", "#f43f5e", "#d946ef", "#a855f7", "#14b8a6", "#22c55e", "#64748b", "#b45309", "#be123c", "#1d4ed8", "#0f766e", "#7c3aed"];
   const TRONC = ["Philosophie", "Histoire-géo", "Anglais", "Espagnol", "Allemand", "EPS"];
   const MATIERES = {
@@ -23,6 +25,9 @@
     "Terminale ST2S": ["Maths", "STSS", "BPH", "Chimie", "Physique-chimie pour la santé", "ETLV", "Grand oral"].concat(TRONC),
     "Terminale STL": ["Maths", "Physique-chimie", "Biochimie-biologie", "Biotechnologies", "SPCL", "ETLV", "Grand oral"].concat(TRONC),
   };
+  const MED = ["Sémiologie", "Cardiologie", "Pneumologie", "Appareil digestif", "Neurologie", "Néphrologie", "Hématologie", "Immunologie", "Bactériologie-virologie", "Pharmacologie", "Anatomie pathologique", "Génétique", "Endocrinologie-nutrition", "Anglais médical"];
+  MATIERES["PASS (1re année de médecine)"] = ["Chimie-biochimie", "Biologie cellulaire", "Biophysique", "Histologie-embryologie", "Anatomie", "Physiologie", "Biostatistiques", "Pharmacologie", "Santé publique et SHS", "Anglais", "Mineure"];
+  MATIERES["Médecine 2e année"] = MED; MATIERES["Médecine 3e année"] = MED;
   const matieresFor = (classe) => MATIERES[classe] || MATIERES["Terminale générale"];
   const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || "");
   function colorPick(cur) {
@@ -324,7 +329,7 @@
       const list = [...d.matieres]; if (!list.includes(d.cur)) d.cur = list[0] || null;
       if (d.step === 1) body = `<h1>Bienvenue sur ${esc(C.NOM_APPLI)}<b class="dotc">.</b></h1>
         <div class="field"><label for="prenom">Ton prénom</label><input id="prenom" type="text" autocomplete="given-name" value="${esc(d.prenom)}"></div>
-        <div class="field"><label for="classe">Ta classe</label><select id="classe">${CLASSES.map(c => `<option${c === d.classe ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>`;
+        <div class="field"><label for="classe">Ta classe</label><select id="classe">${classOpts(d.classe)}</select></div>`;
       if (d.step === 2) body = `<h1>Tes matières</h1><p class="muted">Choisis celles que tu veux réviser.</p>
         <div class="chips">${props().map(m => `<button class="chip" data-m="${esc(m)}" aria-pressed="${d.matieres.has(m)}">${esc(m)}</button>`).join("")}</div>
         <form class="field" id="ownf"><label for="newm">Il en manque une ? Ajoute-la</label><div class="row"><input id="newm" class="grow" type="text" maxlength="40" placeholder="Ex. Arts plastiques" value="${esc(draftNew)}"><button class="btn sm" id="addm">${I.plus}Ajouter</button></div></form>
@@ -373,9 +378,35 @@
     tabs.hidden = false;
     const due = state.cards ? dueCards(state.cards).length : 0, st = state.sessions ? streak() : 0;
     tabs.innerHTML = `<div class="logo side">${esc(C.NOM_APPLI)}<b>.</b></div>` + TABS.map(t => `<a href="#${t[0]}"${t[0] === current ? ' aria-current="page"' : ""}>${I[t[2]]}<span>${t[1]}</span></a>`).join("")
-      + `<div class="sidefoot"><div class="sidecard"><b>${due ? plural(due, "carte", "cartes") + " à revoir" : "Tu es à jour"}</b><span>${st ? plural(st, "jour", "jours") + " d'affilée" : "Commence ta série aujourd'hui"}</span>${due ? '<button class="btn sm" id="sidego">Réviser</button>' : ""}</div></div>`;
+      + `<div class="sidefoot">${LOFI.length ? `<button class="sidemusic${music.on ? " on" : ""}" data-music>${I.listen}<span>Musique de fond</span></button>` : ""}<div class="sidecard"><b>${due ? plural(due, "carte", "cartes") + " à revoir" : "Tu es à jour"}</b><span>${st ? plural(st, "jour", "jours") + " d'affilée" : "Commence ta série aujourd'hui"}</span>${due ? '<button class="btn sm" id="sidego">Réviser</button>' : ""}</div></div>`;
     const g = document.getElementById("sidego"); if (g) g.onclick = () => { location.hash = "#cartes-jour"; };
   }
+  // Musique de fond (lofi) : un seul lecteur pour toute l'appli, qui démarre à une minute tirée au hasard.
+  const LOFI = (C.LOFI || []).filter(t => t && t.url);
+  const music = { el: null, i: -1, on: false, err: "" };
+  function musicPlay(i) {
+    const t = LOFI[i]; if (!t) return;
+    if (!music.el) { music.el = new Audio(); music.el.preload = "none"; music.el.loop = true; music.el.volume = Math.min(1, Math.max(0, parseFloat(safeGet("merge.lofivol")) || 0.4)); music.el.onerror = () => { music.on = false; music.err = "Cette musique n'est pas disponible pour l'instant."; musicPaint(); }; }
+    const a = music.el; music.err = "";
+    if (music.i !== i) { music.i = i; a.src = t.url; a.onloadedmetadata = () => { if (isFinite(a.duration) && a.duration > 180) { try { a.currentTime = Math.floor(Math.random() * Math.floor((a.duration - 60) / 60)) * 60; } catch (e) { /* lecture depuis le début */ } } }; }
+    a.play().then(() => { music.on = true; safeSet("merge.lofi", String(i)); musicPaint(); }).catch(() => { music.on = false; music.err = music.err || "Lecture impossible. Réessaie."; musicPaint(); });
+    music.on = true; musicPaint();
+  }
+  function musicStop() { if (music.el) music.el.pause(); music.on = false; musicPaint(); }
+  function musicPaint() {
+    document.querySelectorAll("[data-music]").forEach(b => b.classList.toggle("on", music.on));
+    const box = document.getElementById("musicbox"); if (!box) return;
+    box.innerHTML = `${LOFI.map((t, i) => `<button class="chip" data-track="${i}" aria-pressed="${music.on && music.i === i}">${music.on && music.i === i ? "En lecture : " : ""}${esc(t.nom)}</button>`).join("")}`;
+    box.querySelectorAll("[data-track]").forEach(b => b.onclick = () => { const i = +b.dataset.track; if (music.on && music.i === i) musicStop(); else musicPlay(i); });
+    const m = document.getElementById("musicmsg"); if (m) m.textContent = music.err || (music.on ? "La lecture a démarré à un moment tiré au hasard. Touche le titre pour arrêter." : "Touche un titre pour lancer la musique.");
+  }
+  function musicSheet() {
+    sheet(`<div class="row"><span class="mico big">${I.listen}</span><h1>Musique de fond</h1></div><div class="chips" id="musicbox"></div><p class="note" id="musicmsg" role="status"></p><div class="row"><label class="small muted" for="mvol">Volume</label><input id="mvol" class="grow" type="range" min="0" max="1" step="0.05" value="${music.el ? music.el.volume : (parseFloat(safeGet("merge.lofivol")) || 0.4)}"></div><button class="btn ghost" data-close>Fermer</button>`,
+      (el) => { musicPaint(); el.querySelector("#mvol").oninput = (e) => { safeSet("merge.lofivol", e.target.value); if (music.el) music.el.volume = +e.target.value; }; });
+  }
+  const musicBtn = () => LOFI.length ? `<button class="iconbtn flat musicbtn${music.on ? " on" : ""}" data-music aria-label="Musique de fond">${I.listen}</button>` : "";
+  document.addEventListener("click", e => { if (e.target.closest && e.target.closest("[data-music]")) musicSheet(); });
+
   // Petite fenêtre par-dessus l'écran (explication d'un mode, etc.).
   function closeSheet() { const el = document.getElementById("sheet"); if (el) el.remove(); }
   function sheet(html, wire) {
@@ -399,7 +430,7 @@
     const week = lastDays(7, state.sessions), wmax = Math.max(300, ...week.map(x => Math.max(x.seconds, x.cards_reviewed * 20)));
     const ups = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
-    app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
+    app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div><span class="grow"></span><span class="homemusic">${musicBtn()}</span>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
       <div class="hello"><h1>Salut ${esc(p.display_name || "")}</h1><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
       <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
@@ -1087,7 +1118,7 @@
     app.innerHTML = `<h1>Réglages</h1>
       <div class="card pad stack"><h2>Ton profil</h2>
         <div class="field"><label for="prenom">Prénom</label><input id="prenom" type="text" value="${esc(p.display_name || "")}"></div>
-        <div class="field"><label for="classe">Classe</label><select id="classe">${CLASSES.map(c => `<option${c === p.classe ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
+        <div class="field"><label for="classe">Classe</label><select id="classe">${classOpts(p.classe)}</select></div>
         <div class="field"><span class="label">Objectif par jour</span>${chips("k", [["minutes", "En minutes"], ["cards", "En cartes"]], p.daily_goal_kind)}<input id="val" type="number" inputmode="numeric" min="1" max="500" value="${p.daily_goal_value}" aria-label="Valeur de l'objectif"></div>
         <button class="btn" id="saveP">Enregistrer</button></div>
       <div class="card pad stack"><h2>Apparence</h2>
@@ -1279,9 +1310,9 @@
   function subjectToolsHtml(s, chs) {
     const j = daysUntil(s.exam_date), weak = chs.map(c => ({ c, m: mastery(cardsOf(c.id)), n: cardsOf(c.id).length })).filter(x => x.n).sort((a, b) => a.m - b.m);
     return `${j != null && j >= 0 && weak.length ? `<div class="card pad stack"><h2>Plan de révision</h2><p class="muted">${j === 0 ? "Le contrôle est aujourd'hui." : "Il reste " + plural(j, "jour", "jours") + "."} Commence par les chapitres les moins maîtrisés.</p>${weak.slice(0, 5).map((x, i) => `<a class="row between" style="text-decoration:none;min-height:44px" href="#cartes-${x.c.id}"><span><b>${i + 1}.</b> ${esc(x.c.name)}</span><span class="pill ${x.m < 50 ? "warn" : ""}">${x.m} %</span></a>`).join("")}</div>` : ""}
-      <div class="card pad stack"><h2>Réglages de la matière</h2><div class="field"><label for="sn">Nom</label><input id="sn" type="text" maxlength="60" value="${esc(s.name)}"></div>
+      <details class="card fold"><summary><span class="row">${I.gear}<b>Réglages de la matière</b></span>${I.back}</summary><div class="pad stack"><div class="field"><label for="sn">Nom</label><input id="sn" type="text" maxlength="60" value="${esc(s.name)}"></div>
         <div class="field"><span class="label">Couleur</span><div id="scol">${colorPick(s.color)}</div></div>
-        <div class="row"><button class="btn sm" id="ssave">Enregistrer</button><button class="btn sm ghost" id="sdel">Supprimer la matière</button></div><div id="sbox"></div></div>`;
+        <div class="row"><button class="btn sm" id="ssave">Enregistrer</button><button class="btn sm ghost" id="sdel">Supprimer la matière</button></div><div id="sbox"></div></div></details>`;
   }
   function wireSubjectTools(s) {
     let col = s.color;

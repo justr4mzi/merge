@@ -254,3 +254,7 @@ Retours de Ramzi après le premier vrai test (import de 3 PDF, 16 pages avec sch
 - **Voix.** La lecture utilise la synthèse du navigateur. Merge choisit maintenant la voix la plus naturelle installée et laisse choisir la voix et la vitesse dans Réglages. Limite : sur Chrome Windows les voix restent moyennes ; Edge en a de bien meilleures. Une vraie voix IA (payante à l'usage) est possible plus tard.
 - **Chapitre de test.** Pour vérifier l'import serveur, un chapitre « Test technique import » (archivé, donc invisible dans l'appli) a été créé dans le compte de Ramzi, avec 6 cartes. La suppression demandait une confirmation qui n'est pas arrivée. À supprimer dans Supabase : `delete from chapters where name = 'Test technique import';`
 - La fonction `remind` (rappels quotidiens) existe sur Supabase mais son code n'est pas dans ce dépôt.
+
+## 13 nov. 2026, 16 h : retours téléphone
+
+Détail et captures dans `docs/retours/2026-11-13/A-FAIRE-22h05.md`. En bref : barre du bas en 6 colonnes égales, champs et listes à 52 px, flou retiré sur la barre du bas (bug de défilement iOS, non reproduit ici), classes réduites à 5 (dont PASS et médecine 2e et 3e année), réglages de la matière repliés, lecteur de musique de fond (fichiers à joindre à une release GitHub `audio`), un import entier compte pour 1 appel IA.
