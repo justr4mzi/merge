@@ -49,6 +49,7 @@ manifest.webmanifest        PWA manifest
 sw.js                       service worker (caches the app shell, push reminders)
 supabase/functions/ai/      source of the deployed Edge Function
 supabase/migrations/        SQL migrations added since v6 (earlier ones live in the Supabase project)
+supabase/optional/          SQL that is ready but not applied
 tests/                      Playwright suite and an in-memory fake Supabase client
 NOTICE.md                   third-party licences
 ```
