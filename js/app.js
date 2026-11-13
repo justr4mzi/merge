@@ -47,7 +47,7 @@
 
   const svg = (d, extra) => `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${extra || ""}>${d}</svg>`;
   const I = {
-    back: svg('<path d="M15 6l-6 6 6 6"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
+    back: svg('<path d="M15 6l-6 6 6 6"/>'), star: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.8z"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'), spark: svg('<path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
     home: svg('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
     gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'),
     cards: '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="15" height="11" rx="2.5"/><path d="M8 4h11a3 3 0 013 3v8a1 1 0 01-2 0V7a1 1 0 00-1-1H8a1 1 0 010-2z" opacity=".55"/></svg>',
@@ -371,8 +371,20 @@
   const TABS = [["accueil", "Accueil", "home"], ["matieres", "Matières", "subj"], ["calendrier", "Calendrier", "cal"], ["progres", "Progrès", "chart"], ["duo", "Duo", "duo"], ["reglages", "Réglages", "gear"]];
   function drawTabs(current) {
     tabs.hidden = false;
-    tabs.innerHTML = `<div class="logo side">${esc(C.NOM_APPLI)}<b>.</b></div>` + TABS.map(t => `<a href="#${t[0]}"${t[0] === current ? ' aria-current="page"' : ""}>${I[t[2]]}<span>${t[1]}</span></a>`).join("");
+    const due = state.cards ? dueCards(state.cards).length : 0, st = state.sessions ? streak() : 0;
+    tabs.innerHTML = `<div class="logo side">${esc(C.NOM_APPLI)}<b>.</b></div>` + TABS.map(t => `<a href="#${t[0]}"${t[0] === current ? ' aria-current="page"' : ""}>${I[t[2]]}<span>${t[1]}</span></a>`).join("")
+      + `<div class="sidefoot"><div class="sidecard"><b>${due ? plural(due, "carte", "cartes") + " à revoir" : "Tu es à jour"}</b><span>${st ? plural(st, "jour", "jours") + " d'affilée" : "Commence ta série aujourd'hui"}</span>${due ? '<button class="btn sm" id="sidego">Réviser</button>' : ""}</div></div>`;
+    const g = document.getElementById("sidego"); if (g) g.onclick = () => { location.hash = "#cartes-jour"; };
   }
+  // Petite fenêtre par-dessus l'écran (explication d'un mode, etc.).
+  function closeSheet() { const el = document.getElementById("sheet"); if (el) el.remove(); }
+  function sheet(html, wire) {
+    closeSheet(); const el = document.createElement("div"); el.className = "sheetwrap"; el.id = "sheet";
+    el.innerHTML = `<div class="sheet card" role="dialog" aria-modal="true">${html}</div>`;
+    el.onclick = e => { if (e.target === el || e.target.closest("[data-close]")) closeSheet(); };
+    document.body.appendChild(el); if (wire) wire(el); const f = el.querySelector("a.btn,button.btn"); if (f) f.focus();
+  }
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
 
   // ---------- accueil ----------
   let homeQuota = null, homeQuotaAt = 0;
@@ -384,13 +396,17 @@
     const unit = p.daily_goal_kind === "minutes" ? "min" : "cartes";
     const next = state.subjects.filter(s => s.exam_date && daysUntil(s.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date))[0];
     const ready = state.chapters.filter(c => cardsOf(c.id).length).slice(-4).reverse();
+    const week = lastDays(7, state.sessions), wmax = Math.max(300, ...week.map(x => Math.max(x.seconds, x.cards_reviewed * 20)));
+    const ups = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak">${plural(st, "jour", "jours")} d'affilée</span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
       <div class="hello"><h1>Salut ${esc(p.display_name || "")}</h1><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
-      <div class="hero"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
+      <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
         ${due ? '<a class="btn" href="#cartes-jour">Réviser maintenant</a>' : `<p class="small muted">${state.cards.length ? "Tu es à jour. Reviens plus tard ou ouvre un chapitre pour t'entraîner." : "Ajoute un chapitre et importe ton cours pour créer tes premières cartes."}</p>`}</div>
-        <div class="tiles homet"><div class="card tile t1"><b>${st}</b><span>${st > 1 ? "jours d'affilée" : "jour d'affilée"}</span></div><div class="card tile t2"><b>${state.cards.filter(isMastered).length}</b><span>cartes maîtrisées sur ${state.cards.length}</span></div><div class="card tile t3"><b>${next ? "J-" + daysUntil(next.exam_date) : "Libre"}</b><span>${next ? esc(next.name) : "aucun contrôle prévu"}</span></div><div class="card tile t4"><b id="hq">${homeQuota ? homeQuota.calls + "/" + homeQuota.quota : "…"}</b><span>appels IA aujourd'hui</span></div></div></div>
+        <div class="card pad week"><div class="row between"><h2>Ta semaine</h2><span class="small muted">${Math.round(week.reduce((x, y) => x + y.seconds, 0) / 60)} min · ${plural(week.reduce((x, y) => x + y.cards_reviewed, 0), "carte", "cartes")}</span></div><div class="wbars">${week.map(x => `<div><i class="${x.seconds || x.cards_reviewed ? "" : "zero"}${x.day === localDay() ? " now" : ""}" style="height:${Math.max(6, Math.round(Math.max(x.seconds, x.cards_reviewed * 20) / wmax * 100))}%"></i><span>${"DLMMJVS"[new Date(x.day + "T00:00:00").getDay()]}</span></div>`).join("")}</div></div>
+        <div class="card pad stack upnext"><div class="row between"><h2>Prochains contrôles</h2><a class="linkbtn" href="#calendrier">Calendrier</a></div>${ups.length ? ups.slice(0, 3).map(x => `<a class="exam" href="#matiere-${x.id}" style="--c:${esc(x.color)}"><span class="jx">${daysUntil(x.exam_date) === 0 ? "Auj." : "J-" + daysUntil(x.exam_date)}</span><span class="grow"><b>${esc(x.name)}</b><span class="small muted">${esc(fmtDate(x.exam_date))}</span></span></a>`).join("") : '<p class="muted small">Aucun contrôle prévu. Place une date dans le calendrier pour avoir un plan de révision.</p>'}</div></div>
+      <div class="card stats">${[[I.bolt, st, st > 1 ? "jours d'affilée" : "jour d'affilée", ""], [I.check, state.cards.filter(isMastered).length + " / " + state.cards.length, "cartes maîtrisées", ""], [I.cal, next ? (daysUntil(next.exam_date) === 0 ? "Auj." : "J-" + daysUntil(next.exam_date)) : "Libre", next ? esc(next.name) : "aucun contrôle prévu", ""], [I.spark, homeQuota ? homeQuota.calls + "/" + homeQuota.quota : "…", "appels IA aujourd'hui", "hq"]].map((x, i) => `<div class="stat s${i + 1}"><span class="sico">${x[0]}</span><div><b${x[3] ? ` id="${x[3]}"` : ""}>${x[1]}</b><span>${x[2]}</span></div></div>`).join("")}</div>
       ${newYear ? `<div class="banner"><div><h2>Nouvelle année scolaire</h2><p class="small">Tu passes en quelle classe ? Mets ta classe à jour dans Réglages.</p></div><a class="btn sm" href="#reglages">Mettre à jour</a></div>` : ""}
       ${ready.length ? `<div class="stack"><h2>Reprendre</h2><div class="grid">${ready.map(c => `<div class="card subject"><a href="#chapitre-${c.id}" style="text-decoration:none"><b>${esc(c.name)}</b></a><div class="row"><div class="bar grow"><i style="width:${mastery(cardsOf(c.id))}%"></i></div><span class="small muted">${mastery(cardsOf(c.id))} %</span></div><div class="row"><a class="btn sm" href="#cartes-${c.id}">Cartes</a><a class="btn sm ghost" href="#ecouter-${c.id}">Écouter</a><a class="btn sm ghost" href="#apprendre-${c.id}">Apprendre</a></div></div>`).join("")}</div></div>` : ""}
       <div class="stack"><div class="row between"><h2>Matières</h2><button class="linkbtn" id="addSubject">Ajouter</button></div>
@@ -509,6 +525,37 @@
   }
 
   // ---------- chapitre ----------
+  // Tous les modes de révision d'un chapitre. ia : 0 = sans IA, 1 = un appel la première fois puis gardé, 2 = un appel à chaque utilisation.
+  const MODES = {
+    cartes: { i: "cards", n: "Flashcards", s: "Question d'un côté, réponse de l'autre", ia: 0, a: "Tu lis la question, tu réponds dans ta tête, puis tu retournes la carte. « Juste » : la carte est acquise. « Faux » : elle revient dans la file jusqu'à ce que tu la réussisses. À la moitié, un quiz t'est proposé. À 100 %, le contrôle se débloque." },
+    resume: { i: "sum", n: "Résumé", s: "L'essentiel du chapitre", ia: 0, a: "Le but du chapitre, les définitions et les notions clés, tirés de ton cours. Tu peux le raccourcir, le détailler ou le corriger à la main." },
+    apprendre: { i: "learn", n: "Apprendre", s: "Donne la réponse toi-même", ia: 0, a: "Les questions de tes cartes une par une, mais c'est toi qui dois donner la réponse au lieu de seulement la reconnaître. Plus exigeant, donc plus efficace." },
+    quiz: { i: "quiz", n: "Quiz", s: "QCM ou réponse rédigée", ia: 1, a: "Un quiz d'entraînement écrit à partir de ton cours : QCM ou réponses rédigées, avec la correction et l'explication." },
+    controle: { i: "lock", n: "Contrôle", s: "À 100 % de maîtrise", ia: 1, a: "Un contrôle complet, noté, comme en classe. Il se débloque quand tu maîtrises 100 % des cartes du chapitre." },
+    questions: { i: "ask", n: "Professeur IA", s: "Pose tes questions sur le cours", ia: 2, a: "Tu poses une question, il répond uniquement avec ce qui est écrit dans ton cours. Il peut ensuite l'illustrer avec un exemple concret (sport, mangas, vie quotidienne)." },
+    libre: { i: "spark", n: "Demande libre", s: "Demande ce que tu veux à l'IA", ia: 2, a: "Tu écris exactement ce que tu veux : un plan, dix questions pièges, une histoire pour retenir, un classement des notions… L'IA le fabrique à partir de ton cours, sans rien inventer." },
+    blurting: { i: "blank", n: "Feuille blanche", s: "Écris tout de mémoire", ia: 2, a: "Tu écris tout ce dont tu te souviens, sans regarder. L'IA te montre ce qui est juste, faux ou oublié, et ajoute 3 cartes sur tes trous." },
+    feynman: { i: "bulb", n: "Méthode Feynman", s: "Explique comme à un enfant", ia: 2, a: "Tu expliques une notion comme à un enfant de 10 ans. L'IA te dit si tu as vraiment compris ou seulement récité, et ce qui manque." },
+    pieges: { i: "trap", n: "Chasse aux pièges", s: "Deviens le correcteur", ia: 1, a: "Une copie d'élève contient des erreurs classiques. À toi de les repérer. Tu apprends en corrigeant." },
+    faceaface: { i: "vs", n: "Face-à-face", s: "Les notions qu'on confond", ia: 1, a: "Les notions qui se ressemblent, comparées côte à côte, puis un mini quiz pour ne plus les mélanger." },
+    exercices: { i: "steps", n: "Exercices guidés", s: "Indices pas à pas", ia: 1, a: "Trois exercices de difficulté croissante. Deux indices si tu bloques, puis la solution rédigée comme sur une copie." },
+    trous: { i: "cloze", n: "Texte à trous", s: "Complète les phrases clés", ia: 1, a: "Les phrases importantes du cours avec des mots manquants. Tu complètes, Merge corrige." },
+    carte: { i: "map", n: "Carte mentale", s: "Le chapitre en un schéma", ia: 1, a: "Tout le chapitre en arbre : les grandes idées, puis les notions. Tu peux zoomer et replier les branches." },
+    boss: { i: "shield", n: "Combat de boss", s: "Bats le boss du chapitre", ia: 0, a: "Chaque bonne réponse retire des points de vie au boss, chaque erreur t'en coûte. À faire quand tu te sens prêt." },
+    flash: { i: "bolt", n: "Flash 60 secondes", s: "Vrai ou faux contre la montre", ia: 0, a: "60 secondes, un maximum de bonnes réponses, des combos si tu enchaînes." },
+    associer: { i: "match", n: "Associer", s: "Relie questions et réponses", ia: 0, a: "Retrouve les paires question-réponse le plus vite possible." },
+    vraifaux: { i: "quiz", n: "Vrai ou faux", s: "Réponse juste ou piégée ?", ia: 0, a: "Une question et une réponse : à toi de dire si elles vont ensemble." },
+    khole: { i: "mic", n: "Khôlle", s: "Réponds à l'oral, au micro", ia: 2, a: "Merge pose une question, tu réponds à voix haute. L'IA note la précision de ta réponse et ton aisance à l'oral." },
+    bus: { i: "bus", n: "Mains libres", s: "Écoute et réponds dans ta tête", ia: 0, a: "Question, pause, réponse, sans toucher l'écran. Fait pour le bus ou la marche." },
+    ecouter: { i: "listen", n: "Écouter", s: "Tes cartes lues à voix haute", ia: 0, a: "Tes cartes ou ton résumé lus à voix haute, à la vitesse que tu veux." },
+    synthese: { i: "sum", n: "Fiche de synthèse", s: "Une page A4 à imprimer", ia: 1, a: "L'essentiel, les définitions, les formules, les pièges et des astuces pour retenir, sur une seule page." },
+    planche: { i: "grid", n: "Planche de cartes", s: "Cartes à découper", ia: 0, a: "Tes cartes mises en page pour l'impression recto verso, à découper." },
+    erreurs: { i: "book", n: "Carnet d'erreurs", s: "Tes erreurs, expliquées", ia: 0, a: "Toutes les questions que tu as ratées dans ce chapitre. Le bouton « Pourquoi ? » t'explique chaque erreur (1 appel IA)." },
+  };
+  const MODE_CATS = [["Réviser", ["cartes", "resume", "apprendre", "quiz", "controle"]], ["Comprendre", ["questions", "libre", "blurting", "feynman", "pieges", "faceaface", "exercices", "trous", "carte"]], ["Jouer", ["boss", "flash", "associer", "vraifaux"]], ["Oral et audio", ["khole", "bus", "ecouter"]], ["Fiches", ["synthese", "planche", "erreurs"]]];
+  const IA_NOTE = ["Sans IA : gratuit et illimité.", "1 appel IA la première fois, puis c'est gardé : tu le rouvres autant que tu veux.", "1 appel IA à chaque utilisation."];
+  const favs = () => { try { const f = JSON.parse(safeGet("merge.fav") || "[]"); return Array.isArray(f) ? f.filter(k => MODES[k]) : []; } catch (e) { return []; } };
+
   async function screenChapter(id) {
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true;
@@ -521,20 +568,27 @@
     if (cr.error) return fail(cr.error, "Cartes non chargées");
     if (location.hash !== here) return;
     const cards = cr.data || [], meta = cardsOf(id), m = mastery(meta), due = dueCards(meta).length, hasSum = !!(sr.data);
-    const tile = (href, icon, name, sub) => `<a class="card mode" href="#${href}-${id}">${icon}<span>${name}${sub ? `<span class="small">${sub}</span>` : ""}</span></a>`;
-    const sect = (t, tiles) => `<div class="stack"><h2>${t}</h2><div class="modes">${tiles.join("")}</div></div>`;
+    const tile = (k) => {
+      const M = MODES[k], fav = favs().includes(k); let sub = M.s, icon = I[M.i], href = "#" + k + "-" + id;
+      if (k === "cartes") sub = m + " % de maîtrise"; if (k === "resume" && !hasSum) { href = "#import-" + id; sub = "Importe ton cours"; }
+      if (k === "controle") { icon = m >= 100 ? I.check : I.lock; sub = m >= 100 ? "Débloqué" : "À 100 % de maîtrise"; } if (k === "boss" && safeGet("merge.boss." + id)) sub = "Vaincu";
+      return `<div class="mtile${fav ? " isfav" : ""}"><a class="mmain" href="${href}"><span class="mico">${icon}</span><span class="mtxt"><b>${M.n}</b><span class="small">${sub}</span></span></a><button class="mbtn" data-info="${k}" aria-label="Comment marche ${M.n} ?">${I.info}</button><button class="mbtn star" data-fav="${k}" aria-pressed="${fav}" aria-label="${fav ? "Retirer des favoris" : "Mettre en favori"} : ${M.n}">${I.star}</button></div>`;
+    };
+    const sect = (t, keys, cls) => `<div class="stack${cls ? " " + cls : ""}"><h2>${t}</h2><div class="mgrid">${keys.map(tile).join("")}</div></div>`;
+    const modesHtml = () => (favs().length ? sect("Tes favoris", favs(), "favsect") : `<p class="note favhint">Touche l'étoile d'un mode pour le garder en haut de la page. Le « i » explique à quoi il sert.</p>`) + MODE_CATS.map(c => sect(c[0], c[1])).join("");
+    function wireModes() {
+      app.querySelectorAll("[data-fav]").forEach(b => b.onclick = () => { const k = b.dataset.fav, f = favs(), i = f.indexOf(k); if (i >= 0) f.splice(i, 1); else f.unshift(k); safeSet("merge.fav", JSON.stringify(f.slice(0, 12))); $("modesbox").innerHTML = modesHtml(); wireModes(); toast(i >= 0 ? "Retiré des favoris." : MODES[k].n + " ajouté à tes favoris."); });
+      app.querySelectorAll("[data-info]").forEach(b => b.onclick = () => { const k = b.dataset.info, M = MODES[k], t = b.parentElement.querySelector(".mmain");
+        sheet(`<div class="row"><span class="mico big">${I[M.i]}</span><h1>${M.n}</h1></div><p>${M.a}</p><p class="note">${IA_NOTE[M.ia]} Tout vient uniquement de ton cours.</p><div class="row"><a class="btn grow" href="${t.getAttribute("href")}" data-close>Commencer</a><button class="btn ghost" data-close>Fermer</button></div>`); });
+    }
     app.innerHTML = `<div class="row"><a class="iconbtn" href="${grp ? "#dossier-" + grp.id : "#matiere-" + s.id}" aria-label="${grp ? "Retour au dossier" : "Retour à la matière"}">${I.back}</a><span class="row small muted" style="--c:${esc(s.color)}"><span class="dot"></span>${esc(s.name)}${grp ? " · " + esc(grp.name) : ""}</span></div>
       <div class="stack"><h1>${esc(ch.name)}</h1>
       ${cards.length ? `<div class="row"><span class="pill">${plural(cards.length, "carte", "cartes")}</span><span class="small muted">Maîtrise ${m} %${due ? " · " + plural(due, "carte à revoir", "cartes à revoir") : ""}</span></div><div><div class="jalons">${[true, hasSum, m >= 50, m >= 100, false].map((on, i, a) => `<span class="${on ? "on" : ""}"></span>${i < a.length - 1 ? `<i class="${a[i + 1] ? "on" : ""}"></i>` : ""}`).join("")}</div><div class="jalabels"><span>Importé</span><span>Résumé</span><span>50 %</span><span>100 %</span><span>Contrôle</span></div></div>` : ""}</div>
-      ${cards.length ? sect("Réviser", [tile("cartes", I.cards, "Flashcards", m + " % de maîtrise"), hasSum ? tile("resume", I.sum, "Résumé") : `<a class="card mode" href="#import-${id}">${I.sum}<span>Résumé<span class="small">Importe ton cours</span></span></a>`, tile("apprendre", I.learn, "Apprendre"), tile("quiz", I.quiz, "Quiz", "QCM ou rédigé"), tile("controle", m >= 100 ? I.check : I.lock, "Contrôle", m >= 100 ? "Débloqué" : "À 100 % de maîtrise")])
-        + sect("Comprendre", [tile("questions", I.ask, "Professeur IA", "Rends ça concret"), tile("blurting", I.blank, "Feuille blanche", "Tout écrire de mémoire"), tile("feynman", I.bulb, "Méthode Feynman", "Explique simplement"), tile("pieges", I.trap, "Chasse aux pièges", "Deviens le correcteur"), tile("faceaface", I.vs, "Face-à-face", "Notions confondues"), tile("exercices", I.steps, "Exercices guidés", "Indices pas à pas"), tile("trous", I.cloze, "Texte à trous"), tile("carte", I.map, "Carte mentale")])
-        + sect("Jouer", [tile("boss", I.shield, "Combat de boss", safeGet("merge.boss." + id) ? "Vaincu" : "Fin de chapitre"), tile("flash", I.bolt, "Flash 60 secondes", "Tir réflexe"), tile("associer", I.match, "Associer"), tile("vraifaux", I.quiz, "Vrai ou faux")])
-        + sect("Oral et audio", [tile("khole", I.mic, "Khôlle", "Oral au micro"), tile("bus", I.bus, "Mains libres", "Dans le bus"), tile("ecouter", I.listen, "Écouter")])
-        + sect("Fiches", [tile("synthese", I.sum, "Fiche de synthèse", "1 page A4"), tile("planche", I.grid, "Planche de cartes", "À imprimer"), tile("erreurs", I.book, "Carnet d'erreurs", "Pourquoi ?")]) : ""}
+      ${cards.length ? `<div id="modesbox" class="stack modesbox">${modesHtml()}</div>` : ""}
       <div class="banner"><div><h2>${cards.length ? "Ajouter un cours" : "Importe ton cours"}</h2><p class="small">PDF, photos, PowerPoint ou texte, autant de fichiers que tu veux. Merge prépare le résumé et les cartes à partir de ton cours, sans rien inventer.</p></div><a class="btn sm" href="#import-${id}">Importer</a></div>
       ${chapterToolsHtml(id)}
       ${cards.length ? `<div class="stack"><h2 class="small muted">${plural(cards.length, "carte", "cartes")} dans ce chapitre</h2><div class="stack" id="list"></div></div>` : ""}`;
-    wireChapterTools(id, ch, cards);
+    wireChapterTools(id, ch, cards); wireModes();
     if (!cards.length) return;
     const list = $("list");
     const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${esc(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${esc(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
@@ -988,7 +1042,7 @@
         $("goquiz").onclick = () => { finish(); midQuiz = scope; location.hash = "#quiz-" + scope; }; $("keep").onclick = render; return;
       }
       const c = text[S.queue[0]], pct = Math.round(S.known / S.total * 100);
-      app.innerHTML = `<div class="session"><div class="row"><a class="iconbtn" href="${backHref}" id="quit" aria-label="Fermer la session">${I.x}</a><div class="grow" style="text-align:center;font-weight:800;font-variant-numeric:tabular-nums">${pct} % <span class="small muted">· ${S.known} / ${S.total}</span></div><span style="width:44px"></span></div>
+      app.innerHTML = `<div class="swrap"><div class="session"><div class="row"><a class="iconbtn" href="${backHref}" id="quit" aria-label="Fermer la session">${I.x}</a><div class="grow" style="text-align:center;font-weight:800;font-variant-numeric:tabular-nums">${pct} % <span class="small muted">· ${S.known} / ${S.total}</span></div><span style="width:44px"></span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progression de la session"><i style="width:${pct}%"></i></div>
         <div class="counters"><span class="counter no" aria-label="Cartes à revoir">${S.again.size}</span><span class="counter yes" aria-label="Cartes réussies">${S.known}</span></div>
         <div class="flipwrap" id="wrap"><button class="flip${S.flipped ? " back" : ""}" id="flip" aria-label="Retourner la carte">
@@ -996,7 +1050,10 @@
           <div class="face b"><header>Réponse</header><div class="txt">${esc(c.back)}</div><div id="mnemo">${mnemoHtml(c)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
         </button></div>
         <div class="answers"><button class="btn bad" id="no" aria-label="Faux, pas compris">${I.x}Faux</button><button class="btn good" id="yes">${I.check}Juste</button></div>
-        <div class="row" style="justify-content:center;flex-wrap:wrap">${"speechSynthesis" in window ? '<button class="linkbtn" id="say">Lire à voix haute</button>' : ""}${c.image_path && !state.offline ? '<button class="linkbtn" id="see">Voir la page du cours</button>' : ""}</div><div id="pageimg"></div></div>`;
+        <div class="row" style="justify-content:center;flex-wrap:wrap">${"speechSynthesis" in window ? '<button class="linkbtn" id="say">Lire à voix haute</button>' : ""}${c.image_path && !state.offline ? '<button class="linkbtn" id="see">Voir la page du cours</button>' : ""}</div><div id="pageimg"></div></div>
+        <aside class="sside"><div class="card pad stack"><div class="ring" style="--p:${pct}"><b>${pct} %</b></div><div class="srow"><span>Réussies</span><b class="g">${S.known}</b></div><div class="srow"><span>À revoir</span><b class="r">${S.again.size}</b></div><div class="srow"><span>Restantes</span><b>${S.queue.length}</b></div></div>
+          <div class="card pad stack"><h2>Raccourcis clavier</h2><div class="srow"><span>Retourner la carte</span><kbd>Espace</kbd></div><div class="srow"><span>Juste</span><kbd>→</kbd></div><div class="srow"><span>Faux</span><kbd>←</kbd></div></div>
+          <p class="note">Une carte ratée revient jusqu'à ce que tu la réussisses.</p></aside></div>`;
       if ($("see")) $("see").onclick = () => showPage(c.image_path, $("pageimg"));
       if ($("say")) $("say").onclick = () => speakText(S.flipped ? c.back : c.front, "fr-FR");
       $("flip").onclick = () => { S.flipped = !S.flipped; $("flip").classList.toggle("back", S.flipped); };
@@ -1038,6 +1095,7 @@
         <div class="field"><span class="label">Taille du texte</span>${chips("s", [["small", "Petit"], ["normal", "Normal"], ["large", "Grand"]], p.text_size)}</div></div>
       <div class="card pad stack"><h2>Révision</h2>
         <div class="field"><span class="label">Sons et vibrations</span>${chips("snd", [["1", "Activés"], ["0", "Coupés"]], p.sounds === false ? "0" : "1")}</div>
+        ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de lecture</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.7" max="1.3" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
         <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
         <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
@@ -1055,6 +1113,13 @@
     app.querySelectorAll("[data-snd]").forEach(b => b.onclick = () => patch({ sounds: b.dataset.snd === "1" }));
     $("rem").onchange = () => patch({ reminder_time: $("rem").value || null }, "Heure enregistrée.");
     $("tuto").onclick = tutorial;
+    if ($("voice")) {
+      const fill = () => { const sel = $("voice"); if (!sel) return; const vs = voicesFor("fr").sort((a, b) => voiceScore(b) - voiceScore(a)), cur = pickVoice("fr"); sel.innerHTML = vs.length ? vs.map((v, i) => `<option value="${esc(v.voiceURI)}"${cur && v.voiceURI === cur.voiceURI ? " selected" : ""}>${esc(v.name.replace(/^Microsoft |^Google /, m => m))}${i === 0 ? " (recommandée)" : ""}</option>`).join("") : '<option value="">Aucune voix française sur cet appareil</option>'; };
+      fill(); try { speechSynthesis.onvoiceschanged = fill; } catch (e) { /* liste fixe */ }
+      $("voice").onchange = () => { safeSet("merge.voice", $("voice").value); speakText("Voici la voix qui lira tes cartes.", "fr-FR"); };
+      $("vrate").onchange = () => safeSet("merge.rate", $("vrate").value);
+      $("vtest").onclick = () => speakText("La mitose donne deux cellules filles génétiquement identiques.", "fr-FR");
+    }
     $("pushon").onclick = async () => {
       const msg = $("pushmsg");
       try {
@@ -1243,18 +1308,26 @@
     const ref = new Date(); ref.setDate(1); let picked = null;
     function draw() {
       const y = ref.getFullYear(), m = ref.getMonth(), first = (new Date(y, m, 1).getDay() + 6) % 7, n = new Date(y, m + 1, 0).getDate(), today = localDay();
-      const cells = []; for (let i = 0; i < first; i++) cells.push("<span></span>");
+      const did = {}; state.sessions.forEach(x => { if (x.seconds > 0 || x.cards_reviewed > 0) did[x.day] = x; });
+      const cells = []; for (let i = 0; i < first; i++) cells.push('<span class="pad"></span>');
+      let daysDone = 0, secs = 0;
       for (let d = 1; d <= n; d++) {
-        const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"), ex = state.subjects.filter(s => s.exam_date === key);
-        cells.push(`<button type="button" class="day${key === today ? " now" : ""}${ex.length ? " has" : ""}" data-day="${key}" aria-pressed="${picked === key}"${key < today ? " disabled" : ""} aria-label="${d}${ex.length ? ", contrôle : " + esc(ex.map(s => s.name).join(", ")) : ""}">${d}<i>${ex.map(s => `<b style="background:${esc(s.color)}"></b>`).join("")}</i></button>`);
+        const key = y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"), ex = state.subjects.filter(x => x.exam_date === key);
+        if (did[key]) { daysDone++; secs += did[key].seconds || 0; }
+        cells.push(`<button type="button" class="day${key === today ? " now" : ""}${ex.length ? " has" : ""}${did[key] ? " did" : ""}" data-day="${key}" aria-pressed="${picked === key}"${key < today ? " disabled" : ""} aria-label="${d}${ex.length ? ", contrôle : " + esc(ex.map(x => x.name).join(", ")) : ""}${did[key] ? ", jour révisé" : ""}"><span class="dn">${d}</span><i>${ex.map(x => `<b style="background:${esc(x.color)}"></b>`).join("")}</i>${ex.slice(0, 2).map(x => `<em style="--c:${esc(x.color)}">${esc(x.name)}</em>`).join("")}</button>`);
       }
-      const up = state.subjects.filter(s => s.exam_date && daysUntil(s.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
-      app.innerHTML = `<h1>Calendrier</h1>
-        <div class="card pad stack"><div class="row between"><button class="iconbtn" id="prev" aria-label="Mois précédent">${I.back}</button><h2 style="text-transform:capitalize">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</h2><button class="iconbtn" id="nextm" aria-label="Mois suivant" style="transform:scaleX(-1)">${I.back}</button></div>
-          <div class="cal">${["L", "M", "M", "J", "V", "S", "D"].map(x => `<span class="wd">${x}</span>`).join("")}${cells.join("")}</div>
-          ${picked ? `<div class="stack" id="dayPanel"><p class="label">Contrôle le ${fmtDate(picked)} : touche la matière concernée</p><div class="chips">${state.subjects.map(x => `<button class="chip" data-sub="${x.id}" aria-pressed="${x.exam_date === picked}" style="--c:${esc(x.color)}"><span class="dot"></span>&nbsp;${esc(x.name)}</button>`).join("") || '<span class="muted">Ajoute d\'abord une matière.</span>'}</div></div>` : '<p class="note">Touche un jour pour y placer un contrôle.</p>'}</div>
-        <div class="stack"><h2>Prochains contrôles</h2>${up.length ? up.map(s => `<div class="card term row between" style="--c:${esc(s.color)}"><div class="row"><span class="dot"></span><b>${esc(s.name)}</b></div><span class="pill">${daysUntil(s.exam_date) === 0 ? "Aujourd'hui" : "Dans " + plural(daysUntil(s.exam_date), "jour", "jours")}</span></div>`).join("") : '<p class="muted">Aucune date pour l\'instant.</p>'}</div>
-        <div class="stack">${state.subjects.some(isFree) ? `<p class="small muted">En révision libre : ${state.subjects.filter(isFree).map(x => esc(x.name)).join(", ")}.</p>` : ""}</div>`;
+      const up = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date)), free = state.subjects.filter(isFree);
+      app.innerHTML = `<div class="row between"><h1>Calendrier</h1><button class="btn sm ghost" id="todayb">Aujourd'hui</button></div>
+        <div class="calwrap"><div class="card pad stack calcard"><div class="row between"><button class="iconbtn flat" id="prev" aria-label="Mois précédent">${I.back}</button><h2 class="calmonth">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</h2><button class="iconbtn flat" id="nextm" aria-label="Mois suivant" style="transform:scaleX(-1)">${I.back}</button></div>
+          <div class="cal calx">${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(x => `<span class="wd">${x}</span>`).join("")}${cells.join("")}</div>
+          <div class="callegend"><span><i class="lg now"></i>Aujourd'hui</span><span><i class="lg did"></i>Jour révisé</span><span><i class="lg ex"></i>Contrôle</span></div></div>
+        <div class="stack calside">
+          ${picked ? `<div class="card pad stack" id="dayPanel"><h2>${fmtDate(picked)}</h2><p class="label">Contrôle le ${fmtDate(picked)} : touche la matière concernée</p><div class="chips">${state.subjects.map(x => `<button class="chip" data-sub="${x.id}" aria-pressed="${x.exam_date === picked}" style="--c:${esc(x.color)}"><span class="dot"></span>&nbsp;${esc(x.name)}</button>`).join("") || '<span class="muted">Ajoute d\'abord une matière.</span>'}</div></div>` : `<div class="card pad stack calhint"><span class="mico big">${I.cal}</span><div><h2>Place tes contrôles</h2><p class="note">Touche un jour pour y placer un contrôle.</p></div></div>`}
+          <div class="stack"><h2>Prochains contrôles</h2>${up.length ? up.map(x => `<a class="card exam" href="#matiere-${x.id}" style="--c:${esc(x.color)}"><span class="jx">${daysUntil(x.exam_date) === 0 ? "Auj." : "J-" + daysUntil(x.exam_date)}</span><span class="grow"><b>${esc(x.name)}</b><span class="small muted">${esc(fmtDate(x.exam_date))} · ${daysUntil(x.exam_date) === 0 ? "Aujourd'hui" : "Dans " + plural(daysUntil(x.exam_date), "jour", "jours")}</span></span></a>`).join("") : '<p class="muted">Aucune date pour l\'instant.</p>'}</div>
+          ${free.length ? `<div class="stack"><h2>En révision libre</h2><p class="small muted">En révision libre : ${free.map(x => esc(x.name)).join(", ")}.</p></div>` : ""}
+          <div class="card stats two"><div class="stat s1"><span class="sico">${I.check}</span><div><b>${daysDone}</b><span>${daysDone > 1 ? "jours révisés ce mois" : "jour révisé ce mois"}</span></div></div><div class="stat s2"><span class="sico">${I.bolt}</span><div><b>${Math.round(secs / 60)} min</b><span>de révision ce mois</span></div></div></div>
+        </div></div>`;
+      $("todayb").onclick = () => { const t = new Date(); ref.setFullYear(t.getFullYear(), t.getMonth(), 1); draw(); };
       $("prev").onclick = () => { ref.setMonth(ref.getMonth() - 1); draw(); };
       $("nextm").onclick = () => { ref.setMonth(ref.getMonth() + 1); draw(); };
       app.querySelectorAll("[data-day]").forEach(b => b.onclick = () => { picked = picked === b.dataset.day ? null : b.dataset.day; draw(); });
@@ -1438,7 +1511,7 @@
       const list = parts[L.what]; if (L.i >= list.length) { L.playing = false; L.i = 0; return draw(); }
       if (L.sleepAt && Date.now() > L.sleepAt) { L.playing = false; L.sleepAt = 0; L.sleep = 0; return draw(); }
       safeSet("merge.ecoute." + id, L.what + ":" + L.i);
-      const u = new SpeechSynthesisUtterance(list[L.i]); u.lang = lang; u.rate = L.rate;
+      const u = utter(list[L.i], lang, L.rate);
       u.onend = () => { if (!L.playing) return; L.i++; speak(); }; u.onerror = () => { L.playing = false; draw(); };
       speechSynthesis.cancel(); speechSynthesis.speak(u); draw();
     }
@@ -1510,7 +1583,22 @@
   }
   const li = (arr) => (arr || []).filter(Boolean).map(x => `<li>${esc(typeof x === "string" ? x : JSON.stringify(x))}</li>`).join("");
   const emptyTool = (id, title, msg) => { app.innerHTML = toolHead(id, title) + `<div class="card done"><p class="muted">${msg}</p><a class="btn" href="#chapitre-${id}">Retour au chapitre</a></div>`; };
-  function speakText(t, lang, onend) { if (!("speechSynthesis" in window)) { if (onend) onend(); return; } const u = new SpeechSynthesisUtterance(t); u.lang = lang || "fr-FR"; if (onend) { u.onend = onend; u.onerror = onend; } speechSynthesis.cancel(); speechSynthesis.speak(u); }
+  // Voix : on prend la meilleure voix installée (voix « naturelles » ou Google d'abord), ou celle choisie dans Réglages.
+  function voicesFor(lang) { if (!("speechSynthesis" in window)) return []; const p = (lang || "fr").slice(0, 2).toLowerCase(); return speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith(p)); }
+  function voiceScore(v) { const n = v.name || ""; let k = 0; if (/natural|neural|online|premium|enhanced|améliorée|siri/i.test(n)) k += 100; if (/google/i.test(n)) k += 60; if (/hortense|julie|paul|compact|espeak/i.test(n)) k -= 30; if (!v.localService) k += 10; if (/fr[-_]FR/i.test(v.lang)) k += 5; return k; }
+  function pickVoice(lang) { const vs = voicesFor(lang); if (!vs.length) return null; const want = (lang || "fr").slice(0, 2).toLowerCase() === "fr" ? safeGet("merge.voice") : null; return vs.find(v => v.voiceURI === want) || vs.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0]; }
+  const voiceRate = () => Math.min(1.4, Math.max(0.6, parseFloat(safeGet("merge.rate")) || 1));
+  function utter(t, lang, rate) { const u = new SpeechSynthesisUtterance(t); u.lang = lang || "fr-FR"; const v = pickVoice(u.lang); if (v) { u.voice = v; u.lang = v.lang; } u.rate = (rate || 1) * voiceRate(); return u; }
+  if ("speechSynthesis" in window) { try { speechSynthesis.getVoices(); } catch (e) { /* voix chargées plus tard */ } }
+  // Les longues phrases sont lues par morceaux : certaines voix en ligne se coupent après une quinzaine de secondes.
+  function speakText(t, lang, onend) {
+    if (!("speechSynthesis" in window)) { if (onend) onend(); return; }
+    const bits = String(t).match(/[^.!?;:\n]+[.!?;:]*\s*/g) || [String(t)], chunks = []; let cur = "";
+    bits.forEach(b => { if ((cur + b).length > 180 && cur.trim()) { chunks.push(cur); cur = ""; } cur += b; }); if (cur.trim()) chunks.push(cur);
+    speechSynthesis.cancel(); let k = 0, over = false; const end = () => { if (!over) { over = true; if (onend) onend(); } };
+    const next = () => { if (over) return; if (k >= chunks.length) return end(); const u = utter(chunks[k++], lang); u.onend = next; u.onerror = end; speechSynthesis.speak(u); };
+    next();
+  }
   const chLang = ch => (!ch.lang || ch.lang.startsWith("fr")) ? "fr-FR" : ch.lang;
   const getMnemo = c => c.mnemonic || safeGet("merge.mnemo." + c.id) || "";
 
@@ -1649,6 +1737,31 @@
         } catch (e) { if ($("thread")) { busy(false); showErr($("amsg"), e); } }
       });
       if (th.length) { const last = $("thread").lastElementChild; if (last && last.scrollIntoView) last.scrollIntoView({ block: "nearest" }); }
+    }
+    draw();
+  }
+
+  // ---------- demande libre : l'élève écrit ce qu'il veut, l'IA le fabrique à partir du cours ----------
+  function screenLibre(id) {
+    const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
+    tabs.hidden = true; const key = "merge.libre." + id; let hist = []; try { hist = JSON.parse(safeGet(key) || "[]") || []; } catch (e) { hist = []; }
+    const IDEAS = ["Fais-moi un plan du chapitre en 5 points", "10 questions pièges avec les réponses", "Explique-moi ce chapitre comme si j'avais 10 ans", "Une histoire pour retenir les définitions", "Classe les notions de la plus importante à la moins importante", "Ce qui tombe le plus souvent en contrôle d'après ce cours"];
+    let draft = "", busy = false;
+    function draw(err) {
+      app.innerHTML = toolHead(id, "Demande libre") + `<div class="libre"><div class="stack"><h1>Demande ce que tu veux</h1><p class="muted">Écris exactement ce que tu veux pour réviser « ${esc(ch.name)} ». L'IA le fabrique uniquement à partir de ton cours.</p>
+        <div class="field"><label for="lq">Ta demande</label><textarea id="lq" style="min-height:110px" maxlength="1200" placeholder="Ex. Fais-moi 10 questions pièges avec les réponses">${esc(draft)}</textarea></div>
+        <div class="chips">${IDEAS.map((t, i) => `<button class="chip sm" data-idea="${i}">${t}</button>`).join("")}</div>
+        <button class="btn" id="lsend"${busy ? " disabled" : ""}>${I.spark}Créer</button><p class="note">1 appel IA par demande. Les réponses restent gardées sur cet appareil.</p><div id="lmsg">${busy ? '<div class="row"><div class="spin" aria-hidden="true"></div><p class="muted" role="status">L\'IA prépare ta demande à partir de ton cours…</p></div>' : ""}</div></div>
+        <div class="stack" id="lout">${hist.length ? hist.map((h, k) => `<div class="card pad stack"><div class="row between"><b>${esc(h.q)}</b><button class="mini" data-ldel="${k}">Retirer</button></div><div class="md">${md(h.a)}</div></div>`).join("") : '<div class="card empty"><span class="mico big">' + I.spark + '</span><b>Tes créations apparaîtront ici</b><p class="small muted">Choisis une idée ou écris la tienne.</p></div>'}</div></div>`;
+      if (err) showErr($("lmsg"), err);
+      app.querySelectorAll("[data-idea]").forEach(b => b.onclick = () => { $("lq").value = IDEAS[+b.dataset.idea]; $("lq").focus(); });
+      app.querySelectorAll("[data-ldel]").forEach(b => b.onclick = () => { draft = $("lq").value; hist.splice(+b.dataset.ldel, 1); safeSet(key, JSON.stringify(hist)); draw(); });
+      $("lsend").onclick = async () => {
+        const q = $("lq").value.trim(); if (q.length < 4) return toast("Écris ce que tu veux."); draft = q; busy = true; draw();
+        try { const text = await courseText(id); if (text.trim().length < 80) throw new Error("Importe d'abord ton cours dans ce chapitre.");
+          const r = await ai({ action: "libre", text, demande: q }, "studio"); hist.unshift({ q, a: r.answer || "" }); hist = hist.slice(0, 8); safeSet(key, JSON.stringify(hist)); draft = ""; busy = false; if ($("lout")) draw();
+        } catch (e) { busy = false; if ($("lout")) draw(e); }
+      };
     }
     draw();
   }
@@ -2001,9 +2114,12 @@
   let enterT = null;
   function route() {
     app.classList.remove("enter"); void app.offsetWidth; app.classList.add("enter"); clearTimeout(enterT); enterT = setTimeout(() => app.classList.remove("enter"), 700);
+    document.body.classList.remove("nav");
     if (!state.user) return screenLogin();
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);
+    document.body.classList.add("nav"); closeSheet();
+    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : !h || h === "accueil" || h === "cartes-jour" ? "accueil" : "matieres");
     screenSession.key = null;
     if (busStop) busStop();
     if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -2033,6 +2149,7 @@
     else if (h.startsWith("associer-")) screenMatch(arg);
     else if (h.startsWith("ecouter-")) screenListen(arg);
     else if (h.startsWith("questions-")) screenAsk(arg);
+    else if (h.startsWith("libre-")) screenLibre(arg);
     else if (h.startsWith("difficiles-")) screenSession(arg, true);
     else if (h.startsWith("revision-")) screenSession(arg, false, true);
     else if (h.startsWith("vraifaux-")) screenTrueFalse(arg);

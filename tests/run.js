@@ -253,6 +253,38 @@ async function v7(browser) {
   ok(!page.errors.length, "v7 import : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+// v8 : favoris, explication des modes, demande libre, barre latérale partout sur grand écran, reprise d'un import.
+async function v8(browser) {
+  let page = await open(browser, { w: 1440, h: 900, theme: "dark" });
+  await go(page, "#chapitre-c1", 500);
+  ok(await page.evaluate(() => getComputedStyle(document.getElementById("tabs")).display !== "none"), "v8 grand écran : barre latérale visible sur un chapitre");
+  ok(await page.locator(".mtile").count() >= 24, "v8 chapitre : tous les modes affichés");
+  await page.click('[data-info="feynman"]'); await page.waitForTimeout(150);
+  ok((await page.locator("#sheet").innerText()).includes("enfant de 10 ans"), "v8 chapitre : le « i » explique le mode");
+  await page.keyboard.press("Escape"); ok(await page.locator("#sheet").count() === 0, "v8 chapitre : Échap ferme l'explication");
+  await page.click('[data-fav="boss"]'); await page.waitForTimeout(150);
+  ok(await page.locator(".favsect .mtile").count() === 1 && (await page.locator(".favsect").innerText()).includes("Combat de boss"), "v8 chapitre : favori ajouté en haut");
+  let o = await overflow(page); ok(o.sw <= o.iw, "v8 chapitre : pas de débordement", JSON.stringify(o));
+  let sm = await small(page); ok(!sm.length, "v8 chapitre : boutons de 44 px minimum", sm.join(" | "));
+  await go(page, "#libre-c1", 300); await page.click('[data-idea="1"]'); await page.click("#lsend"); await page.waitForTimeout(400);
+  ok((await txt(page)).includes("Ce que tu as demandé") && (await txt(page)).includes("10 questions pièges"), "v8 demande libre : réponse affichée et gardée");
+  o = await overflow(page); ok(o.sw <= o.iw, "v8 demande libre : pas de débordement", JSON.stringify(o));
+  await go(page, "#cartes-c1", 400); ok(await page.locator(".sside .ring").count() === 1, "v8 cartes : panneau latéral sur grand écran");
+  await go(page, "#calendrier", 300); ok(await page.locator(".calside").count() === 1 && await page.locator(".cal.calx .day").count() >= 28, "v8 calendrier : grille et colonne latérale");
+  await go(page, "#reglages", 300); ok(await page.locator("#voice").count() === 1 || !(await page.evaluate(() => "speechSynthesis" in window)), "v8 réglages : choix de la voix");
+  ok(!page.errors.length, "v8 : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+
+  page = await open(browser, { w: 390, h: 844, theme: "light" });
+  await page.evaluate(() => { localStorage.setItem("fake.jobfail", "1"); localStorage.setItem("fake.delay", "200"); });
+  await go(page, "#import-c1"); await page.click('[data-tab="text"]'); await page.fill("#txt", "La mitose est une division cellulaire qui donne deux cellules identiques. ".repeat(4)); await page.click("#go");
+  await page.waitForSelector("#resume", { timeout: 15000 }).catch(() => {});
+  ok(await page.locator("#resume").count() === 1 && (await txt(page)).includes("panne simulée"), "v8 import : erreur du serveur affichée avec « Reprendre »");
+  await page.click("#resume"); await page.waitForFunction(() => /cartes créées/.test(document.getElementById("app").innerText), null, { timeout: 15000 }).catch(() => {});
+  ok((await txt(page)).includes("8 cartes créées"), "v8 import : reprise réussie");
+  for (const r of ["chapitre-c1", "libre-c1", "calendrier", "accueil"]) { await go(page, "#" + r, 300); o = await overflow(page); ok(o.sw <= o.iw, "v8 téléphone " + r + " : pas de débordement", JSON.stringify(o)); sm = await small(page); ok(!sm.length, "v8 téléphone " + r + " : boutons de 44 px minimum", sm.join(" | ")); }
+  ok(!page.errors.length, "v8 téléphone : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -262,6 +294,7 @@ let BASE;
     for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
     await flows(browser);
     await v7(browser);
+    await v8(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
   const bad = log.filter(l => !l.startsWith("ok"));
