@@ -30,7 +30,7 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Vacances zone A 2026-2027 dans le calendrier (cases vertes, légende, encart « Prochaines vacances »). Source : service-public.gouv.fr. À ajouter chaque année (tableau `VACANCES` dans app.js).
 - Tout est régénérable : « Nouveau quiz, nouvelles questions » et « Nouveau contrôle » à la fin ; « Créer d'autres cartes avec l'IA » (outils du chapitre, fin de session à 100 %, fin du mode Apprendre), sans doublons. Les outils préparés par l'IA (carte mentale, fiche, pièges, exercices, trous, face-à-face) avaient déjà « Refaire avec l'IA ».
 - Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
-- Quota : Ramzi a mis `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (à confirmer). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
+- Quota : `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (vérifié par l'empreinte SHA-256). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
 ## Bugs
 6. Formules : RENDU FAIT (KaTeX dans `vendor/katex`, chargé seulement quand une formule apparaît ; résumé, prof IA, demande libre, flashcards, liste des cartes, fiche de synthèse ; symboles \times, \Omega… hors $ convertis). RESTE : (a) consignes IA (fonctions `ai` et `studio`) : écrire toutes les formules en LaTeX entre $…$ et les fractions avec \frac, jamais avec « / » ; (b) appliquer le rendu aux quiz, contrôles, carte mentale, textes à trous, exercices, pièges, face-à-face.
@@ -48,7 +48,6 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 21. Christmas Lofi dure environ 2 h 56, mais les repères ci-dessus s'arrêtent à 2 h 00 (7228 s). Pour la suite, détecter automatiquement les débuts de morceaux (silences ou baisses de volume, par exemple avec ffmpeg `silencedetect`), puis vérifier que ça retombe sur les repères connus. Faire la même vérification sur Lofi.
 
 ## IA
-15. Plus de limite de 40 appels par jour : Ramzi est sur les crédits gratuits Google Cloud (environ 278 €, jusqu'au 11 février ; 0,42 € consommés, entièrement couverts, `03` et `04`). Garder seulement un plafond anti-abus très haut et retirer le compteur « x/40 ».
 16. Encore plus rapide partout.
 17. Expliquer les options, avec ses abonnements : Claude Pro (ce mois-ci), ChatGPT Go (permanent), Google AI Pro (permanent). Point à signaler : recréer un compte Google pour reprendre l'essai gratuit est probablement contraire aux conditions de Google. Alternatives : clé gratuite Gemini (Google AI Studio), crédits restants, modèle plus léger.
 
