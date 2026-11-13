@@ -707,3 +707,7 @@ span.m{font-family:"KaTeX_Main","Times New Roman",serif}
 span.m .katex{font-size:1.08em}
 span.m.md{display:block;margin:.4em 0;overflow-x:auto;overflow-y:hidden;text-align:center}
 .face .txt span.m .katex{font-size:1em}
+.cal.calx .day.hol{background:color-mix(in srgb,#18ae79 16%,var(--card2))}
+.cal.calx .day.hol .dn{color:var(--mint-ink)}
+.lg.hol{background:color-mix(in srgb,#18ae79 45%,transparent);border-radius:3px}
+.vaccard{border-left:4px solid #18ae79}
