@@ -5,9 +5,9 @@
   const legacy = opt("legacy") === "1", UID = "user-1";
   let quotaLeft = opt("quota") == null ? 40 : +opt("quota"), calls = 0, n = 0;
   const id = p => (p || "id") + "-" + (++n);
-  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [] };
+  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [] };
   const PK = { profiles: ["user_id"], study_sessions: ["user_id", "day"], ai_cache: ["chapter_id", "kind"], summaries: ["chapter_id"], push_subscriptions: ["endpoint"] };
-  const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes"];
+  const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes", "import_jobs"];
   const defaults = (t, r) => {
     const base = { user_id: UID, created_at: new Date(Date.now() + n).toISOString() };
     if (!PK[t]) base.id = id(t);
@@ -104,6 +104,34 @@
     return { data: Object.assign(out, { usage: { calls, quota: calls + quotaLeft } }), error: null };
   }
 
+  // ----- fonction studio simulée : import côté serveur (avance tout seul) et demande libre -----
+  async function studio(b) {
+    const fail = (status, j) => ({ data: null, error: { message: "Edge Function returned a non-2xx status code", context: { status, json: async () => j } } });
+    await new Promise(r => setTimeout(r, 20));
+    if (legacy) return fail(500, { error: "erreur", detail: "relation import_jobs does not exist" });
+    if (quotaLeft <= 0) return fail(429, { error: "quota", calls, quota: calls });
+    if (b.action === "libre") { quotaLeft--; calls++; return { data: { answer: "## Ce que tu as demandé\n- La mitose donne **deux cellules** identiques.\n- La méiose donne quatre cellules haploïdes.", usage: { calls, quota: calls + quotaLeft } }, error: null }; }
+    if (b.action !== "import_start" && b.action !== "import_resume") return fail(400, { error: "requete", detail: "Action inconnue." });
+    const delay = +(opt("delay") || 30), now = () => new Date().toISOString();
+    let job;
+    if (b.action === "import_resume") { job = DB.import_jobs.find(j => j.id === b.job_id); if (!job) return fail(400, { error: "requete", detail: "Cet import ne peut pas être repris. Relance-le." }); Object.assign(job, { status: "running", error: null, error_code: null }); }
+    else { job = defaults("import_jobs", { chapter_id: b.chapter_id, status: "running", stage: b.segs.some(x => x.path) ? "img" : "gen", progress: 10, message: "L'IA lit les photos et les schémas…", result: null, error: null, error_code: null, updated_at: now(), n: b.n, label: b.label, full: b.segs.map(x => x.path ? COURS : x.text).join("\n\n[[PAGE]]\n\n") }); DB.import_jobs.push(job); }
+    (async () => {
+      const wait = () => new Promise(r => setTimeout(r, delay));
+      await wait(); if (opt("jobfail") === "1" && !job.retried) { job.retried = true; return Object.assign(job, { status: "error", error: "vertex: panne simulée", error_code: "erreur", updated_at: now() }); }
+      Object.assign(job, { stage: "gen", progress: 60, message: "L'IA prépare le résumé et les cartes…", updated_at: now() }); quotaLeft--; calls++;
+      await wait();
+      const cards = [["Que donne la mitose ?", "Deux cellules filles génétiquement identiques"], ["Combien de phases compte la mitose ?", "Quatre"], ["Que donne la méiose ?", "Quatre cellules haploïdes"], ["Quand l'ADN se réplique-t-il ?", "Pendant l'interphase"], ["Combien de chromosomes compte le caryotype humain ?", "46"], ["Qu'est-ce qu'une chromatide ?", "Une des deux copies d'un chromosome dupliqué"], ["Quelle division conserve l'information génétique ?", "La mitose"], ["Quelle cellule de départ pour la méiose ?", "Une cellule diploïde"]];
+      DB.sources.push(defaults("sources", { chapter_id: job.chapter_id, filename: job.label || "Cours", extracted_text: job.full || COURS }));
+      const old = DB.summaries.find(x => x.chapter_id === job.chapter_id), sum = "## À quoi sert ce chapitre\nComprendre comment une cellule se divise.\n\n## Notions clés\n- **Mitose** : deux cellules filles identiques";
+      if (!old) DB.summaries.push(defaults("summaries", { chapter_id: job.chapter_id, markdown: sum })); else if (!old.edited_by_user) old.markdown += "\n\n## Complément : " + job.label + "\n\n" + sum;
+      cards.forEach((c, i) => DB.cards.push(defaults("cards", { chapter_id: job.chapter_id, front: c[0], back: c[1], source_quote: "La mitose est une division cellulaire.", needs_check: i === 1 })));
+      const ch = DB.chapters.find(x => x.id === job.chapter_id); if (ch) ch.status = "ready";
+      Object.assign(job, { status: "done", stage: "end", progress: 100, message: "Prêt", result: { cards: cards.length, bad: 1, notes: [] }, updated_at: now() });
+    })();
+    return { data: { job_id: job.id }, error: null };
+  }
+
   // ----- jeu de données -----
   if (opt("seed") === "plein") {
     DB.profiles.push({ user_id: UID, display_name: "Ramzi", classe: "Terminale générale", school_year: 2026, daily_goal_kind: "minutes", daily_goal_value: 15, theme: opt("theme") || "light", text_size: "normal", sounds: false, reminder_time: null, onboarded_at: new Date().toISOString() });
@@ -122,7 +150,7 @@
   const client = {
     from: t => new Q(t),
     rpc: async (name) => name === "shared_subject_names" ? { data: [{ name: "Chinois", uses: 2 }], error: null } : name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
-    functions: { invoke: (name, o) => aiCall(o.body) },
+    functions: { invoke: (name, o) => name === "studio" ? studio(o.body) : aiCall(o.body) },
     storage: { from: () => ({ upload: async () => ({ error: null }), createSignedUrl: async () => ({ data: null, error: { message: "indisponible" } }) }) },
     auth: {
       getSession: async () => ({ data: { session: { user: { id: UID, email: "eleve@example.org", user_metadata: { given_name: "Ramzi" } } } }, error: null }),

@@ -167,8 +167,8 @@
   function loadCache() {
     try { const c = JSON.parse(safeGet("merge.cache." + state.user.id) || "null"); if (!c || !c.profile) return false; Object.assign(state, { groups: [] }, c, { offline: true }); applyLook(state.profile); return true; } catch (e) { return false; }
   }
-  async function ai(body) {
-    const { data, error } = await sb.functions.invoke("ai", { body });
+  async function ai(body, fn) {
+    const { data, error } = await sb.functions.invoke(fn || "ai", { body });
     if (!error) return data;
     let j = null; try { j = await error.context.json(); } catch (e) { /* pas de détail */ }
     const code = j && j.error;
@@ -601,7 +601,7 @@
   // ---------- import ----------
   // ---------- import en tâche de fond : progression, estimation, notification ----------
   const IMPORTS = {};
-  const STAGES = [["read", "Lecture des fichiers", 0, 20], ["img", "Photos et schémas", 20, 55], ["gen", "Résumé et cartes", 55, 92], ["save", "Enregistrement", 92, 100]];
+  const STAGES = [["read", "Lecture et envoi", 0, 10], ["img", "Photos et schémas", 10, 60], ["gen", "Résumé et cartes", 60, 92], ["save", "Enregistrement", 92, 100]];
   function impProg(d, stage, frac) { const s = STAGES.find(x => x[0] === stage); d.stage = stage; d.target = Math.max(d.target || 0, s[2] + (s[3] - s[2]) * Math.max(0, Math.min(1, frac || 0))); }
   function impEta(d) {
     const el = (Date.now() - d.t0) / 1000; if ((d.shown || 0) < 8 || el < 4) return "estimation en cours…";
@@ -615,7 +615,7 @@
       <div class="row between small muted"><b id="progpct">${Math.round(d.shown || 0)} %</b><span id="progeta">${impEta(d)}</span></div>
       <ol class="steps">${STAGES.map((x, i) => `<li class="${i < idx ? "done" : i === idx ? "now" : ""}">${x[1]}</li>`).join("")}</ol>
       <p id="status" class="note" role="status">${esc(d.msg || "")}</p>
-      <div class="card pad backsoon"><b>Tu peux partir réviser autre chose.</b><p class="small muted">L'import continue tout seul tant que l'onglet reste ouvert. ${"Notification" in window && Notification.permission === "granted" ? "Tu recevras une notification dès que ton cours est prêt." : "Une pastille en bas de l'écran te montre l'avancée et te prévient quand ton cours est prêt."}</p>${"Notification" in window && Notification.permission === "default" ? '<button class="btn sm ghost" id="askn">Me prévenir par notification</button>' : ""}</div>
+      <div class="card pad backsoon">${d.local ? `<b>Lecture de tes fichiers sur cet appareil</b><p class="small muted">Garde cet onglet ouvert encore quelques secondes, le temps d'envoyer ton cours. Ensuite tu pourras fermer Merge.</p>` : `<b>Tu peux fermer Merge.</b><p class="small muted">L'import continue sur nos serveurs, même si tu quittes la page ou verrouilles ton téléphone. ${pushOn ? "Nous t'envoyons une notification automatiquement dès que ton cours est prêt." : "Active les notifications pour être prévenu automatiquement dès que ton cours est prêt."}</p>`}${!pushOn && "Notification" in window && Notification.permission !== "denied" ? '<button class="btn sm ghost" id="askn">Me prévenir par notification</button>' : ""}</div>
       <a class="btn ghost" href="#accueil">Continuer à naviguer</a></div>`;
   }
   function impPaint(d) {
@@ -634,6 +634,71 @@
       impPaint(d);
     }, 250);
   }
+  // Abonnement aux notifications de cet appareil : le serveur prévient quand un import est fini, même appli fermée.
+  let pushOn = false;
+  async function ensurePush(askUser) {
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window) || Notification.permission === "denied") return false;
+      if (Notification.permission !== "granted") { if (!askUser || (await Notification.requestPermission()) !== "granted") return false; }
+      const reg = await Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 4000))]); if (!reg) return false;
+      const raw = atob(C.VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/") + "="), key = Uint8Array.from(raw, ch => ch.charCodeAt(0));
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), j = sub.toJSON();
+      const { error } = await sb.from("push_subscriptions").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Paris" });
+      pushOn = !error; return pushOn;
+    } catch (e) { return false; }
+  }
+  const newImp = (ch) => ({ tab: "files", files: [], text: "", n: (ch && ch.cards_target) || C.CARTES_PAR_DEFAUT, busy: false, cache: {} });
+  const onImport = (chId) => location.hash === "#import-" + chId;
+  function jobDoneHtml(chId, res) {
+    const ch = state.chapters.find(c => c.id === chId) || { name: "" }, notes = (res.notes || []).slice();
+    if (res.bad) notes.push(plural(res.bad, "carte est marquée", "cartes sont marquées") + " « À vérifier ».");
+    return `<div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(res.cards || 0, "carte créée", "cartes créées")} et un résumé pour « ${esc(ch.name)} ».</p>${notes.map(n => `<p class="note">${esc(n)}</p>`).join("")}<a class="btn" href="#cartes-${chId}">Réviser maintenant</a><a class="btn ghost" href="#chapitre-${chId}">Voir le chapitre</a></div>`;
+  }
+  async function applyJob(chId, j, quiet) {
+    const d = IMPORTS[chId]; if (!d || d.jobId !== j.id) return;
+    const stale = j.status === "running" && Date.now() - Date.parse(j.updated_at) > 240000;
+    if (j.status === "running" && !stale) { d.stage = STAGES.some(x => x[0] === j.stage) ? j.stage : "gen"; d.target = Math.max(d.target || 0, j.progress || 0); d.msg = j.message || d.msg; return impPaint(d); }
+    clearTimeout(d.poll); d.pollTok = null; clearInterval(d.timer); d.busy = false; d.local = false;
+    if (j.status === "done") {
+      d.shown = 100; d.ready = true; d.files = []; d.cache = {}; delete courseMemo[chId];
+      try { await loadAll(); } catch (e) { /* les cartes arriveront au prochain chargement */ }
+      d.doneHtml = jobDoneHtml(chId, j.result || {}); safeSet("merge.jobseen." + j.id, "1");
+      const ch = state.chapters.find(c => c.id === chId);
+      if (!quiet && !pushOn) impNotify("Merge.", "« " + (ch ? ch.name : "Ton cours") + " » est prêt : " + plural((j.result || {}).cards || 0, "carte créée", "cartes créées") + ".");
+      if (onImport(chId)) screenImport(chId); else { if (!quiet) toast("« " + (ch ? ch.name : "Ton cours") + " » est prêt."); chipUpdate(); }
+      return;
+    }
+    const e = new Error(stale ? "L'import s'est interrompu en route. Tu peux le reprendre : ce qui a déjà été lu est gardé." : j.error_code === "quota" ? QUOTA_MSG : (j.error || "L'import s'est arrêté.")); e.code = stale ? "stale" : j.error_code;
+    d.failed = e; d.canResume = true;
+    if (onImport(chId)) screenImport(chId); else chipUpdate();
+  }
+  function watchJob(chId) {
+    const d = IMPORTS[chId]; clearTimeout(d.poll); let miss = 0, n = 0; const tok = d.pollTok = {};
+    const tick = async () => {
+      if (d.pollTok !== tok || !d.busy) return;
+      const r = await sb.from("import_jobs").select("id,status,stage,progress,message,error,error_code,result,updated_at").eq("id", d.jobId).maybeSingle();
+      if (d.pollTok !== tok) return;
+      if (r.error || !r.data) { if (++miss > 40) { clearInterval(d.timer); d.busy = false; d.failed = new Error("Je n'arrive plus à suivre l'import. Il continue peut-être : recharge la page dans une minute."); if (onImport(chId)) screenImport(chId); else chipUpdate(); return; } }
+      else { miss = 0; await applyJob(chId, r.data); }
+      if (d.busy) d.poll = setTimeout(tick, ++n < 4 ? 700 : 1500);
+    };
+    d.poll = setTimeout(tick, 500);
+  }
+  // Au démarrage : retrouve les imports lancés avant de quitter (en cours, finis sans avoir été vus, ou arrêtés).
+  async function resumeJobs() {
+    try {
+      ensurePush(false);
+      const r = await sb.from("import_jobs").select("id,chapter_id,status,stage,progress,message,error,error_code,result,updated_at,created_at").eq("user_id", state.user.id).order("created_at", { ascending: false }).limit(6);
+      for (const j of (r.data || [])) {
+        const ch = state.chapters.find(c => c.id === j.chapter_id);
+        if (!ch || IMPORTS[j.chapter_id] || (j.status !== "running" && safeGet("merge.jobseen." + j.id)) || Date.now() - Date.parse(j.created_at) > 3 * 86400000) continue;
+        const d = IMPORTS[j.chapter_id] = newImp(ch); d.jobId = j.id; d.t0 = Date.parse(j.created_at); d.shown = j.progress || 0; d.target = d.shown; d.stage = "gen"; d.msg = j.message || "";
+        if (j.status === "running") { d.busy = true; impTimer(d); watchJob(j.chapter_id); }
+        await applyJob(j.chapter_id, j, true);
+      }
+      chipUpdate();
+    } catch (e) { /* base sans la table des imports : rien à reprendre */ }
+  }
   function chipUpdate() {
     let chip = document.getElementById("jobchip");
     const hit = Object.entries(IMPORTS).find(([, v]) => v.busy || v.ready || v.failed), here = hit && location.hash === "#import-" + hit[0];
@@ -650,23 +715,15 @@
       else new Notification(title, { body });
     } catch (e) { /* notification non disponible */ }
   }
-  window.addEventListener("beforeunload", e => { if (Object.values(IMPORTS).some(v => v.busy)) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("beforeunload", e => { if (Object.values(IMPORTS).some(v => v.busy && v.local)) { e.preventDefault(); e.returnValue = ""; } });
   window.addEventListener("hashchange", () => chipUpdate());
-  // Contrôle gratuit d'une carte : sa citation doit se retrouver dans le cours (sans accents, ponctuation ni casse).
-  const normQ = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  function quoteFits(q, partNorm) {
-    const w = normQ(q).split(" ").filter(Boolean); if (w.length < 3) return false;
-    if (partNorm.includes(w.join(" "))) return true;
-    let hit = 0, tot = 0; for (let i = 0; i + 3 <= w.length; i++) { tot++; if (partNorm.includes(w.slice(i, i + 3).join(" "))) hit++; }
-    return tot > 0 && hit / tot >= 0.7;
-  }
 
   function screenImport(id) {
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true;
-    const d = IMPORTS[id] || (IMPORTS[id] = { tab: "files", files: [], text: "", n: ch.cards_target || C.CARTES_PAR_DEFAUT, busy: false, cache: {} });
+    const d = IMPORTS[id] || (IMPORTS[id] = newImp(ch));
     function draw() {
-      if (d.busy) { app.innerHTML = impBusyHtml(d, ch.name); chipUpdate(); if ($("askn")) $("askn").onclick = () => { try { Notification.requestPermission().then(() => { if (d.busy && location.hash === "#import-" + id) draw(); }); } catch (e) { /* facultatif */ } }; return; }
+      if (d.busy) { app.innerHTML = impBusyHtml(d, ch.name); chipUpdate(); if ($("askn")) $("askn").onclick = async () => { const ok = await ensurePush(true); if (!ok) toast("Notifications impossibles sur cet appareil ou refusées."); if (d.busy && onImport(id)) draw(); }; return; }
       if (d.doneHtml) { const h = d.doneHtml; d.doneHtml = null; d.ready = false; d.files = []; app.innerHTML = h; chipUpdate(); confetti(); return; }
       app.innerHTML = `<div class="row"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><span class="small muted">${esc(ch.name)}</span></div>
         <h1>Importer un cours</h1>
@@ -686,7 +743,12 @@
       if ($("pick")) { $("pick").onchange = e => add([...e.target.files]); $("cam").onchange = e => add([...e.target.files]);
         const z = $("drop"); z.ondragover = e => { e.preventDefault(); }; z.ondrop = e => { e.preventDefault(); add([...e.dataTransfer.files]); }; }
       $("go").onclick = run;
-      if (d.failed) { const s = $("status"); showErr(s, d.failed); d.failed = null; chipUpdate(); } else chipUpdate();
+      if (d.failed) {
+        const s = $("status"), e = d.failed; showErr(s, e); d.failed = null; if (d.jobId) safeSet("merge.jobseen." + d.jobId, "1");
+        if (d.jobId && d.canResume) { s.insertAdjacentHTML("beforeend", `<p class="note">${e.code === "quota" ? "Ce qui a déjà été lu est gardé : reprends l'import demain, sans rien renvoyer." : "Ce qui a déjà été lu est gardé."}</p><button class="btn sm" id="resume">Reprendre l'import</button>`);
+          $("resume").onclick = async () => { $("resume").disabled = true; try { await ai({ action: "import_resume", job_id: d.jobId }, "studio"); d.busy = true; d.local = false; d.canResume = false; d.t0 = Date.now(); d.msg = "Reprise de l'import…"; impTimer(d); watchJob(id); draw(); } catch (er) { d.canResume = er.code === "quota"; showErr(s, er); } }; }
+      }
+      chipUpdate();
     }
     function keep() { if ($("txt")) d.text = $("txt").value; }
     const say = (m) => { d.msg = m; impPaint(d); };
@@ -710,7 +772,7 @@
       const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
       for (let i = 1; i <= doc.numPages; i++) {
         if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; break; }
-        budget.pages++; say("Lecture de « " + file.name + " » : page " + i + " sur " + doc.numPages + "…"); impProg(d, "read", ((d.fi || 0) + i / doc.numPages) / (d.fn || 1));
+        budget.pages++; say("Lecture de « " + file.name + " » : page " + i + " sur " + doc.numPages + "…"); impProg(d, "read", 0.6 * ((d.fi || 0) + i / doc.numPages) / (d.fn || 1));
         const page = await doc.getPage(i);
         const txt = (await page.getTextContent()).items.map(t => t.str).join(" ").replace(/\s+/g, " ").trim();
         const ops = await page.getOperatorList(), O = lib.OPS;
@@ -810,14 +872,14 @@
       if (d.busy) return; keep();
       if (d.tab === "files" && !d.files.length) return toast("Ajoute au moins un fichier ou une photo.");
       if (d.tab === "text" && d.text.trim().length < 80) return toast("Colle un texte de cours plus long.");
-      d.busy = true; d.ready = false; d.failed = null; d.shown = 0; d.target = 1; d.t0 = Date.now(); d.stage = "read"; d.msg = "Je démarre…";
-      try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* facultatif */ }
+      d.busy = true; d.local = true; d.ready = false; d.failed = null; d.canResume = false; d.jobId = null; d.shown = 0; d.target = 1; d.t0 = Date.now(); d.stage = "read"; d.msg = "Je démarre…";
+      ensurePush(true).then(() => { if (d.busy && onImport(id)) draw(); });
       impTimer(d); draw();
       try {
         const segs = [], budget = { pages: 0, cut: false }, notes = [];
         if (d.tab === "text") segs.push({ text: d.text.trim() });
         else for (const [fi, f] of d.files.entries()) {
-          d.fi = fi; d.fn = d.files.length; impProg(d, "read", fi / d.fn);
+          d.fi = fi; d.fn = d.files.length; impProg(d, "read", 0.6 * fi / d.fn);
           // Un fichier déjà lu (ou déjà transcrit par l'IA) n'est pas relu si l'import est relancé : aucun appel payé deux fois.
           const name = f.name.toLowerCase(), key = f.name + ":" + f.size + ":" + f.lastModified;
           if (d.cache[key]) { segs.push(...d.cache[key]); budget.pages += d.cache[key].length; continue; }
@@ -832,82 +894,33 @@
           else if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/.test(name)) { if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; continue; } budget.pages++; say("Préparation de « " + f.name + " »…"); fs.push({ img: await imageToJpeg(f) }); }
           else { notes.push("« " + f.name + " » n'est pas un format accepté. Exporte-le en PDF et importe le PDF."); continue; }
           if (budget.cut === before) d.cache[key] = fs;
-          segs.push(...fs); impProg(d, "read", (fi + 1) / d.fn);
+          segs.push(...fs); impProg(d, "read", 0.6 * (fi + 1) / d.fn);
         }
         if (budget.cut) notes.push("Seules les " + C.PAGES_MAX_PAR_IMPORT + " premières pages ont été lues. Refais un import pour la suite.");
-        const imgs = segs.filter(s => s.img);
-        // Les lots de photos partent en parallèle (3 à la fois) : 3 fois plus vite pour le même nombre d'appels.
-        if (imgs.length) {
-          const batches = []; for (let i = 0; i < imgs.length; i += 6) batches.push(imgs.slice(i, i + 6));
-          let next = 0, done = 0, stop = false; impProg(d, "img", 0);
-          say("L'IA lit " + plural(imgs.length, "page avec photo ou schéma", "pages avec photos ou schémas") + " (" + plural(batches.length, "appel", "appels") + ")…");
-          const worker = async () => {
-            while (!stop && next < batches.length) {
-              const batch = batches[next++];
-              try {
-                const r = await ai({ action: "transcribe", images: batch.map(b => ({ mime: "image/jpeg", data: b.img })) });
-                const partsTxt = String(r.text || "").split("[[PAGE]]").map(x => x.trim()).filter(Boolean);
-                batch.forEach((b, k) => { b.text = partsTxt.length === batch.length ? partsTxt[k] : (k === 0 ? String(r.text || "") : ""); b.jpg = b.img; delete b.img; });
-              } catch (e) { stop = true; throw e; }
-              done++; impProg(d, "img", done / batches.length); say("Photos et schémas lus : " + done + " lot" + (done > 1 ? "s" : "") + " sur " + batches.length + "…");
+        if (!segs.some(x => x.img || x.path || (x.text && x.text.trim()))) throw new Error(notes[0] || "Je n'ai pas trouvé assez de texte dans ce cours.");
+        // Les pages à faire lire par l'IA sont envoyées dans l'espace privé de l'élève ; le serveur fait tout le reste.
+        const todo = segs.filter(x => x.img && !x.path), stamp = Date.now(); let sent = 0, nextUp = 0;
+        if (todo.length) {
+          say("Envoi de " + plural(todo.length, "page", "pages") + " avec photos ou schémas…");
+          const up = async () => {
+            while (nextUp < todo.length) {
+              const k = nextUp++, sg = todo[k], bin = atob(sg.img), arr = new Uint8Array(bin.length); for (let z = 0; z < bin.length; z++) arr[z] = bin.charCodeAt(z);
+              const path = state.user.id + "/" + id + "/" + stamp + "-" + k + ".jpg", r = await sb.storage.from("cours").upload(path, new Blob([arr], { type: "image/jpeg" }), { contentType: "image/jpeg", upsert: true });
+              if (r.error) throw new Error("Envoi d'une page impossible : " + (r.error.message || "réseau") + ". Vérifie ta connexion et réessaie.");
+              sg.path = path; delete sg.img; sent++; impProg(d, "read", 0.6 + 0.4 * sent / todo.length);
             }
           };
-          await Promise.all(Array.from({ length: Math.min(3, batches.length) }, worker));
+          await Promise.all(Array.from({ length: Math.min(4, todo.length) }, up));
         }
-        const full = segs.map(s => s.text).filter(Boolean).join("\n\n[[PAGE]]\n\n");
-        if (full.replace(/\s/g, "").length < 80) throw new Error(notes[0] || "Je n'ai pas trouvé assez de texte dans ce cours.");
-        const illisible = (full.match(/\[illisible\]/g) || []).length;
-        // Un cours très long est découpé en parties : chaque partie est lue en entier par l'IA, rien n'est coupé.
-        const LIM = 380000, pieces = []; segs.map(s => s.text).filter(Boolean).forEach(t => { for (let k = 0; k < t.length; k += LIM) pieces.push(t.slice(k, k + LIM)); });
-        const chunks = [[]]; let len = 0; pieces.forEach(t => { if (len + t.length > LIM && chunks[chunks.length - 1].length) { chunks.push([]); len = 0; } chunks[chunks.length - 1].push(t); len += t.length; });
-        let cards = []; const bad = new Set(), g = { summary: "", lang: "fr" }, avoid = cardsOf(id).map(c => c.front).filter(Boolean);
-        if (!d.gen) d.gen = {};
-        for (let ci = 0; ci < chunks.length; ci++) {
-          const part = chunks[ci].join("\n\n[[PAGE]]\n\n"), suffix = chunks.length > 1 ? " (partie " + (ci + 1) + " sur " + chunks.length + ")" : "", gk = part.length + ":" + d.n + ":" + ci;
-          say("L'IA prépare le résumé et les cartes" + suffix + "…"); impProg(d, "gen", ci / chunks.length);
-          const n = Math.max(5, Math.round(d.n * part.length / Math.max(1, full.length)));
-          const gi = d.gen[gk] || (d.gen[gk] = await ai({ action: "generate", text: part, n, avoid: avoid.concat(cards.map(c => c.front)).slice(-200) }));
-          const cs = (gi.cards || []).filter(c => c && c.front && c.back).slice(0, n), base = cards.length;
-          if (gi.summary) g.summary += (g.summary ? "\n\n" : "") + gi.summary; if (ci === 0 && gi.lang) g.lang = gi.lang;
-          cards = cards.concat(cs); if (!cs.length) continue;
-          impProg(d, "gen", (ci + 0.85) / chunks.length); say("Contrôle des cartes par rapport au cours" + suffix + "…");
-          const pn = normQ(part); cs.forEach((c, i) => { if (!quoteFits(c.source_quote, pn)) bad.add(base + i); });
-          try { const v = gi.checked || (gi.checked = await ai({ action: "verify", text: part, cards: cs })); (v.results || []).forEach(r => { if (r && r.ok === false) bad.add(base + r.i); }); }
-          catch (e) { if (e.code === "quota") notes.push("Limite d'IA atteinte pendant la vérification : relis les cartes marquées « À vérifier »."); else notes.push("La vérification par l'IA n'a pas pu se faire : seul le contrôle automatique a été fait."); }
-        }
-        cards = cards.slice(0, Math.max(d.n, 5 * chunks.length));
-        if (!cards.length) throw new Error("L'IA n'a créé aucune carte à partir de ce cours.");
-        impProg(d, "save", 0.3); say("Enregistrement…");
-        const norm = x => String(x || "").toLowerCase().replace(/\s+/g, " ").trim(), stamp = Date.now();
-        for (let k = 0; k < segs.length; k++) {
-          const sg = segs[k]; if (!sg.jpg) continue;
-          try { const bin = atob(sg.jpg), arr = new Uint8Array(bin.length); for (let z = 0; z < bin.length; z++) arr[z] = bin.charCodeAt(z);
-            const path = state.user.id + "/" + id + "/" + stamp + "-" + k + ".jpg", up = await sb.storage.from("cours").upload(path, new Blob([arr], { type: "image/jpeg" }), { contentType: "image/jpeg" });
-            if (!up.error) sg.path = path; } catch (e) { /* image non gardée */ }
-          delete sg.jpg;
-        }
-        const pageOf = (quote) => { const q = norm(quote).slice(0, 40); if (q.length < 8) return null; const sg = segs.find(x => x.path && norm(x.text).includes(q)); return sg ? sg.path : null; };
-        const src = await sb.from("sources").insert({ chapter_id: id, filename: d.tab === "text" ? "Texte collé" : d.files.map(f => f.name).join(", ").slice(0, 300), mime: d.tab === "text" ? "text/plain" : "mixte", pages: budget.pages || null, extracted_text: full });
-        if (src.error) throw src.error;
-        // Plusieurs sources dans un chapitre (cours, diaporama, livret…) : le résumé de chaque import s'ajoute à la suite.
-        const old = await sb.from("summaries").select("edited_by_user,markdown").eq("chapter_id", id).maybeSingle(), label = d.tab === "text" ? "Texte collé" : d.files.map(f => f.name).join(", ").slice(0, 80);
-        if (!old.data) { const r = await sb.from("summaries").insert({ chapter_id: id, markdown: g.summary || "" }); if (r.error) throw r.error; }
-        else if (!old.data.edited_by_user) { const r = await sb.from("summaries").update({ markdown: (old.data.markdown ? old.data.markdown + "\n\n## Complément : " + label + "\n\n" : "") + (g.summary || ""), updated_at: new Date().toISOString() }).eq("chapter_id", id); if (r.error) throw r.error; }
-        else notes.push("Ton résumé modifié à la main a été gardé.");
-        const ins = await sb.from("cards").insert(cards.map((c, i) => ({ chapter_id: id, front: String(c.front).slice(0, 500), back: String(c.back).slice(0, 2000), source_quote: c.source_quote ? String(c.source_quote).slice(0, 400) : null, needs_check: bad.has(i) || !c.source_quote, image_path: pageOf(c.source_quote) })));
-        if (ins.error) throw ins.error;
-        await sb.from("chapters").update({ status: "ready", lang: (g.lang || "fr").slice(0, 8), cards_target: d.n }).eq("id", id);
-        delete courseMemo[id]; d.cache = {}; d.gen = {};
-        await loadAll();
-        if (illisible) notes.push(plural(illisible, "passage illisible", "passages illisibles") + " dans tes photos : corrige les cartes concernées ou reprends la photo avec plus de lumière.");
-        if (bad.size) notes.push(plural(bad.size, "carte est marquée", "cartes sont marquées") + " « À vérifier ».");
-        d.busy = false; clearInterval(d.timer); d.shown = 100; d.ready = true; d.files = [];
-        d.doneHtml = `<div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(cards.length, "carte créée", "cartes créées")} et un résumé pour « ${esc(ch.name)} ».</p>${notes.map(n => `<p class="note">${esc(n)}</p>`).join("")}<a class="btn" href="#cartes-${id}">Réviser maintenant</a><a class="btn ghost" href="#chapitre-${id}">Voir le chapitre</a></div>`;
-        impNotify("Merge.", "« " + ch.name + " » est prêt : " + plural(cards.length, "carte créée", "cartes créées") + ".");
-        if (location.hash === "#import-" + id) draw(); else { toast("« " + ch.name + " » est prêt."); chipUpdate(); }
+        impProg(d, "read", 1); say("Envoi du cours au serveur…");
+        const label = d.tab === "text" ? "Texte collé" : d.files.map(f => f.name).join(", ").slice(0, 300);
+        const r = await ai({ action: "import_start", chapter_id: id, n: d.n, label, mime: d.tab === "text" ? "text/plain" : "mixte", pages: budget.pages || null, notes, avoid: cardsOf(id).map(c => c.front).filter(Boolean).slice(-200), segs: segs.map(x => x.path ? { path: x.path } : { text: x.text }) }, "studio");
+        if (!r || !r.job_id) throw new Error("Le serveur n'a pas pris l'import. Réessaie dans un instant.");
+        d.jobId = r.job_id; d.local = false; d.stage = segs.some(x => x.path) ? "img" : "gen"; d.target = Math.max(d.target, 12); d.msg = "C'est parti côté serveur…";
+        if (onImport(id)) draw(); watchJob(id);
       } catch (e) {
-        console.error(e); d.busy = false; clearInterval(d.timer); d.failed = e; impNotify("Merge.", "L'import de « " + ch.name + " » s'est arrêté : " + e.message);
-        if (location.hash === "#import-" + id) { draw(); if (e.code === "quota") { const s = $("status"); if (s) s.insertAdjacentHTML("beforeend", '<p class="note">Ce qui a déjà été lu est gardé : relance l\'import demain sans recharger la page, ou réessaie avec moins de pages.</p>'); } } else chipUpdate();
+        console.error(e); d.busy = false; d.local = false; clearInterval(d.timer); d.failed = e;
+        if (onImport(id)) draw(); else chipUpdate();
       }
     }
     draw();
@@ -2044,6 +2057,7 @@
       state.user = data.session ? data.session.user : null;
       if (state.user) await loadAll();
       route();
+      if (state.user && state.profile && state.profile.onboarded_at) resumeJobs();
     } catch (e) {
       console.error(e);
       if (!state.user) return screenLogin("Connexion impossible : " + (e.message || "erreur"));

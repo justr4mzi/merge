@@ -71,9 +71,9 @@ async function flows(browser) {
   await page.fill("#cname", "Chapitre 1 : La mitose"); await page.click("#addCh"); await page.waitForTimeout(400);
   const ch = (await page.evaluate(() => location.hash)).replace("#chapitre-", "");
   await go(page, "#import-" + ch); await page.click('[data-tab="text"]');
-  await page.fill("#txt", "La mitose est une division cellulaire qui donne deux cellules filles génétiquement identiques à la cellule mère. Elle comporte quatre phases."); await page.click("#go"); await page.waitForTimeout(900);
+  await page.fill("#txt", "La mitose est une division cellulaire qui donne deux cellules filles génétiquement identiques à la cellule mère. Elle comporte quatre phases."); await page.click("#go"); await page.waitForFunction(() => /cartes créées/.test(document.getElementById("app").innerText), null, { timeout: 15000 }).catch(() => {});
   ok((await txt(page)).includes("8 cartes créées"), "import : cartes créées", (await txt(page)).slice(0, 200));
-  ok(await page.evaluate(() => window.__fake.calls) === 2, "import : 2 appels IA (génération + vérification)");
+  ok(await page.evaluate(() => window.__fake.calls) >= 1 && await page.evaluate(() => window.__fake.DB.import_jobs.length) === 1, "import : fait par le serveur, appel IA compté");
   await go(page, "#cartes-" + ch);
   ok(await page.locator("#no svg").count() === 1 && (await page.locator("#yes").innerText()).trim() === "Juste", "session : croix rouge et bouton Juste");
   await page.click("#flip"); await page.click("#no"); await page.waitForTimeout(60);
