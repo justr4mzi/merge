@@ -46,7 +46,18 @@ Deno.serve(async (req) => {
         else console.error("push", code, (e as Error).message);
       }
     };
-    const CHEERS = ["Dix minutes maintenant, c'est ça de moins avant le contrôle.", "Une carte après l'autre, c'est comme ça que ça rentre.", "Ta série t'attend, ne la casse pas.", "Régulier bat intense. Toujours.", "Ce que tu révises aujourd'hui, tu le sais encore dans un mois."];
+    // Messages variés : on en tire un différent chaque jour, selon la situation (cartes à revoir, série en cours, rien à faire).
+    const pick = (list: string[], seed: number) => list[seed % list.length];
+    const DUE = ["{n} à revoir aujourd'hui. Dix minutes et c'est réglé.", "au programme : {n}. Une par une, ça passe vite.", "{n} à revoir. On s'y met ?", "petit rappel : {n} aujourd'hui. Ton toi du contrôle te dira merci.", "{n} à revoir. Lance la musique et c'est parti.", "{n} à revoir : le temps d'un épisode, en plus utile.", "{n} au programme. Tu peux les faire dans le bus.", "{n} à revoir. Ce que tu révises aujourd'hui, tu le sais encore dans un mois."];
+    const STREAK = ["{s} jours d'affilée. Ne casse pas ta série maintenant.", "ta série de {s} jours t'attend. Une petite session suffit.", "{s} jours de suite, c'est solide. On continue ?"];
+    const NONE = ["tu es à jour. Un petit quiz pour garder la forme ?", "rien à revoir aujourd'hui. Et si tu importais ton prochain cours ?", "aucune carte en retard. Un tour en mode Flash 60 secondes ?", "tout est à jour. Profite-en pour faire une carte mentale de ton dernier chapitre."];
+    const streakOf = async (uid: string, day: string) => {
+      const { data } = await admin.from("study_sessions").select("day,cards_reviewed").eq("user_id", uid).gt("cards_reviewed", 0).order("day", { ascending: false }).limit(60);
+      const days = new Set((data ?? []).map((r: Any) => String(r.day))); let n = 0; const d = new Date(day + "T12:00:00Z");
+      if (!days.has(day)) d.setUTCDate(d.getUTCDate() - 1);
+      while (days.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
+      return n;
+    };
     const dueOf = async (uid: string) => { const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("user_id", uid).lte("due_at", now.toISOString()); return count ?? 0; };
     const plus = (here: Any, n: number) => { const [y, m, d] = here.day.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return t.toISOString().slice(0, 10); };
     for (const s of subs as Any[]) {
@@ -67,7 +78,11 @@ Deno.serve(async (req) => {
       if (soon?.length) {
         const x = soon.sort((a: Any, b: Any) => String(a.exam_date).localeCompare(String(b.exam_date)))[0], j = x.exam_date === plus(here, 1) ? "demain" : x.exam_date === plus(here, 3) ? "dans 3 jours" : "dans une semaine";
         body = `${hi}contrôle de ${x.name} ${j}. ${due > 0 ? cards[0].toUpperCase() + cards.slice(1) + " ce soir." : "Un petit tour de révision ce soir ?"}`; url = "./#matiere-" + x.id;
-      } else body = `${hi}${cards} aujourd'hui. ${CHEERS[Number(here.day.slice(8)) % CHEERS.length]}`;
+      } else {
+        const seed = Number(here.day.replaceAll("-", "")) + s.endpoint.length, st = await streakOf(s.user_id, here.day), n = `${due} carte${due > 1 ? "s" : ""}`;
+        const msg = st >= 2 && seed % 3 === 0 ? pick(STREAK, seed).replace("{s}", String(st)) : due > 0 ? pick(DUE, seed).replace("{n}", n) : pick(NONE, seed);
+        body = hi ? hi + msg : msg[0].toUpperCase() + msg.slice(1);
+      }
       await push(s, body, url, { last_sent: here.day });
     }
     return json({ sent, removed, subscriptions: subs.length });
