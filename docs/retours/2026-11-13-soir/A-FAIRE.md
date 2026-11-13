@@ -66,7 +66,7 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Révision mélangée, qui tient compte des contrôles qui arrivent (priorité aux matières à date proche). Plus un bouton « Réviser tous les chapitres de la matière ».
 - Images sur les cartes. Revoir aussi les fiches de révision imprimables : actuellement elles ne donnent pas envie de réviser, à rendre plus belles et plus visuelles.
 - Partage d'un chapitre par lien : n'importe qui peut réviser, même sans compte et sans être jamais venu sur le site (invité). L'invité n'utilise que ce qui est déjà créé (résumé, cartes, quiz, fiche…), aucune génération IA.
-- Widget : raccourcis d'appli AJOUTÉS (appui long sur l'icône : Réviser maintenant, Calendrier, Matières ; Android et PC, pas iPhone). Reste : badge du nombre de cartes à revoir. Ancien point : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
+- Widget : raccourcis d'appli AJOUTÉS (appui long sur l'icône : Réviser maintenant, Calendrier, Matières ; Android et PC, pas iPhone). Pastille du nombre de cartes à revoir sur l'icône AJOUTÉE (appli installée, selon le téléphone). Ancien point : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
 - Animations de réussite plus variées.
 - Corbeille 30 jours.
 - Recherche dans le texte du cours.
