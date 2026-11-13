@@ -25,11 +25,12 @@ RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre télé
 - Bouton « Modifier la carte » pendant les flashcards.
 - Classe libre : « Autre formation (à écrire)… » à l'inscription et dans Réglages.
 - Notifications (fonction `remind` v3) : chaque jour avec le prénom (18 h par défaut, ou l'heure choisie), contrôles annoncés à J-7, J-3 et la veille, et message le matin du contrôle à 7 h 30. Reste : proposer d'activer les notifications plus tôt (à l'inscription).
+- Fiche de synthèse : le texte rétrécit automatiquement (jusqu'à 6 pt) pour tenir sur une page A4. Vérifié : une fiche très chargée passe sur 1 page à 8,25 pt.
+- Notifications variées selon la situation (8 messages quand il y a des cartes, 3 sur la série, 4 quand tout est à jour).
 - Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
-- Non fait : suppression du quota de 40 (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
+- Quota : Ramzi a mis `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (à confirmer). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
 
 ## Bugs
-5. Fiche de synthèse en PDF : « Pour retenir » part sur une 2e page (`09-pdf-synthese-2e-page.png`). Tout doit tenir sur une page A4 (texte qui rétrécit si besoin).
 6. Résumé : LaTeX brut ($I$, $U_{AB}$, \times) (`10-resume-caracteres-latex.png`). NE PAS contourner : afficher vraiment les formules et symboles comme en cours (rendu mathématique, ex. KaTeX en local dans `vendor/`) : indices, exposants, ×, Ω, racines, et les fractions posées (barre horizontale, numérateur au-dessus, dénominateur en dessous), jamais avec un slash. Vaut pour résumé, cartes, quiz, fiche, carte mentale, prof IA. Demander à l'IA d'écrire les formules en LaTeX entre $…$ pour qu'elles soient rendues.
 
 ## Nouveautés

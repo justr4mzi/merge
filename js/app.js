@@ -2358,9 +2358,17 @@
           ${box("Pièges à éviter", (f.pieges || []).length ? `<ul>${li(f.pieges)}</ul>` : "", "warn")}
           ${box("Pour retenir", (f.mnemos || []).length ? `<ul>${li(f.mnemos)}</ul>` : "")}
         </article></div>${regenHtml}`;
-      $("print").onclick = () => window.print(); wireRegen(regen);
+      $("print").onclick = () => { fitA4(app.querySelector(".synth")); window.print(); }; wireRegen(regen);
     });
   }
+  // Réduit la taille du texte jusqu'à ce que la fiche tienne sur une page A4 (281 mm utiles).
+  function fitA4(el) {
+    if (!el) return; const maxH = 281 * 96 / 25.4 - 4; el.classList.add("fit");
+    let pt = 9.5; el.style.setProperty("--pfs", pt + "pt");
+    while (el.scrollHeight > maxH && pt > 6) { pt -= 0.25; el.style.setProperty("--pfs", pt + "pt"); }
+    el.classList.remove("fit");
+  }
+  window.addEventListener("beforeprint", () => { const el = document.querySelector(".synth"); if (el && !el.style.getPropertyValue("--pfs")) fitA4(el); });
 
   // ---------- planche de flashcards A4 à imprimer ----------
   async function screenPrintCards(id) {
