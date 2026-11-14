@@ -752,3 +752,8 @@ details.drop{display:block;padding:12px 16px}
 details.drop>summary{justify-content:flex-start;text-align:left;width:100%}
 details.drop>summary>b{flex:1;min-width:0}
 details.drop:not([open])>summary{margin:0}
+/* Révision mélangée et révision de toute la matière */
+.mixbtn{display:flex;flex-direction:column;gap:0;line-height:1.2;padding-block:8px}
+.mixbtn .small{font-weight:600;opacity:.75}
+.card.today .mixbtn{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.3)}
+.btn.revall{align-self:stretch;justify-content:center;gap:8px;min-height:52px}

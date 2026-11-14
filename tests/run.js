@@ -443,6 +443,15 @@ async function tempsEcran(browser) {
   ok(!page.errors.length, "temps d'écran : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function melange(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "light" });
+  ok(await page.locator('a[href="#melange"]').count() === 1, "révision mélangée : bouton sur l'accueil");
+  await go(page, "#melange", 500); ok(await page.locator("#flip").count() === 1, "révision mélangée : séance lancée");
+  await go(page, "#matiere-s1", 400); ok((await txt(page)).includes("Réviser tous les chapitres de la matière"), "matière : réviser tous les chapitres bien visible");
+  let sm = await small(page); ok(!sm.length, "matière : boutons de 44 px minimum", sm.join(" | "));
+  ok(!page.errors.length, "révision mélangée : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -451,7 +460,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
