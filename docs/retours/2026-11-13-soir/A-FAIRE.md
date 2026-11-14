@@ -34,7 +34,7 @@ Musique servie par le site ; synchronisation `user_kv` (favoris, notes, surligna
 
 ### IA et voix (à présenter dans le résumé final, rien de payant installé)
 12. Encore plus rapide partout (parallélisme, réflexion minimale, petits modèles pour les tâches simples).
-13. Expliquer les options avec les abonnements de Ramzi : Claude Pro (ce mois-ci), ChatGPT Go et Google AI Pro (permanents). Ne pas conseiller de recréer un compte Google pour l'essai gratuit (probablement contraire aux conditions de Google). Alternatives : clé gratuite Gemini (Google AI Studio), crédits restants, modèles plus légers.
+13. Expliquer les options avec les abonnements de Ramzi : Claude Pro (ce mois-ci), ChatGPT Go et Google AI Pro (permanents). . Alternatives : clé gratuite Gemini (Google AI Studio), crédits restants, modèles plus légers.
 14. Lister les solutions de voix (voix du navigateur actuelle, Google Cloud Text-to-Speech couvert par les crédits, voix Gemini, OpenAI, ElevenLabs…), avec coût et qualité, pour que Ramzi choisisse.
 
 ### Idées retenues par Ramzi
