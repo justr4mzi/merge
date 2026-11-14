@@ -287,6 +287,22 @@
     try { await kvPull(); } catch (e) { /* synchronisation au prochain passage */ }
     safeSet("merge.cache." + uid, JSON.stringify({ profile: state.profile, subjects: state.subjects, groups: state.groups, chapters: state.chapters, cards: state.cards, sessions: state.sessions, legacy: state.legacy }));
     applyLook(state.profile);
+    setTimeout(prefetchOffline, 4000);
+  }
+  // Hors ligne complet : résumés et contenus déjà générés (quiz, fiche, carte mentale…) copiés sur l'appareil, au plus toutes les 30 min.
+  function offlineKeep(k, v) { const t = JSON.stringify(v); try { if (localStorage.getItem(k) !== t) localStorage.setItem(k, t); return true; } catch (e) { return false; } }
+  let prefetchAt = 0;
+  async function prefetchOffline() {
+    if (!state.user || state.offline || Date.now() - prefetchAt < 1800000) return; prefetchAt = Date.now();
+    const ids = state.chapters.map(c => c.id); if (!ids.length) return;
+    try {
+      for (let i = 0; i < ids.length; i += 50) {
+        const part = ids.slice(i, i + 50);
+        const [sr, gr] = await Promise.all([sb.from("summaries").select("chapter_id,markdown,edited_by_user").in("chapter_id", part), sb.from("ai_cache").select("chapter_id,kind,content").in("chapter_id", part)]);
+        for (const x of (sr.data || [])) if (!offlineKeep("merge.sum." + x.chapter_id, x)) return;
+        for (const x of (gr.data || [])) if (x.content && !offlineKeep(genKey(x.chapter_id, x.kind), x.content)) return;
+      }
+    } catch (e) { /* on réessaiera plus tard */ }
   }
   function loadCache() {
     try { const c = JSON.parse(safeGet("merge.cache." + state.user.id) || "null"); if (!c || !c.profile) return false; Object.assign(state, { groups: [] }, c, { offline: true }); applyLook(state.profile); return true; } catch (e) { return false; }
@@ -889,11 +905,13 @@
     tabs.hidden = true;
     const s = state.subjects.find(x => x.id === ch.subject_id) || { name: "", color: "#888", id: "" }, grp = state.groups.find(x => x.id === ch.group_id), here = location.hash;
     app.innerHTML = `<p class="muted">Chargement…</p>`;
-    const [cr, sr] = await Promise.all([
+    let [cr, sr] = state.offline ? [{ error: { message: "hors ligne" } }, { error: true }] : await Promise.all([
       sb.from("cards").select("id,front,back,source_quote,needs_check,flagged,state,image_path").eq("chapter_id", id).order("created_at"),
       sb.from("summaries").select("chapter_id").eq("chapter_id", id).maybeSingle()
-    ]);
-    if (cr.error) return fail(cr.error, "Cartes non chargées");
+    ]).catch(() => [{ error: { message: "hors ligne" } }, { error: true }]);
+    // Hors ligne : cartes de la copie locale, résumé s'il a été enregistré sur l'appareil.
+    if (cr.error) cr = { data: cardsOf(id).filter(c => c.front).map(c => Object.assign({ needs_check: false, flagged: false }, c)) };
+    if (sr.error) sr = { data: safeGet("merge.sum." + id) ? { chapter_id: id } : null };
     if (location.hash !== here) return;
     const cards = cr.data || [], meta = cardsOf(id), m = mastery(meta), due = dueCards(meta).length, hasSum = !!(sr.data);
     const tile = (k) => {
@@ -946,8 +964,10 @@
   async function screenSummary(id) {
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true; app.innerHTML = `<p class="muted">Chargement…</p>`;
-    const { data: sum, error } = await sb.from("summaries").select("*").eq("chapter_id", id).maybeSingle();
-    if (error || !sum) { location.hash = "#chapitre-" + id; return; }
+    let sum = null, error = null;
+    try { const r = state.offline ? { error: { message: "hors ligne" } } : await sb.from("summaries").select("*").eq("chapter_id", id).maybeSingle(); sum = r.data; error = r.error; } catch (e) { error = e; }
+    if (sum) offlineKeep("merge.sum." + id, sum); else if (error) { try { sum = JSON.parse(safeGet("merge.sum." + id) || "null"); } catch (e) { sum = null; } if (sum) toast("Hors ligne : résumé enregistré sur cet appareil."); }
+    if (!sum) { location.hash = "#chapitre-" + id; return; }
     function view() {
       app.innerHTML = `<div class="row between"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><button class="btn sm ghost" id="edit">Modifier</button></div>
         <h1>${esc(ch.name)}</h1><p class="small muted">L'essentiel du chapitre, écrit uniquement à partir de ton cours${sum.edited_by_user ? ", modifié par toi" : ""}.</p>
@@ -1789,7 +1809,12 @@
 
   // ---------- modes : apprendre, quiz, contrôle ----------
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-  async function chapterCards(id) { const { data, error } = await sb.from("cards").select("id,front,back").eq("chapter_id", id); if (error) { fail(error, "Cartes non chargées"); return []; } return data || []; }
+  async function chapterCards(id) {
+    const local = () => cardsOf(id).filter(c => c.front).map(c => ({ id: c.id, front: c.front, back: c.back }));
+    if (state.offline) return local();
+    let r; try { r = await sb.from("cards").select("id,front,back").eq("chapter_id", id); } catch (e) { return local(); }
+    if (r.error) { const l = local(); if (!l.length) fail(r.error, "Cartes non chargées"); return l; } return r.data || [];
+  }
   // kind : "apprendre" (QCM, les erreurs reviennent), "quiz" (QCM ou rédigé, note), "controle" (complet, note sur 20), "blanc" (chronométré).
   // Quiz et contrôle sont écrits par l'IA à partir du cours (1 appel, gardé ensuite) ; sans IA, ils se font avec les cartes.
   let midQuiz = null;

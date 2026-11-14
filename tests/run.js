@@ -464,6 +464,15 @@ async function recherche(browser) {
   ok(!page.errors.length, "recherche : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function horsligne(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#quiz-c1", 300); await page.evaluate(() => { window.__fake.DB.ai_cache.push({ chapter_id: "c1", kind: "mindmap", content: { titre: "X", enfants: [] }, user_id: "user-1" }); });
+  await page.waitForTimeout(4800);
+  const k = await page.evaluate(() => ({ sum: !!localStorage.getItem("merge.sum.c1"), gen: !!localStorage.getItem("merge.gen.c1.mindmap") }));
+  ok(k.sum && k.gen, "hors ligne : résumés et contenus générés copiés sur l'appareil", JSON.stringify(k));
+  ok(!page.errors.length, "hors ligne : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -472,7 +481,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
