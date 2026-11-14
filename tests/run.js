@@ -627,6 +627,18 @@ async function imageCarte(browser) {
   ok(!page.errors.length, "image de carte : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function animations(browser) {
+  // Deux @keyframes du même nom s'écrasent : c'est ce qui faisait disparaître les écrans et les fenêtres (bug du 14 nov.).
+  const css = fs.readFileSync(path.join(ROOT, "css/app.css"), "utf8"), names = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].map(m => m[1]);
+  const dup = names.filter((n, i) => names.indexOf(n) !== i); ok(!dup.length, "animations : aucun nom de keyframes en double", dup.join(", "));
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await page.click("button[data-qs]"); await page.waitForTimeout(700);
+  ok(await page.evaluate(() => getComputedStyle(document.querySelector("#sheet .sheet")).opacity === "1"), "animations : la fenêtre de recherche reste visible");
+  await page.keyboard.press("Escape"); await go(page, "#matieres", 900);
+  ok(await page.evaluate(() => [...document.querySelectorAll("#app > *")].every(e => getComputedStyle(e).opacity === "1")), "animations : la page reste visible après l'entrée");
+  ok(!page.errors.length, "animations : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -635,7 +647,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

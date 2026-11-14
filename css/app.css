@@ -761,8 +761,8 @@ details.drop:not([open])>summary{margin:0}
 .confetti.c-explosion i,.confetti.c-feux i{top:auto;width:8px;height:8px;border-radius:50%;animation:burst 1.4s cubic-bezier(.15,.7,.3,1) forwards}
 .confetti.c-feux i{width:6px;height:6px;box-shadow:0 0 8px currentColor}
 @keyframes burst{0%{transform:translate(0,0) scale(1);opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),calc(var(--dy) + 60px)) scale(.4);opacity:0}}
-.confetti.c-etoiles i{top:auto;bottom:-30px;width:22px;height:22px;background:var(--c);border-radius:0;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:rise 2s ease-out forwards}
-@keyframes rise{0%{transform:translateY(0) scale(var(--s)) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(-105vh) scale(var(--s)) rotate(200deg);opacity:0}}
+.confetti.c-etoiles i{top:auto;bottom:-30px;width:22px;height:22px;background:var(--c);border-radius:0;clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);animation:starrise 2s ease-out forwards}
+@keyframes starrise{0%{transform:translateY(0) scale(var(--s)) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(-105vh) scale(var(--s)) rotate(200deg);opacity:0}}
 .confetti.c-serpentins i{width:5px;height:60px;border-radius:4px;animation:snake 2.4s ease-in forwards}
 @keyframes snake{0%{transform:translateY(-70px) rotate(0)}25%{transform:translateY(25vh) rotate(40deg)}50%{transform:translateY(50vh) rotate(-30deg)}75%{transform:translateY(75vh) rotate(35deg)}100%{transform:translateY(110vh) rotate(-20deg);opacity:.6}}
 .snip mark{background:color-mix(in srgb,var(--accent) 30%,transparent);color:inherit;border-radius:3px;padding:0 2px}
