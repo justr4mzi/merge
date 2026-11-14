@@ -723,3 +723,12 @@ span.m.md{display:block;margin:.4em 0;overflow-x:auto;overflow-y:hidden;text-ali
 /* Interro écrite */
 .interro .qtxt{font-size:1.15em;font-weight:700;margin:0}
 .interro input#ians{font-size:1.1em}
+/* Lecteur de musique de fond */
+.nowplay{gap:6px}
+.nowplay .np-t{font-size:1.15em;line-height:1.25}
+.nowplay .np-bar{height:4px;border-radius:4px;background:var(--track);overflow:hidden;margin:6px 0 4px}
+.nowplay .np-bar i{display:block;height:100%;background:var(--accent);transition:width .4s linear}
+.nowplay .np-ctl{align-items:center;gap:10px;flex-wrap:nowrap}
+.nowplay .np-n{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iconbtn.big{width:56px;height:56px;border-radius:50%;background:var(--btn-bg);color:var(--btn-fg)}
+.iconbtn.big svg{width:26px;height:26px}

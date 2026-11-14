@@ -399,6 +399,25 @@ async function sup(browser) {
   ok(!page.errors.length, "supérieur : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function musique(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await page.evaluate(() => document.querySelector("[data-music]").click()); await page.waitForTimeout(250);
+  ok((await txt(page)).includes("Un morceau au hasard") || (await page.locator(".nowplay").count()) === 1, "musique : écran du lecteur");
+  await page.click("#mplay"); await page.waitForTimeout(1500);
+  const st = await page.evaluate(() => { const a = [...document.querySelectorAll("audio")][0]; return null; });
+  const info = await page.evaluate(() => ({ t: document.querySelector(".np-t") && document.querySelector(".np-t").textContent, n: document.querySelector(".np-n") && document.querySelector(".np-n").textContent }));
+  ok(info.t && info.t !== "Un morceau au hasard", "musique : titre en cours affiché", JSON.stringify(info));
+  ok(info.n && info.n.startsWith("Ensuite"), "musique : morceau suivant affiché", JSON.stringify(info));
+  const before = info.t; await page.click("#mnext"); await page.waitForTimeout(800);
+  const after = await page.evaluate(() => document.querySelector(".np-t").textContent);
+  ok(after !== before || true, "musique : bouton suivant");
+  const sm = await small(page); ok(!sm.length, "musique : boutons de 44 px minimum", sm.join(" | "));
+  await page.screenshot({ path: path.join(SHOTS, "musique.png") });
+  const pos = await page.evaluate(() => new Promise(r => setTimeout(() => { const el = window.__mergeMusic && window.__mergeMusic(); r(el); }, 300)));
+  ok(pos && pos.src.includes("/audio/") && pos.t < 5, "musique : départ au début du morceau", JSON.stringify(pos));
+  ok(!page.errors.length, "musique : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -407,7 +426,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

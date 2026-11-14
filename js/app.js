@@ -85,6 +85,7 @@
   const svg = (d, extra) => `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${extra || ""}>${d}</svg>`;
   const I = {
     back: svg('<path d="M15 6l-6 6 6 6"/>'), search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'), clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 3h5"/>'), star: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.8z"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'), spark: svg('<path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
+    play: svg('<path d="M8 5.5v13l10.5-6.5z"/>'), pause: svg('<path d="M8.5 5.5v13M15.5 5.5v13"/>'), next: svg('<path d="M6 6v12l8.5-6zM18 6v12"/>'),
     home: svg('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
     gear: svg('<circle cx="12" cy="12" r="2.6"/><path d="M12 4v2.4M12 17.6V20M4 12h2.4M17.6 12H20M6.35 6.35l1.7 1.7M15.95 15.95l1.7 1.7M17.65 6.35l-1.7 1.7M8.05 15.95l-1.7 1.7"/>'),
     cards: '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="7" width="15" height="11" rx="2.5"/><path d="M8 4h11a3 3 0 013 3v8a1 1 0 01-2 0V7a1 1 0 00-1-1H8a1 1 0 010-2z" opacity=".55"/></svg>',
@@ -505,35 +506,59 @@
     try { if (navigator.setAppBadge) { if (due) navigator.setAppBadge(due).catch(() => {}); else navigator.clearAppBadge().catch(() => {}); } } catch (e) { /* non géré */ }
   }
   // Musique de fond (lofi) : un seul lecteur pour toute l'appli, qui démarre à une minute tirée au hasard.
-  const LOFI = (C.LOFI || []).filter(t => t && (t.url || (t.parts && t.parts.length)));
-  const music = { el: null, i: -1, on: false, err: "" };
-  const partsOf = t => t.parts || [t.url];
-  function musicPlay(i, part) {
-    const t = LOFI[i]; if (!t) return; const parts = partsOf(t);
-    if (!music.el) {
-      music.el = new Audio(); music.el.preload = "auto"; music.el.volume = Math.min(1, Math.max(0, parseFloat(safeGet("merge.lofivol")) || 0.4));
-      music.el.onerror = () => { music.on = false; music.err = "Cette musique n'est pas disponible pour l'instant. Vérifie ta connexion."; musicPaint(); };
-      music.el.onended = () => { if (music.on) musicPlay(music.i, (music.part + 1) % partsOf(LOFI[music.i]).length); };
-    }
-    const a = music.el, fresh = part == null; music.err = "";
-    // Départ : un morceau au hasard, à une minute au hasard. Ensuite les morceaux s'enchaînent.
-    if (music.i !== i || !fresh || !a.src) {
-      music.i = i; music.part = fresh ? Math.floor(Math.random() * parts.length) : part; a.src = parts[music.part];
-      a.onloadedmetadata = fresh ? () => { if (isFinite(a.duration) && a.duration > 180) { try { a.currentTime = Math.floor(Math.random() * Math.floor((a.duration - 60) / 60)) * 60; } catch (e) { /* lecture depuis le début */ } } } : null;
-    }
-    music.on = true; musicPaint();
-    const pr = a.play(); if (pr && pr.then) pr.then(() => { safeSet("merge.lofi", String(i)); }).catch(() => { music.on = false; music.err = music.err || "Lecture impossible. Touche le titre encore une fois."; musicPaint(); });
+  // Musique de fond : un fichier par morceau. On démarre toujours au DÉBUT d'un morceau tiré au hasard, puis l'ordre est mélangé.
+  const LOFI = (C.LOFI || []).filter(p => p && p.tracks && p.tracks.length);
+  const music = { el: null, i: -1, on: false, err: "", order: [], pos: 0 };
+  const trackOf = (i, k) => { const t = LOFI[i] && LOFI[i].tracks[k]; return t ? { f: "audio/" + t[0] + ".mp3", t: t[1] || "Lofi de Noël", a: t[2] || "" } : null; };
+  const curTrack = () => music.order.length ? trackOf(music.i, music.order[music.pos]) : null;
+  const nextTrack = () => music.order.length ? trackOf(music.i, music.order[(music.pos + 1) % music.order.length]) : null;
+  function musicLoad() {
+    const a = music.el, t = curTrack(); if (!t) return;
+    a.src = t.f; music.err = "";
+    try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: t.t, artist: t.a || LOFI[music.i].nom, album: LOFI[music.i].nom + " · Merge." }); } } catch (e) { /* pas de lecteur système */ }
   }
+  function musicEl() {
+    if (music.el) return music.el;
+    const a = music.el = new Audio(); a.preload = "auto"; a.volume = Math.min(1, Math.max(0, parseFloat(safeGet("merge.lofivol")) || 0.4));
+    a.onerror = () => { if (!music.on) return; music.fails = (music.fails || 0) + 1; if (music.fails < 3) return musicNext(); music.on = false; music.err = "Cette musique n'est pas disponible pour l'instant. Vérifie ta connexion."; musicPaint(); };
+    a.onplaying = () => { music.fails = 0; };
+    a.onended = () => { if (music.on) musicNext(); };
+    a.ontimeupdate = () => { const b = document.getElementById("mprog"); if (b && isFinite(a.duration) && a.duration) b.style.width = (a.currentTime / a.duration * 100).toFixed(1) + "%"; };
+    try { if ("mediaSession" in navigator) { navigator.mediaSession.setActionHandler("play", () => musicPlay(music.i)); navigator.mediaSession.setActionHandler("pause", musicStop); navigator.mediaSession.setActionHandler("nexttrack", musicNext); } } catch (e) { /* non géré */ }
+    return a;
+  }
+  function musicGo() {
+    const a = musicEl(); music.on = true; musicPaint();
+    const pr = a.play(); if (pr && pr.then) pr.then(() => { safeSet("merge.lofi", String(music.i)); }).catch(() => { music.on = false; music.err = music.err || "Lecture impossible. Touche lecture encore une fois."; musicPaint(); });
+  }
+  // i : liste (Lofi, Christmas Lofi). Même liste et déjà chargée : reprend là où on s'était arrêté.
+  function musicPlay(i) {
+    if (!LOFI[i]) i = 0; if (!LOFI[i]) return; musicEl();
+    if (music.i !== i || !music.order.length || !music.el.src) {
+      music.i = i; music.order = shuffle(LOFI[i].tracks.map((_, k) => k)); music.pos = 0; musicLoad();
+    }
+    musicGo();
+  }
+  window.__mergeMusic = () => music.el ? { src: music.el.src, t: music.el.currentTime, on: music.on } : null;
+  function musicNext() { if (!music.order.length) return musicPlay(music.i < 0 ? 0 : music.i); music.pos = (music.pos + 1) % music.order.length; musicLoad(); musicGo(); }
   function musicStop() { if (music.el) music.el.pause(); music.on = false; musicPaint(); }
   function musicPaint() {
     document.querySelectorAll("[data-music]").forEach(b => b.classList.toggle("on", music.on));
     const box = document.getElementById("musicbox"); if (!box) return;
-    box.innerHTML = `${LOFI.map((t, i) => `<button class="chip" data-track="${i}" aria-pressed="${music.on && music.i === i}">${music.on && music.i === i ? "En lecture : " : ""}${esc(t.nom)}</button>`).join("")}`;
-    box.querySelectorAll("[data-track]").forEach(b => b.onclick = () => { const i = +b.dataset.track; if (music.on && music.i === i) musicStop(); else musicPlay(i); });
-    const m = document.getElementById("musicmsg"); if (m) m.textContent = music.err || (music.on ? "La lecture a démarré à un moment tiré au hasard. Touche le titre pour arrêter." : "Touche un titre pour lancer la musique.");
+    const sel = music.i >= 0 ? music.i : Math.max(0, Math.min(LOFI.length - 1, parseInt(safeGet("merge.lofi"), 10) || 0)), t = music.i === sel ? curTrack() : null, n = music.i === sel ? nextTrack() : null;
+    box.innerHTML = `<div class="chips" role="group" aria-label="Ambiance">${LOFI.map((p, i) => `<button class="chip" data-pl="${i}" aria-pressed="${i === sel}">${esc(p.nom)}</button>`).join("")}</div>
+      <div class="nowplay card pad stack"><span class="small muted">${music.on ? "En lecture" : t ? "En pause" : esc(LOFI[sel].nom) + " · " + plural(LOFI[sel].tracks.length, "morceau", "morceaux")}</span>
+        <b class="np-t">${t ? esc(t.t) : "Un morceau au hasard"}</b><span class="muted np-a">${t ? esc(t.a || LOFI[sel].nom) : "Toujours depuis le début du morceau"}</span>
+        <div class="np-bar"><i id="mprog" style="width:${t && music.el && music.el.duration ? (music.el.currentTime / music.el.duration * 100).toFixed(1) : 0}%"></i></div>
+        <div class="row np-ctl"><button class="iconbtn big" id="mplay" aria-label="${music.on ? "Pause" : "Lecture"}">${music.on ? I.pause : I.play}</button><button class="iconbtn" id="mnext" aria-label="Morceau suivant">${I.next}</button>
+        ${n ? `<p class="small muted grow np-n">Ensuite : ${esc(n.t)}${n.a ? " · " + esc(n.a) : ""}</p>` : ""}</div></div>`;
+    box.querySelectorAll("[data-pl]").forEach(b => b.onclick = () => { const i = +b.dataset.pl; if (i !== music.i) { if (music.el) music.el.pause(); music.order = []; musicPlay(i); } });
+    $("mplay").onclick = () => { if (music.on) musicStop(); else musicPlay(sel); };
+    $("mnext").onclick = () => { if (music.i !== sel || !music.order.length) musicPlay(sel); else musicNext(); };
+    const m = document.getElementById("musicmsg"); if (m) m.textContent = music.err || "";
   }
   function musicSheet() {
-    sheet(`<div class="row"><span class="mico big">${I.listen}</span><h1>Musique de fond</h1></div><div class="chips" id="musicbox"></div><p class="note" id="musicmsg" role="status"></p><div class="row"><label class="small muted" for="mvol">Volume</label><input id="mvol" class="grow" type="range" min="0" max="1" step="0.05" value="${music.el ? music.el.volume : (parseFloat(safeGet("merge.lofivol")) || 0.4)}"></div><button class="btn ghost" data-close>Fermer</button>`,
+    sheet(`<div class="row"><span class="mico big">${I.listen}</span><h1>Musique de fond</h1></div><div class="stack" id="musicbox"></div><p class="note" id="musicmsg" role="status"></p><div class="row"><label class="small muted" for="mvol">Volume</label><input id="mvol" class="grow" type="range" min="0" max="1" step="0.05" value="${music.el ? music.el.volume : (parseFloat(safeGet("merge.lofivol")) || 0.4)}"></div><button class="btn ghost" data-close>Fermer</button>`,
       (el) => { musicPaint(); el.querySelector("#mvol").oninput = (e) => { safeSet("merge.lofivol", e.target.value); if (music.el) music.el.volume = +e.target.value; }; });
   }
   const musicBtn = () => LOFI.length ? `<button class="iconbtn flat musicbtn${music.on ? " on" : ""}" data-music aria-label="Musique de fond">${I.listen}</button>` : "";
