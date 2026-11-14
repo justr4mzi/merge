@@ -699,7 +699,7 @@
     { id: "massage", n: "Un massage", d: "Pour détendre les épaules après les révisions.", price: 1300 },
     { id: "tacoscoq", n: "Un tacos aux coquillettes", d: "Le tacos aux coquillettes, offert.", price: 1400 },
     { id: "crepes", n: "Des crêpes maison à l'El Mordjene", d: "Faites maison par Ramzi, avec de l'El Mordjene.", price: 1500 },
-    { id: "kazdal", n: "Un repas chez Kazdal23", d: "Ramzi va te le chercher, puisque tu ne peux pas aller à la Guillotière.", price: 1700 },
+    { id: "kazdal", n: "Un repas à la Kazdalerie", d: "(Je vais te le chercher, car tu ne peux pas aller à la Guillotière.)", price: 1700 },
     { id: "tasty", n: "Un Tasty Crousty", d: "Un repas Tasty Crousty, offert.", price: 1800 },
     { id: "blackwhite", n: "Un Black and White", d: "Un repas au Black and White, offert.", price: 2000 },
     { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 2200 },
