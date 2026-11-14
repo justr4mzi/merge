@@ -3,7 +3,7 @@
 const { chromium } = require("playwright");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(__dirname, "captures");
-const MIME = { ".mp3": "audio/mpeg",  ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json" };
+const MIME = { ".jpg": "image/jpeg", ".mp3": "audio/mpeg",  ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json" };
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]); if (p === "/") p = "/index.html";
   const f = path.join(ROOT, p); if (!f.startsWith(ROOT) || !fs.existsSync(f)) { res.writeHead(404); return res.end(); }
@@ -604,6 +604,18 @@ async function vitesse(browser) {
   ok(!page.errors.length, "vitesse : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function redressement(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  const r = await page.evaluate(async () => { const b = await (await fetch("tests/photo-feuille.jpg")).blob(), bmp = await createImageBitmap(b), c = window.__mergeScan(bmp); if (!c) return null;
+    const g = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let y = 0; y < 30; y++) for (let x = 0; x < c.width; x += 4) { const i = (y * c.width + x) * 4; if (g[i] < 90) dark++; } return { w: c.width, h: c.height, darkTop: dark }; });
+  ok(r && r.h > r.w && r.w > 600, "redressement : page détectée et redressée", JSON.stringify(r));
+  ok(r && r.darkTop < r.w * 30 / 4 * 0.01, "redressement : fond de table coupé", JSON.stringify(r));
+  const none = await page.evaluate(() => { const c = document.createElement("canvas"); c.width = 800; c.height = 600; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, 800, 600); return window.__mergeScan(c); });
+  ok(none === null, "redressement : capture d'écran gardée telle quelle");
+  await go(page, "#import-c1", 300); ok(await page.locator("#redsw").count() === 1, "redressement : interrupteur dans l'import");
+  ok(!page.errors.length, "redressement : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -612,7 +624,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

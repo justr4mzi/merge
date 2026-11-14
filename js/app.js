@@ -141,7 +141,7 @@
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
   // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|vengine|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|vengine|redresse|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
@@ -1195,6 +1195,7 @@
         <div class="seg" role="group" aria-label="Type d'import"><button data-tab="files" aria-pressed="${d.tab === "files"}">Fichiers et photos</button><button data-tab="text" aria-pressed="${d.tab === "text"}">Coller du texte</button></div>
         ${d.tab === "files" ? `<div class="drop" id="drop">${I.up}<p><b>Glisse tes fichiers ici</b></p><p class="small muted">PDF, photos de cahier (iPhone compris), PowerPoint (.pptx, .ppt), LibreOffice (.odp, .odt), Word (.docx), texte (.txt, .rtf). Ajoute autant de fichiers que tu veux : tout est converti et lu en entier, images des diapositives comprises.</p>
           <div class="row" style="flex-wrap:wrap;justify-content:center"><label class="btn sm ghost" for="pick">Parcourir les fichiers</label><label class="btn sm ghost" for="cam">Prendre une photo</label></div>
+          <button class="switch" id="redsw" role="switch" aria-checked="${safeGet("merge.redresse") !== "0"}" type="button"><i></i>Redresser et recadrer les photos de feuilles</button>
           <input id="pick" type="file" multiple accept=".pdf,.pptx,.ppsx,.ppt,.pps,.odp,.docx,.odt,.rtf,.txt,.md,.csv,image/*" hidden><input id="cam" type="file" accept="image/*" capture="environment" hidden></div>
           <div class="filelist">${d.files.map((f, i) => `<div><span>${esc(f.name)}</span><button class="mini" data-rm="${i}" aria-label="Retirer ${esc(f.name)}">Retirer</button></div>`).join("")}</div>`
           : `<div class="field"><label for="txt">Texte du cours</label><textarea id="txt" placeholder="Colle ton cours ici">${esc(d.text)}</textarea></div>`}
@@ -1205,6 +1206,7 @@
       app.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { d.files.splice(+b.dataset.rm, 1); draw(); });
       $("n").oninput = () => { d.n = +$("n").value; $("nv").textContent = d.n; };
       const add = (list) => { d.files.push(...list); draw(); };
+      if ($("redsw")) $("redsw").onclick = () => { const on = safeGet("merge.redresse") === "0"; safeSet("merge.redresse", on ? "1" : "0"); $("redsw").setAttribute("aria-checked", on); };
       if ($("pick")) { $("pick").onchange = e => add([...e.target.files]); $("cam").onchange = e => add([...e.target.files]);
         const z = $("drop"); z.ondragover = e => { e.preventDefault(); }; z.ondrop = e => { e.preventDefault(); add([...e.dataTransfer.files]); }; }
       $("go").onclick = run;
@@ -1218,7 +1220,7 @@
     function keep() { if ($("txt")) d.text = $("txt").value; }
     const say = (m) => { d.msg = m; impPaint(d); };
 
-    async function imageToJpeg(file) {
+    async function imageToJpeg(file, scan) {
       let bmp;
       try { bmp = await createImageBitmap(file); }
       catch (e) {
@@ -1227,6 +1229,7 @@
           const out = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(out) ? out[0] : out);
         } catch (e2) { throw new Error("Impossible de lire l'image « " + file.name + " ». Enregistre-la en JPEG ou en PNG puis réessaie."); }
       }
+      if (scan && safeGet("merge.redresse") !== "0") { try { const fixed = scanPage(bmp); if (fixed) { bmp = fixed; d.scanned = (d.scanned || 0) + 1; } } catch (e) { /* photo gardée telle quelle */ } }
       const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas");
       cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
       return cv.toDataURL("image/jpeg", 0.8).split(",")[1];
@@ -1356,7 +1359,7 @@
           else if (/\.(ppt|pps)$/.test(name)) { say("Lecture de « " + f.name + " »…"); await readPpt(f, fs); notes.push("« " + f.name + " » est un ancien PowerPoint : son texte est lu, pas ses images. Enregistre-le en .pptx pour tout garder."); }
           else if (/\.(txt|md|markdown|csv|tex|rtf)$/.test(name) || f.type.startsWith("text/")) { say("Lecture de « " + f.name + " »…"); await readText(f, fs, name.endsWith(".rtf")); }
           else if (/\.(doc|key|pages|odg|xlsx?|ods)$/.test(name)) { notes.push("« " + f.name + " » : ce format ne se lit pas directement. Exporte-le en PDF (Fichier, Exporter en PDF) et importe le PDF."); continue; }
-          else if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/.test(name)) { if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; continue; } budget.pages++; say("Préparation de « " + f.name + " »…"); fs.push({ img: await imageToJpeg(f) }); }
+          else if (f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif)$/.test(name)) { if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; continue; } budget.pages++; say("Préparation de « " + f.name + " »…"); fs.push({ img: await imageToJpeg(f, true) }); }
           else { notes.push("« " + f.name + " » n'est pas un format accepté. Exporte-le en PDF et importe le PDF."); continue; }
           if (budget.cut === before) d.cache[key] = fs;
           segs.push(...fs); impProg(d, "read", 0.6 * (fi + 1) / d.fn);
@@ -1859,6 +1862,45 @@
     app.querySelectorAll("[data-rc]").forEach(b => b.onclick = async () => { const c = chs.find(x => x.id === b.dataset.rc); const r = await sb.from("chapters").update({ archived: false, deleted_at: null }).eq("id", c.id); if (r.error) return fail(r.error, "Restauration impossible"); const ps = (sr.data || []).find(x => x.id === c.subject_id); if (ps) await sb.from("subjects").update({ archived: false, deleted_at: null }).eq("id", ps.id); done("Chapitre restauré."); });
     app.querySelectorAll("[data-rk]").forEach(b => b.onclick = async () => { const x = cards.find(y => y.id === b.dataset.rk), p = Object.assign({}, x.payload); delete p.user_id; const r = await sb.from("cards").insert(p); if (r.error) return fail(r.error, "Restauration impossible"); await sb.from("card_trash").delete().eq("id", x.id); done("Carte restaurée."); });
   }
+
+  // ---------- photo de cours : page détectée, redressée et recadrée automatiquement (sans bibliothèque) ----------
+  // 1. image réduite en gris ; 2. seuil d'Otsu (la feuille est plus claire que le fond) ; 3. plus grande zone claire ;
+  // 4. ses 4 coins ; 5. redressement par homographie ; 6. contraste légèrement renforcé. Si la détection n'est pas sûre, on garde la photo telle quelle.
+  function scanPage(src) {
+    const W0 = src.width, H0 = src.height, k = 320 / Math.max(W0, H0), w = Math.max(8, Math.round(W0 * k)), h = Math.max(8, Math.round(H0 * k));
+    const sm = document.createElement("canvas"); sm.width = w; sm.height = h; const sx = sm.getContext("2d", { willReadFrequently: true }); sx.drawImage(src, 0, 0, w, h);
+    const px = sx.getImageData(0, 0, w, h).data, g = new Float32Array(w * h), hist = new Array(256).fill(0);
+    for (let i = 0; i < w * h; i++) { const v = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]; g[i] = v; hist[v | 0]++; }
+    let sum = 0, sumB = 0, wB = 0, best = 0, th = 128; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    for (let t = 0; t < 256; t++) { wB += hist[t]; if (!wB) continue; const wF = w * h - wB; if (!wF) break; sumB += t * hist[t]; const mB = sumB / wB, mF = (sum - sumB) / wF, v = wB * wF * (mB - mF) * (mB - mF); if (v > best) { best = v; th = t; } }
+    const lab = new Int32Array(w * h).fill(-1); let bestN = 0, bestL = -1;
+    for (let i = 0; i < w * h; i++) { if (lab[i] !== -1 || g[i] <= th) continue; const st = [i]; lab[i] = i; let n = 0; while (st.length) { const p = st.pop(); n++; const x = p % w, y = (p / w) | 0; for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1]) if (q >= 0 && lab[q] === -1 && g[q] > th) { lab[q] = i; st.push(q); } } if (n > bestN) { bestN = n; bestL = i; } }
+    const ratio = bestN / (w * h); if (ratio < 0.18 || ratio > 0.97) return null;
+    let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9];
+    for (let i = 0; i < w * h; i++) { if (lab[i] !== bestL) continue; const x = i % w, y = (i / w) | 0, a = x + y, b = x - y; if (a < tl[2]) tl = [x, y, a]; if (a > br[2]) br = [x, y, a]; if (b > tr[2]) tr = [x, y, b]; if (b < bl[2]) bl = [x, y, b]; }
+    const cx0 = (tl[0] + tr[0] + br[0] + bl[0]) / 4, cy0 = (tl[1] + tr[1] + br[1] + bl[1]) / 4;
+    // Coins rapprochés de 1,5 % vers le centre : on coupe le liseré de table qui reste au bord.
+    const Q = [tl, tr, br, bl].map(p => [(p[0] + (cx0 - p[0]) * 0.015) / k, (p[1] + (cy0 - p[1]) * 0.015) / k]), d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const area = Math.abs(Q.reduce((s2, p, i) => { const q = Q[(i + 1) % 4]; return s2 + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+    if (area < 0.15 * W0 * H0 || area > 0.92 * W0 * H0 || Math.min(d(Q[0], Q[1]), d(Q[1], Q[2]), d(Q[2], Q[3]), d(Q[3], Q[0])) < 0.2 * Math.min(W0, H0)) return null;
+    let ow = Math.max(d(Q[0], Q[1]), d(Q[3], Q[2])), oh = Math.max(d(Q[0], Q[3]), d(Q[1], Q[2])); const f = Math.min(1, 1600 / Math.max(ow, oh)); ow = Math.round(ow * f); oh = Math.round(oh * f);
+    // Homographie du rectangle de sortie vers le quadrilatère de la photo (8 inconnues, élimination de Gauss).
+    const D = [[0, 0], [ow, 0], [ow, oh], [0, oh]], A = [], B = [];
+    for (let i = 0; i < 4; i++) { const [x, y] = D[i], [u, v] = Q[i]; A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u); A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v); }
+    for (let c = 0; c < 8; c++) { let m = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[m][c])) m = r; [A[c], A[m]] = [A[m], A[c]]; [B[c], B[m]] = [B[m], B[c]]; if (Math.abs(A[c][c]) < 1e-9) return null; for (let r = 0; r < 8; r++) if (r !== c) { const t = A[r][c] / A[c][c]; for (let j = c; j < 8; j++) A[r][j] -= t * A[c][j]; B[r] -= t * B[c]; } }
+    const H = B.map((b, i) => b / A[i][i]);
+    const full = document.createElement("canvas"); full.width = W0; full.height = H0; const fx = full.getContext("2d", { willReadFrequently: true }); fx.drawImage(src, 0, 0); const sp = fx.getImageData(0, 0, W0, H0).data;
+    const out = document.createElement("canvas"); out.width = ow; out.height = oh; const ox = out.getContext("2d"), od = ox.createImageData(ow, oh), dp = od.data;
+    let lo = 255, hi = 0; const lum = new Uint8Array(256);
+    for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+      const z = H[6] * x + H[7] * y + 1, u = Math.min(W0 - 1, Math.max(0, (H[0] * x + H[1] * y + H[2]) / z)) | 0, v = Math.min(H0 - 1, Math.max(0, (H[3] * x + H[4] * y + H[5]) / z)) | 0, si = (v * W0 + u) * 4, di = (y * ow + x) * 4;
+      dp[di] = sp[si]; dp[di + 1] = sp[si + 1]; dp[di + 2] = sp[si + 2]; dp[di + 3] = 255; lum[(sp[si] + sp[si + 1] + sp[si + 2]) / 3 | 0]++;
+    }
+    let acc = 0; const tot = ow * oh; for (let i = 0; i < 256; i++) { acc += lum[i]; if (acc > tot * 0.02 && lo === 255) lo = i; if (acc > tot * 0.97) { hi = i; break; } }
+    if (hi - lo > 40) { const sc = 255 / (hi - lo); for (let i = 0; i < dp.length; i += 4) for (let c = 0; c < 3; c++) dp[i + c] = Math.max(0, Math.min(255, (dp[i + c] - lo) * sc)); }
+    ox.putImageData(od, 0, 0); return out;
+  }
+  window.__mergeScan = scanPage;
   // ---------- minuteur de concentration ----------
   let timerInt = null;
   function screenTimer() {
