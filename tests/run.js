@@ -951,7 +951,7 @@ async function boutique(browser) {
     await page.waitForSelector("#app > *"); await go(page, "#boutique", 600);
     const bal0 = await page.evaluate(() => parseInt(document.querySelector(".coinhero b.big").textContent, 10));
     ok(bal0 >= 4600 && bal0 < 5000, tag + " : solde de pièces affiché", String(bal0));
-    ok(await page.locator(".giftcard").count() === 20 && await page.locator('[data-gift="bisou"]:not([disabled])').count() === 1 && await page.locator('[data-gift="balade"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 20 cadeaux en vrai sur 3 rayons, balade à portée, surprise trop chère");
+    ok(await page.locator(".giftcard").count() === 20 && await page.locator('[data-gift="bisou"]:not([disabled])').count() === 1 && await page.locator('[data-gift="cinema"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1 && await page.locator('[data-gift="balade"][disabled]').count() === 1, tag + " : 20 cadeaux en vrai sur 3 rayons, cinéma à portée, surprise et balade trop chères");
     ok((await txt(page)).includes("Petits plaisirs") && (await txt(page)).includes("Gros cadeaux") && (await txt(page)).includes("El Mordjene") && (await txt(page)).includes("Black and White") && (await txt(page)).includes("Kazdalerie") && (await txt(page)).includes("coquillettes"), tag + " : rayons et nouveaux cadeaux affichés");
     let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
     let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
