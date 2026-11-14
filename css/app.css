@@ -790,3 +790,11 @@ body[data-bg="etoiles"]::after{background-image:radial-gradient(1.5px 1.5px at 1
 body[data-bg="vagues"]::after{background:repeating-radial-gradient(circle at 50% 120%,transparent 0 38px,color-mix(in srgb,var(--accent) 18%,transparent) 38px 40px);animation:vagues 12s linear infinite}
 @keyframes vagues{100%{background-position:0 -80px}}
 @media (prefers-reduced-motion:reduce){body[data-bg]::after,.hello .mascot{animation:none}}
+/* Emploi du temps */
+.edtgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.edtday{display:flex;flex-direction:column;gap:6px}
+.edtday h3{margin:0 0 2px;font-size:.95em}
+.edtday.now h3{color:var(--accent)}
+.edtslot{min-height:52px;text-align:left;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;background:color-mix(in srgb,var(--c) 10%,var(--card));color:var(--fg);font:inherit;padding:8px 10px;display:flex;flex-direction:column;cursor:pointer}
+.edtslot span{font-size:.8em;color:var(--muted)}
+label.btn{display:inline-flex;align-items:center;cursor:pointer}

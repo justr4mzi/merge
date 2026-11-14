@@ -29,7 +29,7 @@ const overflow = page => page.evaluate(() => { const d = document.documentElemen
 const small = page => page.evaluate(() => [...document.querySelectorAll("#app button, #app a.btn, #app a.chip, #app a.iconbtn, #app a.mini, .tabs a")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height < 43.5 && !e.closest(".mindmap") && !e.classList.contains("flip"); }).slice(0, 4).map(e => e.tagName + "." + e.className + ":" + Math.round(e.getBoundingClientRect().height) + ":" + e.textContent.trim().slice(0, 20)));
 const txt = page => page.evaluate(() => document.getElementById("app").innerText);
 
-const ROUTES = ["recompenses", "melange", "interro-c1", "accueil", "matieres", "matiere-s1", "dossier-g1", "chapitre-c1", "calendrier", "progres", "duo", "reglages", "erreurs", "import-c1", "resume-c1", "cartes-c1", "apprendre-c1", "quiz-c1", "controle-c1", "associer-c1", "vraifaux-c1", "ecouter-c1", "questions-c1", "blurting-c1", "feynman-c1", "khole-c1", "boss-c1", "flash-c1", "bus-c1", "planche-c1", "erreurs-c1", "fiche-c1", "recherche", "minuteur", "blanc-c1", "difficiles-c1", "revision-s1"];
+const ROUTES = ["methode-s1", "bac-s1", "edt", "recompenses", "melange", "interro-c1", "accueil", "matieres", "matiere-s1", "dossier-g1", "chapitre-c1", "calendrier", "progres", "duo", "reglages", "erreurs", "import-c1", "resume-c1", "cartes-c1", "apprendre-c1", "quiz-c1", "controle-c1", "associer-c1", "vraifaux-c1", "ecouter-c1", "questions-c1", "blurting-c1", "feynman-c1", "khole-c1", "boss-c1", "flash-c1", "bus-c1", "planche-c1", "erreurs-c1", "fiche-c1", "recherche", "minuteur", "blanc-c1", "difficiles-c1", "revision-s1"];
 const GATED = ["pieges-c1", "faceaface-c1", "exercices-c1", "carte-c1", "trous-c1", "synthese-c1"];
 
 async function sweep(browser, w, h, theme) {
@@ -487,6 +487,37 @@ async function recompenses(browser) {
   ok(!page.errors.length, "récompenses : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function edt(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "light" });
+  await go(page, "#edt", 300); ok((await txt(page)).includes("Ajoute ton emploi du temps"), "emploi du temps : écran vide");
+  await page.setInputFiles("#edtf", path.join(SHOTS, "390-dark-accueil.png")); await page.waitForTimeout(800);
+  ok(await page.locator(".edtslot").count() >= 3, "emploi du temps : lu depuis une photo");
+  ok(await page.locator("[data-ab]").count() === 2, "emploi du temps : demande semaine A ou B");
+  await page.click('[data-ab="A"]'); await page.waitForTimeout(200);
+  ok((await txt(page)).includes("semaine A") || (await txt(page)).includes("semaine B"), "emploi du temps : semaine affichée");
+  ok(await page.evaluate(() => window.__mergeSync.synced("merge.edt") && JSON.parse(localStorage.getItem("merge.edt")).ref.letter === "A"), "emploi du temps : gardé et synchronisé");
+  await page.click("#edtadd"); await page.fill("#es", "Maths"); await page.click("#esave"); await page.waitForTimeout(150);
+  ok((await txt(page)).includes("Maths"), "emploi du temps : ajout à la main");
+  let sm = await small(page); ok(!sm.length, "emploi du temps : boutons de 44 px minimum", sm.join(" | ")); let o = await overflow(page); ok(o.sw <= o.iw, "emploi du temps : pas de débordement", JSON.stringify(o));
+  await page.screenshot({ path: path.join(SHOTS, "edt.png"), fullPage: true });
+  ok(!page.errors.length, "emploi du temps : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
+async function methodeBac(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#matiere-s1", 300); ok(await page.locator('a[href="#methode-s1"]').count() === 1 && await page.locator('a[href="#bac-s1"]').count() === 1, "matière : liens fiche méthode et sujets d'examen");
+  await go(page, "#methode-s1", 300); await page.click("#mk"); await page.waitForTimeout(400);
+  ok((await txt(page)).includes("La démonstration") && await page.locator("span.m").count() >= 1, "fiche méthode : préparée, avec formules");
+  ok(await page.evaluate(() => !!localStorage.getItem("merge.methode.s1") && window.__mergeSync.synced("merge.methode.s1")), "fiche méthode : gardée et synchronisée");
+  await go(page, "#bac-s1", 300); await page.fill("#by", "1999"); await page.click("#bgo"); await page.waitForTimeout(400);
+  ok((await txt(page)).includes("Pas de sujet officiel"), "sujets : rien d'inventé si introuvable");
+  await page.fill("#by", ""); await page.click("#bgo"); await page.waitForTimeout(400);
+  ok((await txt(page)).includes("Source") && (await txt(page)).includes("2024"), "sujets : épreuve avec source et année");
+  await page.click("[data-k]"); await page.waitForTimeout(150); ok((await txt(page)).includes("Correction"), "sujets : correction affichée");
+  let sm = await small(page); ok(!sm.length, "sujets : boutons de 44 px minimum", sm.join(" | ")); let o = await overflow(page); ok(o.sw <= o.iw, "sujets : pas de débordement", JSON.stringify(o));
+  ok(!page.errors.length, "méthode et sujets : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -495,7 +526,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

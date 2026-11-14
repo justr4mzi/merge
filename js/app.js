@@ -137,7 +137,7 @@
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
   // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|ecoute\..+|flash\..+|jobseen\..+)$/;
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
@@ -771,7 +771,7 @@
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div><span class="grow"></span><span class="homemusic"><button class="iconbtn flat" data-qs aria-label="Recherche rapide">${I.search}</button><button class="iconbtn flat" data-pomo aria-label="Pomodoro">${I.clock}</button>${musicBtn()}</span>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak" title="${plural(st, "jour", "jours")} d'affilée">${plural(st, "jour", "jours")}<span class="stl">&nbsp;d'affilée</span></span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
       <div class="hello"><div class="row">${MASCOT((rwEquipped("mascotte") || {}).v || "")}<h1 class="grow">Salut ${esc(p.display_name || "")}${rwEquipped("titre") && rwEquipped("titre").pts ? ` <span class="rwtitle">${esc(rwEquipped("titre").n)}</span>` : ""}</h1></div><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
       <div class="level"><a class="lvl" href="#recompenses" aria-label="Niveau ${lv.level}, voir les récompenses">Niveau ${lv.level}</a><div class="bar grow"><i style="width:${lv.pct}%"></i></div><span class="small muted">encore ${lv.left} points</span></div>
-      ${resumeHtml()}${[0, 1].includes(new Date().getDay()) && state.sessions.length ? `<div class="banner"><div><h2>Ton bilan de la semaine est prêt</h2><p class="small">Ce que tu as fait, et ton objectif pour la suite.</p></div><a class="btn sm" href="#bilan">Voir</a></div>` : ""}
+      ${(() => { const tn = new Date().getHours() >= 15 ? tonightSuggestion() : null; return tn ? `<div class="banner"><div><h2>Ce soir</h2><p class="small">Demain tu as ${tn.subs.map(x => esc(x.name)).join(", ")}. Un petit tour avant ?</p></div><a class="btn sm" href="#revision-${tn.subs[0].id}">Réviser ${esc(tn.subs[0].name)}</a></div>` : ""; })()}${resumeHtml()}${[0, 1].includes(new Date().getDay()) && state.sessions.length ? `<div class="banner"><div><h2>Ton bilan de la semaine est prêt</h2><p class="small">Ce que tu as fait, et ton objectif pour la suite.</p></div><a class="btn sm" href="#bilan">Voir</a></div>` : ""}
       <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
         ${due ? '<a class="btn" href="#cartes-jour">Réviser maintenant</a>' : ""}${state.cards.length > 3 ? `<a class="btn ghost mixbtn" href="#melange">Révision mélangée<span class="small">${state.subjects.some(x => x.exam_date && daysUntil(x.exam_date) >= 0) ? "priorité aux contrôles proches" : "toutes tes matières"}</span></a>` : ""}${due ? "" : `<p class="small muted">${state.cards.length ? "Tu es à jour. Reviens plus tard ou ouvre un chapitre pour t'entraîner." : "Ajoute un chapitre et importe ton cours pour créer tes premières cartes."}</p>`}</div>
@@ -827,7 +827,8 @@
     app.innerHTML = `<div class="row"><a class="iconbtn" href="#matieres" aria-label="Retour aux matières">${I.back}</a></div>
       <div class="stack" style="--c:${esc(s.color)}"><div class="row"><span class="dot"></span><h1>${esc(s.name)}</h1></div>
         <div class="row" style="flex-wrap:wrap">${examPill(s)}<button class="linkbtn" id="examBtn" aria-expanded="${!!openPicker}">${I.cal}Date du contrôle</button></div><div id="examBox"></div>
-        ${chs.some(c => cardsOf(c.id).length) ? `<a class="btn revall" href="#revision-${id}">${I.cards}Réviser tous les chapitres de la matière</a>` : ""}</div>
+        ${chs.some(c => cardsOf(c.id).length) ? `<a class="btn revall" href="#revision-${id}">${I.cards}Réviser tous les chapitres de la matière</a>` : ""}
+        <div class="row" style="flex-wrap:wrap"><a class="btn sm ghost" href="#methode-${id}">${I.steps}Fiche méthode</a><a class="btn sm ghost" href="#bac-${id}">${I.book}Vrais sujets d'examen</a></div></div>
       <div class="stack"><div class="row between"><h2>Dossiers</h2><button class="iconbtn accent" id="addG" aria-label="Ajouter un dossier">${I.plus}</button></div>
         <div id="gform"></div>
         ${groups.length ? `<div class="grid">${groups.map(g => { const gc = chs.filter(c => c.group_id === g.id), cs = state.cards.filter(k => gc.some(c => c.id === k.chapter_id)), m = mastery(cs); return `<a class="card folder" style="--c:${esc(okColor(g.color) ? g.color : s.color)}" href="#dossier-${g.id}"><div class="row">${I.folder}<b class="grow">${esc(g.name)}</b></div><div class="row between small"><span>${plural(gc.length, "chapitre", "chapitres")}</span><span>${m} %</span></div><div class="bar"><i style="width:${m}%"></i></div></a>`; }).join("")}</div>` : '<p class="small muted">Range tes chapitres par thème, par exemple « Thème 1 : Génétique ». Touche + pour créer un dossier.</p>'}</div>
@@ -1649,6 +1650,137 @@
     $("sq").focus();
   }
 
+
+  // ---------- emploi du temps : saisie, photo ou PDF (lu par l'IA), semaines A et B, suggestion du soir ----------
+  const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const edtGet = () => { const e = jget("merge.edt", null) || {}; return { slots: Array.isArray(e.slots) ? e.slots : [], ab: !!e.ab, ref: e.ref || null }; };
+  const mondayOf = (d) => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
+  // Semaine A ou B : l'élève dit une fois laquelle est la semaine en cours, ensuite on alterne chaque lundi.
+  function weekAB(d) { const e = edtGet(); if (!e.ab || !e.ref) return ""; const w = Math.round((mondayOf(d) - new Date(e.ref.monday + "T00:00:00")) / 604800000); return (Math.abs(w) % 2 === 0) === (e.ref.letter === "A") ? "A" : "B"; }
+  function slotsOn(d) { const e = edtGet(), wd = (d.getDay() + 6) % 7, ab = weekAB(d); return e.slots.filter(x => +x.day === wd && (!x.week || !ab || x.week === ab)).sort((a, b) => String(a.start).localeCompare(b.start)); }
+  const subjOfName = (n) => { const k = norm(n); return state.subjects.find(x => norm(x.name) === k) || state.subjects.find(x => k && (norm(x.name).includes(k) || k.includes(norm(x.name)))); };
+  // Ce soir : les matières qu'on a demain, celles dont le contrôle approche d'abord.
+  function tonightSuggestion() {
+    const e = edtGet(); if (!e.slots.length) return null;
+    const tm = new Date(); tm.setDate(tm.getDate() + 1); const names = [...new Set(slotsOn(tm).map(x => x.subject))];
+    const subs = names.map(subjOfName).filter((x, i, a) => x && a.indexOf(x) === i && state.chapters.some(c => c.subject_id === x.id && cardsOf(c.id).length));
+    if (!subs.length) return null;
+    subs.sort((a, b) => (a.exam_date ? daysUntil(a.exam_date) : 999) - (b.exam_date ? daysUntil(b.exam_date) : 999));
+    return { tomorrow: tm, subs: subs.slice(0, 3) };
+  }
+  function screenEdt() {
+    drawTabs("calendrier"); let e = edtGet(), view = "semaine", editing = null;
+    const save = () => { jset("merge.edt", e); };
+    const opts = () => state.subjects.map(x => `<option>${esc(x.name)}</option>`).join("");
+    function draw() {
+      const now = new Date(), ab = weekAB(now), today = (now.getDay() + 6) % 7;
+      const days = JOURS.filter((_, i) => i < 5 || e.slots.some(x => +x.day === i));
+      const cell = (x, i) => { const sj = subjOfName(x.subject); return `<button class="edtslot" data-ed="${e.slots.indexOf(x)}" style="--c:${esc(sj ? sj.color : "#64748b")}"><b>${esc(x.subject)}</b><span>${esc(x.start)}–${esc(x.end)}${x.room ? " · " + esc(x.room) : ""}${x.week ? " · sem. " + x.week : ""}</span></button>`; };
+      const tn = tonightSuggestion();
+      app.innerHTML = `<div class="row"><a class="iconbtn" href="#calendrier" aria-label="Retour">${I.back}</a><h1 class="grow">Emploi du temps</h1></div>
+        ${e.ab ? `<div class="card pad row between"><span>Cette semaine : <b>semaine ${ab || "?"}</b></span><button class="btn sm ghost" id="swab">Ce n'est pas la bonne</button></div>` : ""}
+        ${tn ? `<div class="banner"><div><h2>Ce soir</h2><p class="small">Demain tu as ${tn.subs.map(x => esc(x.name)).join(", ")}. Un petit tour sur ${tn.subs.length > 1 ? "ces matières" : "cette matière"} ?</p></div><a class="btn sm" href="#revision-${tn.subs[0].id}">Réviser ${esc(tn.subs[0].name)}</a></div>` : ""}
+        ${e.slots.length ? `<div class="edtgrid">${days.map(d => { const i = JOURS.indexOf(d), list = e.slots.filter(x => +x.day === i && (!x.week || !ab || x.week === ab)).sort((a, b) => String(a.start).localeCompare(b.start)); return `<div class="edtday${i === today ? " now" : ""}"><h3>${d}</h3>${list.map(cell).join("") || '<p class="small muted">Rien</p>'}</div>`; }).join("")}</div>`
+          : `<div class="card pad stack"><h2>Ajoute ton emploi du temps</h2><p class="muted">Envoie une photo ou le PDF de ton emploi du temps (1 appel IA), ou ajoute tes cours un par un. Merge s'en sert pour te proposer quoi réviser le soir.</p></div>`}
+        <div class="card pad stack"><h2>Ajouter</h2>
+          <div class="row" style="flex-wrap:wrap"><label class="btn" for="edtf">Photo ou PDF</label><input id="edtf" type="file" accept="image/*,application/pdf" capture="environment" hidden><button class="btn ghost" id="edtadd">Ajouter un cours à la main</button></div>
+          <p class="note" id="edtmsg" role="status"></p><div id="edtform"></div>
+          <button class="switch" id="absw" role="switch" aria-checked="${e.ab}"><i></i>Mon emploi du temps change une semaine sur deux (A et B)</button>
+          ${e.slots.length ? '<button class="linkbtn" id="edtclear">Tout effacer</button>' : ""}</div>`;
+      $("absw").onclick = () => { e.ab = !e.ab; if (e.ab && !e.ref) return askAB(); save(); draw(); };
+      if ($("swab")) $("swab").onclick = () => { const cur = weekAB(new Date()); e.ref = { monday: localDay(mondayOf(new Date())), letter: cur === "A" ? "B" : "A" }; save(); draw(); };
+      if ($("edtclear")) $("edtclear").onclick = () => { if ($("edtclear").dataset.ok !== "1") { $("edtclear").dataset.ok = "1"; $("edtclear").textContent = "Confirmer : tout effacer"; return; } e.slots = []; save(); draw(); };
+      $("edtadd").onclick = () => form(null);
+      app.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => form(+b.dataset.ed));
+      $("edtf").onchange = ev => { const f = ev.target.files[0]; if (f) fromFile(f); };
+    }
+    function askAB() {
+      sheet(`<h1>Semaine A ou B ?</h1><p class="muted">Pour savoir quels cours tu as, dis-moi quelle semaine c'est en ce moment.</p><div class="row"><button class="btn grow" data-ab="A">Semaine A</button><button class="btn grow" data-ab="B">Semaine B</button></div>`, el => el.querySelectorAll("[data-ab]").forEach(b => b.onclick = () => { e.ab = true; e.ref = { monday: localDay(mondayOf(new Date())), letter: b.dataset.ab }; save(); closeSheet(); draw(); }));
+    }
+    function form(k) {
+      const x = k != null ? e.slots[k] : { day: Math.min(4, (new Date().getDay() + 6) % 7), start: "08:00", end: "09:00", subject: (state.subjects[0] || {}).name || "", week: "", room: "" };
+      $("edtform").innerHTML = `<div class="stack"><div class="field"><label for="es">Matière</label><input id="es" list="esl" value="${esc(x.subject)}" maxlength="60"><datalist id="esl">${opts()}</datalist></div>
+        <div class="row" style="flex-wrap:wrap"><div class="field grow"><label for="ed">Jour</label><select id="ed">${JOURS.map((d, i) => `<option value="${i}"${+x.day === i ? " selected" : ""}>${d}</option>`).join("")}</select></div><div class="field"><label for="e1">Début</label><input id="e1" type="time" value="${esc(x.start)}"></div><div class="field"><label for="e2">Fin</label><input id="e2" type="time" value="${esc(x.end)}"></div></div>
+        <div class="row" style="flex-wrap:wrap"><div class="field grow"><label for="er">Salle (facultatif)</label><input id="er" value="${esc(x.room || "")}" maxlength="30"></div>${e.ab ? `<div class="field"><label for="ew">Semaine</label><select id="ew"><option value="">Toutes</option><option${x.week === "A" ? " selected" : ""}>A</option><option${x.week === "B" ? " selected" : ""}>B</option></select></div>` : ""}</div>
+        <div class="row"><button class="btn" id="esave">${k != null ? "Enregistrer" : "Ajouter"}</button>${k != null ? '<button class="btn ghost" id="edel">Supprimer</button>' : ""}</div></div>`;
+      $("esave").onclick = () => { const y = { day: +$("ed").value, start: $("e1").value || "08:00", end: $("e2").value || "09:00", subject: $("es").value.trim().slice(0, 60), room: $("er").value.trim(), week: $("ew") ? $("ew").value : "" }; if (!y.subject) return toast("Écris la matière."); if (k != null) e.slots[k] = y; else e.slots.push(y); save(); draw(); toast(k != null ? "Cours modifié." : "Cours ajouté."); };
+      if ($("edel")) $("edel").onclick = () => { e.slots.splice(k, 1); save(); draw(); };
+      $("es").focus();
+    }
+    async function fromFile(f) {
+      const msg = $("edtmsg"); msg.className = "note"; msg.textContent = "Lecture de ton emploi du temps…";
+      try {
+        let cv = document.createElement("canvas");
+        if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)) { const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; const doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise, pg = await doc.getPage(1), vp = pg.getViewport({ scale: 2 }); cv.width = vp.width; cv.height = vp.height; await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise; }
+        else { let bmp; try { bmp = await createImageBitmap(f); } catch (er) { if (!window.heic2any) await new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "vendor/heic2any.min.js"; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); }); const o = await window.heic2any({ blob: f, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(o) ? o[0] : o); } const kk = Math.min(1, 1800 / Math.max(bmp.width, bmp.height)); cv.width = Math.round(bmp.width * kk); cv.height = Math.round(bmp.height * kk); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); }
+        msg.textContent = "L'IA lit ton emploi du temps…";
+        const r = await ai({ action: "edt", images: [{ mime: "image/jpeg", data: cv.toDataURL("image/jpeg", 0.85).split(",")[1] }], matieres: state.subjects.map(x => x.name) });
+        const got = ((r && r.content && r.content.slots) || []).filter(x => x && x.subject && x.day >= 0 && x.day <= 5).map(x => ({ day: +x.day, start: String(x.start || "08:00").slice(0, 5), end: String(x.end || "09:00").slice(0, 5), subject: String(x.subject).slice(0, 60), room: String(x.room || "").slice(0, 30), week: x.week === "A" || x.week === "B" ? x.week : "" }));
+        if (!got.length) throw new Error("Je n'ai trouvé aucun cours sur cette image. Essaie une photo plus nette, ou ajoute tes cours à la main.");
+        e.slots = got; if (got.some(x => x.week)) e.ab = true; save(); draw(); toast(plural(got.length, "cours ajouté", "cours ajoutés") + ". Vérifie et corrige si besoin.");
+        if (e.ab && !e.ref) askAB();
+      } catch (er) { showErr($("edtmsg"), er); }
+    }
+    draw();
+  }
+
+  // ---------- fiche méthode par matière (IA, 1 appel, gardée et synchronisée) ----------
+  async function screenMethode(id) {
+    const s = state.subjects.find(x => x.id === id); if (!s) { location.hash = "#matieres"; return; }
+    tabs.hidden = true; const key = "merge.methode." + id, head = `<div class="row noprint"><a class="iconbtn" href="#matiere-${id}" aria-label="Retour">${I.back}</a><h1 class="grow">Fiche méthode</h1></div>`;
+    const show = (f) => {
+      const sec = (t, arr) => (arr || []).length ? `<div class="card pad stack"><h2>${t}</h2><ul>${arr.map(x => `<li>${mx(x)}</li>`).join("")}</ul></div>` : "";
+      app.innerHTML = head + `<p class="muted">${esc(s.name)} · ${esc((state.profile || {}).classe || "")}</p>
+        ${(f.exercices || []).map(ex => `<div class="card pad stack"><h2>${mx(ex.nom)}</h2>${ex.quand ? `<p class="small muted">${mx(ex.quand)}</p>` : ""}<ol>${(ex.etapes || []).map(x => `<li>${mx(x)}</li>`).join("")}</ol>${(ex.conseils || []).length ? `<div class="hint"><b>Conseils</b><ul>${ex.conseils.map(x => `<li>${mx(x)}</li>`).join("")}</ul></div>` : ""}</div>`).join("")}
+        ${sec("Erreurs à éviter", f.erreurs)}${sec("Mots et formules utiles", f.outils)}
+        <p class="note">Méthode générale de la matière, écrite par l'IA (pas tirée de ton cours) : demande confirmation à ton prof en cas de doute.</p>
+        <div class="row noprint"><button class="btn ghost" onclick="print()">${I.print}Imprimer</button><button class="linkbtn" id="regen">Refaire avec l'IA (1 appel)</button></div>`;
+      $("regen").onclick = () => make();
+    };
+    async function make() {
+      app.innerHTML = head + `<div class="card done"><div class="spin" aria-hidden="true"></div><p class="muted" role="status">Merge prépare la fiche méthode de ${esc(s.name)}…</p></div>`;
+      try { const r = await ai({ action: "methode", matiere: s.name }); const f = r && r.content; if (!f || !(f.exercices || []).length) throw new Error("La fiche n'a pas pu être préparée. Réessaie."); jset(key, f); if (location.hash === "#methode-" + id) show(f); }
+      catch (e) { app.innerHTML = head + `<div class="card pad stack">${errHtml(e)}<a class="btn ghost" href="#matiere-${id}">Retour</a></div>`; }
+    }
+    const f = jget(key, null); if (f) return show(f);
+    app.innerHTML = head + `<div class="card pad stack"><h2>${esc(s.name)}</h2><p class="muted">Les méthodes attendues dans cette matière à ton niveau (dissertation, démonstration, commentaire, analyse d'un système, étude de document…), étape par étape, avec les erreurs à éviter.</p><button class="btn" id="mk">Préparer avec l'IA</button><p class="note">1 appel IA, puis c'est gardé sur tous tes appareils.</p></div>`;
+    $("mk").onclick = make;
+  }
+
+  // ---------- vrais sujets de bac : l'IA cherche le sujet officiel sur le web (seulement quand l'élève clique) ----------
+  async function screenBac(id) {
+    const s = state.subjects.find(x => x.id === id); if (!s) { location.hash = "#matieres"; return; }
+    tabs.hidden = true; const key = "merge.bac." + id, head = `<div class="row"><a class="iconbtn" href="#matiere-${id}" aria-label="Retour">${I.back}</a><h1 class="grow">Sujets d'examen</h1></div>`;
+    let list = jget(key, []), cur = null;
+    function home(msg) {
+      app.innerHTML = head + `<p class="muted">${esc(s.name)} · ${esc((state.profile || {}).classe || "")}</p>
+        <div class="card pad stack"><h2>Chercher un vrai sujet</h2><p class="small muted">L'IA cherche sur le web un sujet officiel des années précédentes (ta filière, ta matière), le transforme en épreuve interactive avec barème et correction, et cite la source. Si elle ne trouve pas de sujet officiel, elle le dit : rien n'est inventé.</p>
+          <div class="field"><label for="by">Année (facultatif)</label><input id="by" inputmode="numeric" maxlength="4" placeholder="Ex. 2024"></div><button class="btn" id="bgo">Chercher (1 appel IA)</button><div id="bmsg">${msg || ""}</div></div>
+        ${list.length ? `<div class="stack"><h2>Tes sujets</h2>${list.map((x, k) => `<button class="card rowlink tilebtn" data-bs="${k}" style="text-align:left"><b>${esc(x.epreuve || s.name)} · ${esc(x.annee || "")}</b><span class="small muted">${esc(x.session || "")} · ${esc(x.source_nom || "")}</span></button>`).join("")}</div>` : ""}`;
+      $("bgo").onclick = find; app.querySelectorAll("[data-bs]").forEach(b => b.onclick = () => { cur = list[+b.dataset.bs]; exam(); });
+    }
+    async function find() {
+      const y = $("by").value.trim(); $("bgo").disabled = true; $("bmsg").innerHTML = `<p class="muted" role="status">Recherche du sujet officiel… (jusqu'à une minute)</p>`;
+      try {
+        const r = await ai({ action: "bac", matiere: s.name, annee: /^\d{4}$/.test(y) ? y : "" }); const c = (r && r.content) || {};
+        if (!c.trouve || !(c.exercices || []).length) { home(`<p class="note" role="status">${esc(c.message || "Je n'ai pas trouvé de sujet officiel pour ta filière et ta matière. Je préfère ne rien inventer.")}</p>`); return; }
+        list.unshift(c); list = list.slice(0, 10); jset(key, list); cur = c; exam();
+      } catch (e) { $("bgo").disabled = false; showErr($("bmsg"), e); }
+    }
+    function exam() {
+      const c = cur, open = new Set();
+      const draw = () => {
+        const tot = (c.exercices || []).reduce((a, ex) => a + (ex.questions || []).reduce((b, q) => b + (+q.points || 0), 0), 0);
+        app.innerHTML = head + `<div class="card pad stack"><h2>${esc(c.epreuve || s.name)}</h2><p class="small">${esc([c.session, c.annee, c.filiere].filter(Boolean).join(" · "))}${tot ? " · barème sur " + tot : ""}</p><p class="small">Source : ${c.source_url ? `<a href="${esc(c.source_url)}" target="_blank" rel="noopener">${esc(c.source_nom || c.source_url)}</a>` : esc(c.source_nom || "non précisée")}</p>${(c.sources || []).length ? `<p class="small muted">Pages consultées : ${c.sources.slice(0, 4).map(x => `<a href="${esc(x.uri)}" target="_blank" rel="noopener">${esc(x.title || "lien")}</a>`).join(" · ")}</p>` : ""}${c.avertissement ? `<p class="note">${esc(c.avertissement)}</p>` : ""}</div>
+          ${(c.exercices || []).map((ex, i) => `<div class="card pad stack"><h2>${mx(ex.titre || "Exercice " + (i + 1))}</h2>${ex.enonce ? `<p class="enonce">${mx(ex.enonce)}</p>` : ""}${(ex.questions || []).map((q, j) => { const k = i + "-" + j; return `<div class="stack bacq"><p><b>${j + 1}.</b> ${mx(q.q)} <span class="pill">${q.points || "?"} pt</span></p><textarea aria-label="Ta réponse" placeholder="Ta réponse…" style="min-height:70px"></textarea>${open.has(k) ? `<div class="solution"><b>Correction</b><p>${mx(q.correction || "")}</p></div>` : `<button class="btn sm ghost" data-k="${k}" style="align-self:flex-start">Voir la correction</button>`}</div>`; }).join("")}</div>`).join("")}
+          <button class="btn ghost" id="bback">Autres sujets</button>`;
+        app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { const vals = [...app.querySelectorAll(".bacq textarea")].map(t => t.value); open.add(b.dataset.k); const y = scrollY; draw(); [...app.querySelectorAll(".bacq textarea")].forEach((t, n) => { t.value = vals[n] || ""; }); scrollTo(0, y); });
+        $("bback").onclick = () => home();
+      };
+      draw();
+    }
+    home();
+  }
   // ---------- minuteur de concentration ----------
   let timerInt = null;
   function screenTimer() {
@@ -1775,7 +1907,7 @@
         cells.push(`<button type="button" class="day${key === today ? " now" : ""}${ex.length ? " has" : ""}${did[key] ? " did" : ""}${vac ? " hol" : ""}"${vac ? ` title="Vacances : ${vac[0]}"` : ""} data-day="${key}" aria-pressed="${picked === key}"${key < today ? " disabled" : ""} aria-label="${d}${ex.length ? ", contrôle : " + esc(ex.map(x => x.name).join(", ")) : ""}${did[key] ? ", jour révisé" : ""}"><span class="dn">${d}</span><i>${ex.map(x => `<b style="background:${esc(x.color)}"></b>`).join("")}</i>${ex.slice(0, 2).map(x => `<em style="--c:${esc(x.color)}">${esc(x.name)}</em>`).join("")}</button>`);
       }
       const up = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date)), free = state.subjects.filter(isFree);
-      app.innerHTML = `<div class="row between"><h1>Calendrier</h1><button class="btn sm ghost" id="todayb">Aujourd'hui</button></div>
+      app.innerHTML = `<div class="row between"><h1>Calendrier</h1><div class="row"><a class="btn sm" href="#edt">Emploi du temps</a><button class="btn sm ghost" id="todayb">Aujourd'hui</button></div></div>
         <div class="calwrap"><div class="card pad stack calcard"><div class="row between"><button class="iconbtn flat" id="prev" aria-label="Mois précédent">${I.back}</button><h2 class="calmonth">${ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</h2><button class="iconbtn flat" id="nextm" aria-label="Mois suivant" style="transform:scaleX(-1)">${I.back}</button></div>
           <div class="cal calx">${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(x => `<span class="wd">${x}</span>`).join("")}${cells.join("")}</div>
           <div class="callegend"><span><i class="lg now"></i>Aujourd'hui</span><span><i class="lg did"></i>Jour révisé</span><span><i class="lg ex"></i>Contrôle</span><span><i class="lg hol"></i>Vacances (zone A)</span></div></div>
@@ -2772,7 +2904,7 @@
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);
     document.body.classList.add("nav"); closeSheet();
-    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "bilan" || h === "minuteur" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
+    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
     screenSession.key = null;
     if (busStop) busStop();
     if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -2811,6 +2943,9 @@
     else if (h.startsWith("revision-")) screenSession(arg, false, true);
     else if (h === "melange") screenSession("melange");
     else if (h === "recompenses") screenRewards();
+    else if (h === "edt") screenEdt();
+    else if (h.startsWith("methode-")) screenMethode(arg);
+    else if (h.startsWith("bac-")) screenBac(arg);
     else if (h.startsWith("vraifaux-")) screenTrueFalse(arg);
     else if (h.startsWith("fiche-")) screenSheet(arg);
     else if (h.startsWith("blanc-")) screenQuestions(arg, "blanc");

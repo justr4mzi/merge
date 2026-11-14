@@ -48,7 +48,7 @@ async function accessToken(sa: { client_email: string; private_key: string; toke
 
 type Part = { text: string } | { inlineData: { mimeType: string; data: string } };
 // deno-lint-ignore no-explicit-any
-async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean, temperature: number, thinking = "low") {
+async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean, temperature: number, thinking = "low", search = false) {
   const token = await accessToken(sa);
   const host = LOCATION === "global" ? "aiplatform.googleapis.com" : `${LOCATION}-aiplatform.googleapis.com`;
   const url = `https://${host}/v1/projects/${sa.project_id}/locations/${LOCATION}/publishers/google/models/${MODEL}:generateContent`;
@@ -59,6 +59,8 @@ async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean,
     generationConfig: { temperature },
   };
   if (wantJson) body.generationConfig.responseMimeType = "application/json";
+  // Recherche Google (sujets d'examen) : incompatible avec la sortie JSON imposée, le JSON est alors demandé dans le texte.
+  if (search) body.tools = [{ googleSearch: {} }];
   // Peu de réflexion interne : les tâches (transcrire, résumer, vérifier) sont du travail sur un texte donné, pas du raisonnement.
   body.generationConfig.thinkingConfig = { thinkingLevel: thinking };
   const send = () => fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -73,7 +75,9 @@ async function gemini(sa: any, system: string, parts: Part[], wantJson: boolean,
   }
   // deno-lint-ignore no-explicit-any
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? "").join("");
-  return { text, tin: data.usageMetadata?.promptTokenCount ?? 0, tout: data.usageMetadata?.candidatesTokenCount ?? 0 };
+  // deno-lint-ignore no-explicit-any
+  const sources = (data.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []).map((c: any) => c.web).filter((w: any) => w && w.uri).map((w: any) => ({ uri: String(w.uri), title: String(w.title ?? "") }));
+  return { text, sources, tin: data.usageMetadata?.promptTokenCount ?? 0, tout: data.usageMetadata?.candidatesTokenCount ?? 0 };
 }
 
 function systemPrompt(classe: string) {
@@ -162,7 +166,7 @@ Deno.serve(async (req) => {
     let out: any = {};
     let tin = 0, tout = 0;
     // Réflexion minimale pour les tâches courtes (lecture, vérification, correction d'une réponse, astuce) : réponses plus rapides.
-    const thin = ["transcribe", "verify", "interro", "khole", "pourquoi", "mnemo", "concret"].includes(String(body.action)) ? "minimal" : "low";
+    const thin = ["transcribe", "verify", "interro", "khole", "pourquoi", "mnemo", "concret", "edt"].includes(String(body.action)) ? "minimal" : "low";
     const run = async (parts: Part[], wantJson: boolean, temp = 0.2) => {
       const r = await gemini(sa, sys, parts, wantJson, temp, thin);
       tin += r.tin; tout += r.tout;
@@ -234,6 +238,30 @@ Deno.serve(async (req) => {
       const q = clip(body.question, 800), attendu = clip(body.attendu, 2500), donne = clip(body.donne, 3000);
       if (donne.trim().length < 2) return json({ error: "requete", detail: "Écris ta réponse." }, 400);
       out.content = await runJson([{ text: (needText() ? cours(text) : "") + `Interrogation écrite.\nQuestion : ${q}\nRéponse attendue : ${attendu}\nRéponse de l'élève :\n<<<\n${donne}\n>>>\n\n${REGLE}\nCorrige comme un professeur bienveillant mais exigeant. Accepte une réponse juste formulée autrement. JSON strict :\n{"points":0,"sur":2,"juste":false,"commentaire":"1 ou 2 phrases : ce qui est juste, ce qui manque ou est faux","correction":"la réponse attendue rédigée proprement"}\n"points" vaut 0, 0.5, 1, 1.5 ou 2. "juste" vaut true si points >= 1.5.` }], 0.1);
+    } else if (body.action === "edt") {
+      // Emploi du temps en photo ou en PDF (première page) : lu par l'IA.
+      const images = (body.images ?? []).slice(0, 2);
+      if (!images.length) return json({ error: "requete", detail: "Aucune image." }, 400);
+      const known = (body.matieres ?? []).slice(0, 40).map((x: unknown) => clip(x, 60)).join(", ");
+      const parts: Part[] = [{ text: `Voici l'emploi du temps d'un élève (photo ou capture). Relève TOUS les cours de la semaine. JSON strict :\n{"slots":[{"day":0,"start":"08:00","end":"09:00","subject":"Maths","room":"B12","week":""}]}\n"day" : 0 = lundi … 5 = samedi. Heures au format HH:MM sur 24 h. "week" vaut "A", "B" ou "" si le cours a lieu toutes les semaines (mentions « semaine A », « S1/S2 », « Q1/Q2 », « sem. paire/impaire »). "room" vide si absente. Écris le nom de la matière comme l'élève l'appelle ; s'il correspond à une de ses matières (${known || "aucune"}), reprends exactement ce nom. Ignore les pauses et la cantine. N'invente aucun cours.` }];
+      for (const im of images) parts.push({ inlineData: { mimeType: im.mime || "image/jpeg", data: im.data } });
+      out.content = await runJson(parts, 0.1);
+    } else if (body.action === "methode") {
+      const matiere = clip(body.matiere, 60);
+      if (matiere.trim().length < 2) return json({ error: "requete", detail: "Matière inconnue." }, 400);
+      out.content = await runJson([{ text: `EXCEPTION À LA RÈGLE ABSOLUE pour cette demande seulement : il n'y a pas de cours fourni, tu peux utiliser tes connaissances de la méthodologie scolaire française officielle (programmes et attendus des épreuves) pour le niveau « ${prof?.classe ?? "lycée"} ».\nÉcris la fiche méthode de la matière « ${matiere} » : les types d'exercices attendus dans cette matière à ce niveau (par exemple dissertation et explication de texte en philosophie, démonstration et rédaction en maths, analyse fonctionnelle et chaîne d'information en SIN, étude de documents en histoire-géographie, commentaire en français…), chacun étape par étape. JSON strict :\n{"exercices":[{"nom":"type d'exercice","quand":"quand on le rencontre (épreuve, type de question)","etapes":["étape concrète"],"conseils":["conseil court"]}],"erreurs":["erreur fréquente à éviter"],"outils":["mot de liaison, formule de rédaction ou outil utile"]}\n2 à 4 types d'exercices, 4 à 8 étapes chacun, 3 à 6 erreurs, 4 à 10 outils. Si la matière n'existe pas ou n'a pas de méthode reconnue, donne les méthodes générales de travail (prise de notes, apprentissage, révision).` }], 0.3);
+    } else if (body.action === "bac") {
+      // Vrai sujet officiel cherché sur le web. Sans source trouvée par la recherche, on répond « introuvable » : rien n'est inventé.
+      const matiere = clip(body.matiere, 60), annee = /^\d{4}$/.test(String(body.annee ?? "")) ? String(body.annee) : "";
+      const prompt = `EXCEPTION À LA RÈGLE ABSOLUE pour cette demande seulement : cherche sur le web, ne te base pas sur un cours.\nTrouve un VRAI sujet officiel d'examen français des années précédentes pour un élève de « ${prof?.classe ?? "Terminale"} », matière « ${matiere} »${annee ? `, année ${annee}` : " (le plus récent possible)"} : épreuve du baccalauréat (ou l'examen officiel qui correspond à cette formation : BTS, concours…). Sources acceptées : sites officiels (education.gouv.fr, eduscol, académies), ou sites d'annales sérieux qui reproduisent le sujet officiel (APMEP, sujetdebac.fr, annabac…). Recopie l'énoncé fidèlement (tu peux résumer les documents trop longs en le signalant), puis rédige la correction de chaque question et un barème cohérent avec le sujet.\nRéponds UNIQUEMENT avec un objet JSON, sans texte autour :\n{"trouve":true,"epreuve":"nom de l'épreuve","annee":"2024","session":"ex. Métropole, juin","filiere":"...","source_nom":"nom du site","source_url":"adresse exacte de la page du sujet","avertissement":"précision éventuelle (documents résumés, partie seulement…) ou chaîne vide","exercices":[{"titre":"Exercice 1","enonce":"énoncé","questions":[{"q":"question","points":2,"correction":"correction rédigée"}]}]}\nSi tu ne trouves PAS de sujet officiel vérifiable correspondant à cette filière et cette matière, réponds exactement {"trouve":false,"message":"phrase qui explique ce qui n'a pas été trouvé"}. N'invente jamais un sujet.`;
+      const r = await gemini(sa, sys, [{ text: prompt }], false, 0.2, "low", true);
+      tin += r.tin; tout += r.tout;
+      // deno-lint-ignore no-explicit-any
+      let c: any = null;
+      try { const m = r.text.match(/\{[\s\S]*\}/); c = m ? parseJson(m[0]) : null; } catch { c = null; }
+      if (!c || (c.trouve && (!r.sources.length || !(c.exercices ?? []).length))) c = { trouve: false, message: "Je n'ai pas trouvé de sujet officiel vérifiable pour ta filière et ta matière. Je préfère ne rien inventer." };
+      else if (c.trouve) c.sources = r.sources.slice(0, 6);
+      out.content = c;
     } else if (body.action === "pourquoi") {
       const q = clip(body.question, 600), attendu = clip(body.attendu, 2000), donne = clip(body.donne, 1500);
       out.answer = await run([{ text: (needText() ? cours(text) : "") + `Question : ${q}\nRéponse du cours : ${attendu}\n` + (donne.trim() ? `Réponse de l'élève : ${donne}\n` : "L'élève n'a pas su répondre.\n") + `\n${REGLE}\nExplique en 2 à 4 phrases simples POURQUOI la réponse du cours est la bonne, et d'où vient probablement l'erreur de l'élève. Termine par une phrase « À retenir : ».` }], false, 0.2);
