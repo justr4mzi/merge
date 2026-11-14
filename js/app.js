@@ -1781,6 +1781,33 @@
     }
     home();
   }
+
+  // ---------- chapitre partagé : un invité révise sans compte, avec ce qui existe déjà (aucune IA) ----------
+  async function screenShared(token) {
+    tabs.hidden = true; document.body.classList.remove("nav");
+    app.innerHTML = `<p class="muted">Chargement du chapitre partagé…</p>`;
+    let d = null; try { const r = await sb.rpc("get_shared_chapter", { p_token: token }); d = r.data; } catch (e) { d = null; }
+    const top = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div>${state.user ? '<a class="btn sm ghost" href="#accueil">Mon accueil</a>' : '<a class="btn sm" href="#">Créer mon compte</a>'}</div>`;
+    if (!d) { app.innerHTML = top + `<div class="card done"><h1>Lien inactif</h1><p class="muted">Ce lien de partage n'existe pas ou a été désactivé par son auteur.</p></div>`; return; }
+    const cards = (d.cards || []).filter(c => c.front && c.back), ct = d.content || {}; let tab = cards.length ? "cartes" : "resume", i = 0, flipped = false, order = shuffle(cards.map((_, k) => k)), good = 0;
+    const TABS_S = [["cartes", "Cartes", cards.length], ["resume", "Résumé", d.summary], ["quiz", "Quiz", ct.quiz && (ct.quiz.qcm || []).length], ["fiche", "Fiche", ct.fiche]].filter(t => t[2]);
+    function draw() {
+      let body = "";
+      if (tab === "cartes") { const c = cards[order[i % order.length]]; body = `<p class="small muted">Carte ${i % order.length + 1} sur ${cards.length} · ${good} sue${good > 1 ? "s" : ""}</p><button class="card pad flipcard" id="flp" style="min-height:200px;text-align:left;font:inherit;color:inherit;width:100%"><span class="small muted">${flipped ? "Réponse" : "Question"}</span><p style="font-size:1.15em;font-weight:700">${mx(flipped ? c.back : c.front)}</p>${flipped ? "" : '<span class="small muted">Touche pour voir la réponse</span>'}</button>${flipped ? '<div class="row"><button class="btn ghost grow" id="sko">À revoir</button><button class="btn grow" id="sok">Je savais</button></div>' : ""}`; }
+      if (tab === "resume") body = `<div class="card pad md">${md(d.summary || "")}</div>`;
+      if (tab === "quiz") body = (ct.quiz.qcm || []).map((q, k) => `<div class="card pad stack"><b>${k + 1}. ${mx(q.q)}</b>${(q.choix || []).map((o, j) => `<button class="opt" data-q="${k}" data-j="${j}">${mx(o)}</button>`).join("")}<p class="small" id="qe${k}"></p></div>`).join("");
+      if (tab === "fiche") { const f = ct.fiche; body = `<div class="card pad stack">${(f.essentiel || []).length ? `<h2>L'essentiel</h2><ul>${f.essentiel.map(x => `<li>${mx(x)}</li>`).join("")}</ul>` : ""}${(f.definitions || []).length ? `<h2>Définitions</h2><dl>${f.definitions.map(x => `<div><dt>${mx(x.terme)}</dt><dd>${mx(x.definition)}</dd></div>`).join("")}</dl>` : ""}${(f.formules || []).length ? `<h2>Formules</h2><ul>${f.formules.map(x => `<li><b>${mx(x.nom)}</b> : ${mx(x.formule)}</li>`).join("")}</ul>` : ""}</div>`; }
+      app.innerHTML = top + `<div class="stack"><p class="small muted">Chapitre partagé${d.subject ? " · " + esc(d.subject) : ""}</p><h1>${esc(d.name)}</h1></div>
+        <div class="seg" role="tablist">${TABS_S.map(t => `<button role="tab" data-st="${t[0]}" aria-selected="${tab === t[0]}">${t[1]}</button>`).join("")}</div>${body}
+        <p class="note">Révision en invité : rien n'est enregistré. Crée ton compte Merge pour importer tes propres cours.</p>`;
+      app.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { tab = b.dataset.st; draw(); });
+      if ($("flp")) $("flp").onclick = () => { flipped = !flipped; draw(); };
+      if ($("sok")) $("sok").onclick = () => { good++; ping(true); i++; flipped = false; if (i % order.length === 0) confetti(); draw(); };
+      if ($("sko")) $("sko").onclick = () => { ping(false); order.push(order[i % order.length]); i++; flipped = false; draw(); };
+      app.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { const q = ct.quiz.qcm[+b.dataset.q], okk = +b.dataset.j === +q.bonne; b.classList.add(okk ? "ok" : "ko"); const e = $("qe" + b.dataset.q); e.innerHTML = (okk ? "<b>Juste.</b> " : "<b>Non.</b> Réponse : " + mx(q.choix[+q.bonne]) + ". ") + mx(q.explication || ""); });
+    }
+    draw();
+  }
   // ---------- minuteur de concentration ----------
   let timerInt = null;
   function screenTimer() {
@@ -1820,11 +1847,26 @@
   // « Gérer le chapitre » : menu déroulant avec seulement la gestion du chapitre. Les modes (cartes difficiles, examen blanc) sont dans la liste des modes ;
   // créer ou ajouter des cartes se fait dans la section des cartes.
   function chapterToolsHtml(id) {
-    return `<details class="card pad drop" id="tools"><summary><span class="mico">${I.gear}</span><b class="grow">Gérer le chapitre</b></summary><div class="stack"><div class="chips"><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tColor">Couleur</button><button class="chip" id="tMove">Ranger dans un dossier</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip danger" id="tDel">Supprimer</button></div><div id="toolbox"></div></div></details>`;
+    return `<details class="card pad drop" id="tools"><summary><span class="mico">${I.gear}</span><b class="grow">Gérer le chapitre</b></summary><div class="stack"><div class="chips"><button class="chip" id="tNotes">Mes notes</button><button class="chip" id="tRename">Renommer</button><button class="chip" id="tColor">Couleur</button><button class="chip" id="tMove">Ranger dans un dossier</button><button class="chip" id="tShare">Partager</button><button class="chip" id="tExport">Exporter les cartes</button><button class="chip danger" id="tDel">Supprimer</button></div><div id="toolbox"></div></div></details>`;
   }
   function wireChapterTools(id, ch, cards) {
     if ($("tMore")) $("tMore").onclick = () => moreCards(id, $("tMore"));
     const box = $("toolbox"), s = state.subjects.find(x => x.id === ch.subject_id);
+    $("tShare").onclick = async () => {
+      box.innerHTML = '<p class="muted">Chargement…</p>';
+      const link = t => location.origin + location.pathname + "#partage-" + t;
+      const paint = (sh) => {
+        box.innerHTML = sh && sh.active ? `<div class="stack"><p class="small">N'importe qui avec ce lien peut réviser ce chapitre (cartes, résumé et contenus déjà préparés), même sans compte. Personne ne peut le modifier, et l'invité n'utilise jamais d'IA.</p><input id="shl" readonly value="${esc(link(sh.token))}" aria-label="Lien de partage"><div class="row" style="flex-wrap:wrap"><button class="btn sm" id="shc">Copier le lien</button><button class="btn sm ghost" id="shr">Nouveau lien</button><button class="btn sm ghost" id="shd">Désactiver</button></div><p class="note">« Nouveau lien » rend l'ancien inutilisable.</p></div>`
+          : `<div class="stack"><p class="small">Crée un lien pour qu'un ami révise ce chapitre, même sans compte. Tu pourras le désactiver ou le changer quand tu veux.</p><button class="btn sm" id="shn">Créer le lien</button></div>`;
+        const mk = async (renew) => { const r = await sb.rpc("share_chapter", { p_chapter: id, p_renew: !!renew }); if (r.error) return fail(r.error, "Partage impossible"); paint({ token: r.data, active: true }); toast(renew ? "Nouveau lien créé. L'ancien ne marche plus." : "Lien créé."); };
+        if ($("shn")) $("shn").onclick = () => mk(false);
+        if ($("shr")) $("shr").onclick = () => mk(true);
+        if ($("shd")) $("shd").onclick = async () => { const r = await sb.rpc("unshare_chapter", { p_chapter: id }); if (r.error) return fail(r.error, "Désactivation impossible"); paint(null); toast("Lien désactivé."); };
+        if ($("shc")) $("shc").onclick = async () => { const v = $("shl").value; try { if (navigator.share && /Mobi/.test(navigator.userAgent)) await navigator.share({ title: ch.name, url: v }); else { await navigator.clipboard.writeText(v); toast("Lien copié."); } } catch (e) { $("shl").select(); } };
+      };
+      let sh = null; try { const r = await sb.from("chapter_shares").select("token,active").eq("chapter_id", id).maybeSingle(); sh = r.data; } catch (e) { sh = null; }
+      paint(sh);
+    };
     $("tColor").onclick = () => {
       box.innerHTML = `<div class="field"><span class="label">Couleur du chapitre</span><div id="ccol">${colorPick(okColor(ch.color) ? ch.color : (s && s.color))}</div></div>`;
       wireColor($("ccol"), async c => { const { error } = await sb.from("chapters").update({ color: c }).eq("id", id); if (error) return fail(error, "Couleur non enregistrée"); ch.color = c; toast("Couleur du chapitre enregistrée."); });
@@ -2900,6 +2942,7 @@
   function route() {
     app.classList.remove("enter"); void app.offsetWidth; app.classList.add("enter"); clearTimeout(enterT); enterT = setTimeout(() => app.classList.remove("enter"), 700);
     document.body.classList.remove("nav");
+    if (location.hash.startsWith("#partage-")) return screenShared(location.hash.slice(9));
     if (!state.user) return screenLogin();
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);

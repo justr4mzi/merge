@@ -518,6 +518,21 @@ async function methodeBac(browser) {
   ok(!page.errors.length, "méthode et sujets : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function partage(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#chapitre-c1", 400); await page.click("#tools summary"); await page.click("#tShare"); await page.waitForTimeout(150); await page.click("#shn"); await page.waitForTimeout(150);
+  const l1 = await page.inputValue("#shl"); ok(/#partage-tok\w{20,}/.test(l1), "partage : lien créé", l1);
+  await page.click("#shr"); await page.waitForTimeout(150); const l2 = await page.inputValue("#shl"); ok(l2 !== l1, "partage : nouveau lien");
+  const tok = l2.split("#partage-")[1];
+  await go(page, "#partage-" + tok, 500); ok((await txt(page)).includes("Chapitre partagé") && await page.locator("#flp").count() === 1, "partage : l'invité voit les cartes");
+  await page.click("#flp"); await page.click("#sok"); await page.waitForTimeout(100); ok((await txt(page)).includes("1 sue"), "partage : révision en invité");
+  const calls = await page.evaluate(() => window.__fake.calls); 
+  let sm = await small(page); ok(!sm.length, "partage : boutons de 44 px minimum", sm.join(" | "));
+  await page.evaluate(t => { const r = window.__fake.DB.chapter_shares.find(x => x.token === t); r.active = false; }, tok);
+  await go(page, "#partage-" + tok, 400); ok((await txt(page)).includes("Lien inactif"), "partage : lien désactivé refusé");
+  ok(!page.errors.length, "partage : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -526,7 +541,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
