@@ -639,6 +639,44 @@ async function animations(browser) {
   ok(!page.errors.length, "animations : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function fenetres(browser) {
+  // Textes très longs : aucune fenêtre ne doit dépasser l'écran (bug iPhone du 14 nov. : « Ensuite : … » élargissait la musique).
+  const LONG = "Pearl of the Midnight Lantern Over the Quiet Harbour of Forgotten Melodies Rmx";
+  const NOSPACE = "Antidisestablishmentarianismesupercalifragilisticexpialidociousement".repeat(2);
+  const fits = page => page.evaluate(() => { const s = document.querySelector("#sheet .sheet"), r = s && s.getBoundingClientRect(), d = document.documentElement;
+    const wide = s ? [...s.querySelectorAll("*")].filter(e => { const b = e.getBoundingClientRect(); return b.width > 0 && (b.right > innerWidth + 0.5 || b.left < -0.5); }).slice(0, 3).map(e => e.tagName + "." + e.className) : [];
+    return { ok: !!s && d.scrollWidth <= innerWidth && r.left >= 0 && r.right <= innerWidth + 0.5, sw: d.scrollWidth, iw: innerWidth, left: r && Math.round(r.left), right: r && Math.round(r.right), wide }; });
+  for (const w of [320, 390]) {
+    const page = await open(browser, { w, h: 760, theme: "dark" }), tag = "fenêtres " + w;
+    const n = await page.evaluate(([t, a]) => { const L = window.CONFIG.LOFI || []; L.forEach(p => p.tracks.forEach(tr => { tr[1] = t; tr[2] = a; })); return L.length; }, [LONG, "Kurt Stewart, Lomme, Mondo Loops, Chill Harbour Collective"]);
+    if (n) {
+      await page.click("[data-music] >> nth=0"); await page.waitForTimeout(300); await page.click("#mplay"); await page.waitForTimeout(500);
+      ok(await page.locator("#musicbox .np-n").count() === 1, tag + " musique : texte « Ensuite » affiché");
+      let f = await fits(page); ok(f.ok && !f.wide.length, tag + " musique : la fenêtre tient dans l'écran", JSON.stringify(f));
+      const m = await page.evaluate(() => { const q = s => document.querySelector(s), r = e => e.getBoundingClientRect(), nn = q(".np-n"), t = q(".np-t"), a = q(".np-a"), lh = e => parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.3;
+        const hit = (x, y) => !(r(x).right <= r(y).left || r(y).right <= r(x).left || r(x).bottom <= r(y).top || r(y).bottom <= r(x).top);
+        return { oneLine: r(nn).height <= lh(nn) * 1.5 && getComputedStyle(nn).textOverflow === "ellipsis" && nn.scrollWidth > nn.clientWidth, noHit: !hit(nn, q("#mplay")) && !hit(nn, q("#mnext")),
+          btn: Math.min(r(q("#mplay")).height, r(q("#mplay")).width, r(q("#mnext")).height, r(q("#mnext")).width), t2: r(t).height <= lh(t) * 2 + 1, a2: r(a).height <= lh(a) * 2 + 1, close: r(q("#sheet [data-close]")).right <= innerWidth, vol: r(q("#mvol")).right <= innerWidth }; });
+      ok(m.oneLine, tag + " musique : « Ensuite » sur une ligne avec « … »", JSON.stringify(m));
+      ok(m.noHit && m.btn >= 44, tag + " musique : boutons lecture et suivant intacts (44 px)", JSON.stringify(m));
+      ok(m.t2 && m.a2, tag + " musique : titre et artiste sur 2 lignes au plus", JSON.stringify(m));
+      ok(m.close && m.vol, tag + " musique : volume et Fermer visibles", JSON.stringify(m));
+      await page.evaluate(() => { const L = window.CONFIG.LOFI; L[0].tracks.forEach(tr => { tr[1] = "Antidisestablishmentarianismesupercalifragilisticexpialidociousement"; tr[2] = tr[1]; }); });
+      await page.screenshot({ path: path.join(SHOTS, "fenetre-musique-long-" + w + ".png") }); await page.click("#mnext"); await page.waitForTimeout(300); f = await fits(page); ok(f.ok && !f.wide.length, tag + " musique : un titre sans espace tient aussi", JSON.stringify(f));
+      await page.screenshot({ path: path.join(SHOTS, "fenetre-musique-" + w + ".png") }); await page.click("#mplay"); await page.keyboard.press("Escape");
+    }
+    await page.click("button[data-qs] >> nth=0"); await page.waitForTimeout(300); await page.fill("#qs", NOSPACE); await page.waitForTimeout(200);
+    let f = await fits(page); ok(f.ok && !f.wide.length, tag + " recherche rapide : texte très long", JSON.stringify(f)); await page.keyboard.press("Escape");
+    await page.click("button[data-pomo] >> nth=0"); await page.waitForTimeout(300);
+    await page.evaluate(t => { document.querySelector("#sheet .note").textContent = t; }, NOSPACE);
+    f = await fits(page); ok(f.ok && !f.wide.length, tag + " Pomodoro : texte très long", JSON.stringify(f)); await page.keyboard.press("Escape");
+    await go(page, "#chapitre-c1", 500); await page.click("[data-info] >> nth=0"); await page.waitForTimeout(300);
+    await page.evaluate(t => { const s = document.querySelector("#sheet .sheet"); s.querySelector("h1").textContent = t; s.querySelector("p").textContent = t + " " + t; }, NOSPACE);
+    f = await fits(page); ok(f.ok && !f.wide.length, tag + " infos d'un mode : texte très long", JSON.stringify(f));
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -647,7 +685,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
