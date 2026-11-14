@@ -2206,6 +2206,29 @@
 
   // ---------- modes : apprendre, quiz, contrôle ----------
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  // Mauvaises propositions qui ressemblent à la bonne réponse (quiz avec les cartes, mode Apprendre, textes à trous déjà générés) :
+  // même nature (nombre, formule, mot court, phrase), longueur proche, mots en commun, même unité, même terminaison.
+  // Sinon un nombre se repérait tout seul au milieu de mots, ou une phrase longue au milieu de réponses d'un mot.
+  function lookalikes(target, pool, n, key) {
+    key = key || (x => x);
+    const nz = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\$[^$]*\$/g, " formule ").replace(/[^a-z0-9]+/g, " ").trim();
+    const kind = t => { const x = String(t || "").trim(), w = nz(x).split(" ").filter(Boolean).length; return /\$/.test(x) ? "tex" : /^[-+−]?[\d.,\s]+(\s*[a-zA-Zµ°%/·²³⁻¹Ω]{0,8})?$/.test(x) ? "num" : w <= 3 ? "mot" : w <= 10 ? "groupe" : "phrase"; };
+    const words = t => new Set(nz(t).split(" ").filter(w => w.length >= 4));
+    const unit = t => (String(t || "").match(/\d\s*([a-zA-Zµ°%Ω][a-zA-Z0-9µ°%Ω/·²³⁻¹]*)\s*$/) || [])[1] || "";
+    const T = String(target || ""), tk = kind(T), tw = words(T), tl = Math.max(1, T.length), tn = nz(T), tu = unit(T);
+    const seen = new Set([tn]), cand = [];
+    for (const item of pool) {
+      const v = String(key(item) || ""), vn = nz(v); if (!vn || seen.has(vn)) continue; seen.add(vn);
+      const vw = words(v), inter = [...vw].filter(w => tw.has(w)).length, uni = new Set([...vw, ...tw]).size || 1;
+      let sc = (kind(v) === tk ? 4 : 0) + 2 * Math.min(tl, v.length) / Math.max(tl, v.length) + 3 * inter / uni;
+      if (tu && unit(v) === tu) sc += 1.5;
+      if (tk === "mot" && vn.slice(-2) === tn.slice(-2)) sc += 0.5;
+      if (/^[A-ZÀ-Ý]/.test(v.trim()) === /^[A-ZÀ-Ý]/.test(T.trim())) sc += 0.3;
+      cand.push({ item, sc: sc + Math.random() * 0.8 });
+    }
+    return cand.sort((a, b) => b.sc - a.sc).slice(0, n).map(c => c.item);
+  }
+  window.__mergeLookalikes = lookalikes;
   async function chapterCards(id) {
     const local = () => cardsOf(id).filter(c => c.front).map(c => ({ id: c.id, front: c.front, back: c.back }));
     if (state.offline) return local();
@@ -2282,7 +2305,7 @@
           $("aicmp").onclick = async () => { $("aicmp").disabled = true; $("aiout").innerHTML = '<p class="muted">Comparaison…</p>'; try { const r = await ai({ action: "ask", text: "Question : " + c.front + "\nRéponse attendue d'après le cours : " + c.back, question: "La réponse de l'élève est : « " + $("ans").value.slice(0, 500) + " ». A-t-elle le même sens que la réponse attendue ? Commence par OUI ou NON, puis explique en une phrase ce qui manque ou ce qui est faux." }); if ($("aiout")) $("aiout").innerHTML = md(r.answer); } catch (e) { if ($("aiout")) { showErr($("aiout"), e); $("aicmp").disabled = false; } } }; };
         return;
       }
-      const opts = c.opts ? shuffle(c.opts.map((t, k) => ({ id: t === c.back ? c.id : c.id + "x" + k, back: t }))) : shuffle([c, ...shuffle(all.filter(x => x.id !== c.id && x.back !== c.back)).slice(0, 3)]);
+      const opts = c.opts ? shuffle(c.opts.map((t, k) => ({ id: t === c.back ? c.id : c.id + "x" + k, back: t }))) : shuffle([c, ...lookalikes(c.back, all.filter(x => x.id !== c.id && x.back !== c.back), 3, x => x.back)]);
       app.innerHTML = head + `<div class="card pad stack"><span class="pill ${S.missed.includes(c) ? "warn" : ""}" style="align-self:flex-start">${S.missed.includes(c) ? "Essayons à nouveau" : "Question " + Math.min(S.asked.length + 1, S.total) + " sur " + S.total}</span><h2 class="qtxt">${mx(c.front)}</h2><p class="fb" id="fb" role="status"></p><div class="opts">${opts.map((o, i) => `<button class="opt" data-i="${i}">${mx(o.back)}</button>`).join("")}</div><p class="note" id="expl" hidden></p><button class="btn" id="cont" hidden>Continuer</button></div>`;
       screenSession.key = (e) => { const n = "1234".indexOf(e.key); const bs = app.querySelectorAll(".opt"); if (n >= 0 && bs[n] && !bs[n].disabled) bs[n].click(); else if (e.key === "Enter" && $("cont") && !$("cont").hidden) $("cont").click(); };
       app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
@@ -2385,7 +2408,7 @@
     tabs.hidden = true;
     const all = cardsOf(id), back = "#chapitre-" + id, head = `<div class="row"><a class="iconbtn" href="${back}" aria-label="Fermer">${I.x}</a><div class="grow" style="text-align:center;font-weight:800">Vrai ou faux</div><span style="width:44px"></span></div>`;
     if (all.length < 4) { app.innerHTML = head + `<div class="card done"><p class="muted">Il faut au moins 4 cartes pour ce mode.</p><a class="btn" href="${back}">Retour</a></div>`; return; }
-    const qs = shuffle(all).slice(0, 10).map(c => { const truth = Math.random() < 0.5, other = shuffle(all.filter(x => x.id !== c.id && x.back !== c.back))[0]; return { c, truth: truth || !other, shown: truth || !other ? c.back : other.back }; });
+    const qs = shuffle(all).slice(0, 10).map(c => { const truth = Math.random() < 0.5, other = lookalikes(c.back, shuffle(all.filter(x => x.id !== c.id && x.back !== c.back)), 2, x => x.back)[Math.random() < 0.7 ? 0 : 1] || all.find(x => x.id !== c.id && x.back !== c.back); return { c, truth: truth || !other, shown: truth || !other ? c.back : other.back }; });
     let i = 0, good = 0; const missed = [];
     function ask() {
       if (i >= qs.length) { app.innerHTML = head + `<div class="card done"><h1>${good === qs.length ? "Bon travail !" : "C'est fini"}</h1><div class="big">${good} / ${qs.length}</div>${missed.length ? `<div class="stack" style="text-align:left;width:100%"><p class="label">À revoir</p>${missed.map(c => `<div class="term" style="padding:8px 0"><b>${mx(c.front)}</b><p>${mx(c.back)}</p></div>`).join("")}</div>` : ""}<button class="btn" id="again">Rejouer</button><a class="btn ghost" href="${back}">Retour au chapitre</a></div>`; $("again").onclick = () => screenTrueFalse(id); return; }
@@ -2408,7 +2431,7 @@
       ${sum ? `<div class="md">${md(sum.markdown)}</div>` : ""}
       ${ch.notes ? `<h2 style="margin-top:16px">Mes notes</h2><p style="white-space:pre-wrap">${esc(ch.notes)}</p>` : ""}
       <h2 style="margin-top:16px">${plural(cards.length, "carte", "cartes")}</h2><table class="sheettable"><tbody>${cards.map(c => `<tr><th scope="row">${esc(c.front)}</th><td>${esc(c.back)}</td></tr>`).join("")}</tbody></table></div>`;
-    $("print").onclick = () => window.print();
+    $("print").onclick = () => printDoc(app.querySelector(".sheet"), "Fiche " + ch.name);
   }
 
   // ---------- petits outils communs aux nouveaux modes ----------
@@ -2722,7 +2745,14 @@
     tabs.hidden = true; const T = "Khôlle", here = location.hash, all = cardsOf(id);
     if (!all.length) return emptyTool(id, T, "Il faut au moins une carte dans ce chapitre.");
     const Rec = window.SpeechRecognition || window.webkitSpeechRecognition, list = shuffle(all).slice(0, 5), notes = [];
-    let i = 0, rec = null;
+    let i = 0, rec = null, recDone = Promise.resolve();
+    // iPhone : Safari peut planter si un son démarre alors que la dictée (micro) n'est pas complètement arrêtée.
+    // On attend donc la vraie fin de la dictée (au plus 1,5 s) puis un court délai avant de lire la question.
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    function speakSafe(t) {
+      stopSpeak(); try { if (rec) rec.abort(); } catch (e) { /* déjà arrêtée */ }
+      Promise.race([recDone, wait(1500)]).then(() => wait(rec ? 400 : 0)).then(() => { if (location.hash === here) speakText(t, chLang(ch)); });
+    }
     const FILL = /\b(e+u+h+|h+e+u+|bah|ben|hum+|genre|du coup|en fait|tu vois)\b/gi;
     function ask() {
       const c = list[i]; let final = "", t0 = 0, secs = 0, on = false;
@@ -2732,17 +2762,18 @@
           ${Rec ? `<button class="btn" id="mic">${I.mic}Répondre au micro</button><p class="transcript" id="tr" aria-live="polite"></p>` : `<p class="note">Ton navigateur ne gère pas la dictée vocale. Réponds à voix haute, puis écris ce que tu as dit.</p>`}
           <div class="field"${Rec ? " hidden" : ""} id="trf"><label for="trt">Ta réponse</label><textarea id="trt" style="min-height:100px"></textarea></div>
           <button class="btn ghost" id="done"${Rec ? " hidden" : ""}>Voir la correction</button><div id="fb" class="stack"></div></div>`;
-      speakText(c.front, chLang(ch));
-      if ($("hear")) $("hear").onclick = () => speakText(c.front, chLang(ch));
+      speakSafe(c.front);
+      if ($("hear")) $("hear").onclick = () => { if (on) stop(); speakSafe(c.front); };
       const stop = () => { if (!on) return; on = false; secs = Math.max(1, Math.round((Date.now() - t0) / 1000)); try { rec.stop(); } catch (e) { /* déjà arrêté */ } if ($("mic")) { $("mic").innerHTML = I.mic + "Recommencer ma réponse"; $("mic").classList.remove("rec"); } if ($("trt")) { $("trt").value = final.trim(); $("trf").hidden = false; $("done").hidden = false; } };
       if (Rec) $("mic").onclick = () => {
         if (on) return stop();
-        stopSpeak();
+        stopSpeak(); if (music.on) musicStop(); // pas de son pendant que le micro écoute (plantages de Safari sur iPhone)
         try {
           rec = new Rec(); rec.lang = chLang(ch); rec.continuous = true; rec.interimResults = true; final = "";
+          let fin; recDone = new Promise(r => { fin = r; }); setTimeout(() => fin && fin(), 120000);
           rec.onresult = (ev) => { let interim = ""; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) final += ev.results[k][0].transcript + " "; else interim += ev.results[k][0].transcript; } if ($("tr")) $("tr").innerHTML = esc(final) + `<i>${mx(interim)}</i>`; };
           rec.onerror = (ev) => { if ($("tr") && ev.error !== "aborted" && ev.error !== "no-speech") $("tr").textContent = ev.error === "not-allowed" ? "Micro refusé : autorise le micro pour ce site, ou écris ta réponse." : "La dictée s'est arrêtée (" + ev.error + "). Tu peux écrire ta réponse."; stop(); if ($("trf")) { $("trf").hidden = false; $("done").hidden = false; } };
-          rec.onend = () => stop();
+          rec.onend = () => { stop(); fin(); };
           rec.start(); on = true; t0 = Date.now(); $("mic").innerHTML = I.x + "J'ai fini de répondre"; $("mic").classList.add("rec"); $("tr").textContent = "Je t'écoute…";
         } catch (e) { $("tr").textContent = "Impossible d'utiliser le micro. Écris ta réponse."; $("trf").hidden = false; $("done").hidden = false; }
       };
@@ -2783,7 +2814,7 @@
     function ask() {
       if (B.hp <= 0 || B.shields <= 0) return end();
       if (!B.queue.length) B.queue = shuffle(all);
-      const c = B.queue.shift(), opts = shuffle([c, ...shuffle(all.filter(x => x.id !== c.id && x.back !== c.back)).slice(0, 3)]);
+      const c = B.queue.shift(), opts = shuffle([c, ...lookalikes(c.back, all.filter(x => x.id !== c.id && x.back !== c.back), 3, x => x.back)]);
       app.innerHTML = toolHead(id, T) + hud() + `<div class="card pad stack"><h2 class="qtxt">${mx(c.front)}</h2><p class="fb" id="fb" role="status"></p><div class="opts">${opts.map((o, k) => `<button class="opt" data-i="${k}">${mx(o.back)}</button>`).join("")}</div><button class="btn" id="cont" hidden>Continuer</button></div>`;
       screenSession.key = (e) => { const n = "1234".indexOf(e.key), bs = app.querySelectorAll(".opt"); if (n >= 0 && bs[n] && !bs[n].disabled) bs[n].click(); else if (e.key === "Enter" && $("cont") && !$("cont").hidden) $("cont").click(); };
       app.querySelectorAll(".opt").forEach(b => b.onclick = () => {
@@ -2812,7 +2843,7 @@
     if (all.length < 4) return emptyTool(id, T, "Il faut au moins 4 cartes dans ce chapitre pour ce mode.");
     const S = { score: 0, combo: 0, good: 0, n: 0, end: 0, q: null, int: null, best: +(safeGet(bestKey) || 0) };
     const mult = () => Math.min(5, 1 + Math.floor(S.combo / 3));
-    function nextQ() { const c = all[Math.floor(Math.random() * all.length)], truth = Math.random() < 0.5, other = shuffle(all.filter(x => x.id !== c.id && x.back !== c.back))[0]; S.q = { c, truth: truth || !other, shown: truth || !other ? c.back : other.back }; draw(); }
+    function nextQ() { const c = all[Math.floor(Math.random() * all.length)], truth = Math.random() < 0.5, other = lookalikes(c.back, shuffle(all.filter(x => x.id !== c.id && x.back !== c.back)), 2, x => x.back)[Math.random() < 0.7 ? 0 : 1] || all.find(x => x.id !== c.id && x.back !== c.back); S.q = { c, truth: truth || !other, shown: truth || !other ? c.back : other.back }; draw(); }
     function draw(flash) {
       const left = Math.max(0, Math.ceil((S.end - Date.now()) / 1000));
       app.innerHTML = toolHead(id, T) + `<div class="row between"><span class="big" id="fclock" role="timer">${left} s</span><div style="text-align:right"><div class="big">${S.score}</div><span class="pill ${mult() > 1 ? "" : "ghostpill"}">x${mult()}</span></div></div><div class="bar"><i id="fbar" style="width:${left / 60 * 100}%"></i></div>
@@ -2958,11 +2989,15 @@
   // ---------- texte à trous ----------
   function screenCloze(id) {
     toolGate(id, "cloze", "Texte à trous", "Les phrases clés et les lois de ton cours, avec des mots à replacer. Touche une pastille pour remplir le trou suivant.", (data, ch, regen) => {
-      const items = (data.phrases || []).map(p => { const parts = String(typeof p === "string" ? p : (p && p.texte) || "").split(/\{\{(.+?)\}\}/); return { parts, words: parts.filter((_, k) => k % 2 === 1) }; }).filter(x => x.words.length);
+      // Leurres préparés par l'IA (« leurres » : mots de même nature que les bons) ; sinon, mots du chapitre qui ressemblent le plus.
+      const items = (data.phrases || []).map(p => { const parts = String(typeof p === "string" ? p : (p && p.texte) || "").split(/\{\{(.+?)\}\}/); return { parts, words: parts.filter((_, k) => k % 2 === 1), lures: (p && Array.isArray(p.leurres) ? p.leurres : []).map(x => String(x).trim()).filter(Boolean) }; }).filter(x => x.words.length);
       if (!items.length) return emptyTool(id, "Texte à trous", "Aucune phrase à trous n'a pu être préparée pour ce cours.");
       const allWords = [...new Set(items.flatMap(x => x.words))]; let i = 0, good = 0, total = 0;
       function show() {
-        const it = items[i], bank = shuffle([...it.words, ...shuffle(allWords.filter(w => !it.words.includes(w))).slice(0, Math.min(3, Math.max(1, 4 - it.words.length)))]).map((w, k) => ({ w, k })), fill = it.words.map(() => null); let checked = false;
+        const it = items[i], nLure = Math.min(3, Math.max(2, 5 - it.words.length)), lures = [];
+        it.lures.forEach(w => { if (lures.length < nLure && !it.words.concat(lures).some(x => norm(x) === norm(w))) lures.push(w); });
+        it.words.forEach((t, j) => { if (lures.length < nLure) lookalikes(t, allWords.filter(w => !it.words.concat(lures).some(x => norm(x) === norm(w))), Math.ceil((nLure - lures.length) / (it.words.length - j))).forEach(w => lures.push(w)); });
+        const bank = shuffle([...it.words, ...lures.slice(0, nLure)]).map((w, k) => ({ w, k })), fill = it.words.map(() => null); let checked = false;
         function draw() {
           let b = -1;
           app.innerHTML = toolHead(id, "Texte à trous") + `<div class="bar"><i style="width:${i / items.length * 100}%"></i></div><div class="card pad stack"><span class="pill" style="align-self:flex-start">Phrase ${i + 1} sur ${items.length}</span>
@@ -3078,10 +3113,45 @@
           ${box("Pour retenir", (f.mnemos || []).length ? `<div class="postits">${f.mnemos.map(x => `<p class="postit">${mx(x)}</p>`).join("")}</div>` : "", "memo", I.bulb)}
           <footer class="sfoot"><span>Relis cette fiche demain, puis dans 3 jours, puis dans une semaine.</span><span class="boxes">${["J+1", "J+3", "J+7", "J+14"].map(x => `<i>${x}</i>`).join("")}</span></footer>
         </article></div>${regenHtml}`;
-      $("print").onclick = () => { fitA4(app.querySelector(".synth")); window.print(); }; wireRegen(regen);
+      $("print").onclick = () => { fitA4(app.querySelector(".synth")); printDoc(app.querySelector(".a4wrap"), "Fiche de synthèse " + ch.name); }; wireRegen(regen);
     });
   }
   // Réduit la taille du texte jusqu'à ce que la fiche tienne sur une page A4 (281 mm utiles).
+  // Imprimer. Dans l'appli installée sur l'écran d'accueil d'un iPhone, Safari ignore window.print() : on fabrique alors
+  // un PDF (mise en page d'impression, A4, marges de 8 mm) et on ouvre le menu Partager, qui contient « Imprimer ».
+  // Bibliothèques (html2canvas, jsPDF) chargées seulement à ce moment-là.
+  const iosApp = () => (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) && (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches);
+  async function printDoc(root, name) {
+    if (!root) return;
+    if (!iosApp() && !window.__mergeForcePdf) return window.print();
+    sheet(`<h1>Imprimer</h1><div class="row" id="pdfwait"><div class="spin" aria-hidden="true"></div><p class="muted" role="status">Merge prépare le PDF…</p></div><div class="stack" id="pdfready" hidden><p class="muted">Ton PDF est prêt. Dans le menu qui s'ouvre, choisis « Imprimer » ou « Enregistrer dans Fichiers ».</p><button class="btn" id="pdfshare">${I.print}Imprimer ou partager le PDF</button><a class="btn ghost" id="pdfopen" target="_blank" rel="noopener">Ouvrir le PDF</a></div><p class="err" id="pdferr" hidden></p><button class="btn ghost" data-close>Fermer</button>`);
+    let ifr = null;
+    try {
+      await Promise.all([needLib("vendor/html2canvas-pro.min.js", () => !!window.html2canvas), needLib("vendor/jspdf.umd.min.js", () => !!(window.jspdf && window.jspdf.jsPDF))]);
+      const css = (await (await fetch("css/app.css")).text()).replace(/@media\s+print/g, "@media all");
+      ifr = document.createElement("iframe"); ifr.setAttribute("aria-hidden", "true"); ifr.tabIndex = -1;
+      ifr.style.cssText = "position:fixed;left:-10000px;top:0;width:733px;height:1060px;border:0"; // 194 mm de large : A4 moins les marges
+      document.body.appendChild(ifr);
+      const d = ifr.contentDocument, rs = document.documentElement.getAttribute("style") || "";
+      d.open(); d.write(`<!DOCTYPE html><html lang="fr" data-theme="light" style="${esc(rs)}"><head><meta charset="utf-8"><base href="${esc(location.href.split("#")[0])}"><link rel="stylesheet" href="vendor/katex/katex.min.css"><style>${css}</style><style>html,body{background:#fff!important;margin:0;padding:0!important}body::before,body::after,html::after{display:none!important}.noprint{display:none!important}*{animation:none!important;transition:none!important}</style></head><body><div class="app">${root.outerHTML}</div></body></html>`); d.close();
+      await new Promise(r => { if (d.readyState === "complete") r(); else ifr.onload = r; setTimeout(r, 3000); });
+      try { await d.fonts.ready; } catch (e) { /* polices système */ }
+      await Promise.all([...d.images].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; setTimeout(r, 4000); })));
+      const pdf = new window.jspdf.jsPDF({ unit: "mm", format: "a4" }), W = 194, H = 281;
+      const pages = [...d.querySelectorAll(".a4")]; let first = true;
+      const add = (cv, sy, sh) => { const c = document.createElement("canvas"); c.width = cv.width; c.height = sh; c.getContext("2d").fillStyle = "#fff"; c.getContext("2d").fillRect(0, 0, c.width, c.height); c.getContext("2d").drawImage(cv, 0, sy, cv.width, sh, 0, 0, cv.width, sh); let w = W, h = sh * W / cv.width; if (h > H) { w = w * H / h; h = H; } if (!first) pdf.addPage(); first = false; pdf.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 8 + (W - w) / 2, 8, w, h); };
+      const shot = el => window.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, windowWidth: 733 });
+      if (pages.length) for (const pg of pages) { const cv = await shot(pg); add(cv, 0, cv.height); }
+      else { const cv = await shot(d.querySelector(".app")), ph = Math.floor(cv.width * H / W); for (let y = 0; y < cv.height; y += ph) add(cv, y, Math.min(ph, cv.height - y)); }
+      const blob = pdf.output("blob"), file = new File([blob], (name || "Merge").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) + ".pdf", { type: "application/pdf" }), url = URL.createObjectURL(blob);
+      window.__mergeLastPdf = { size: blob.size, pages: pdf.getNumberOfPages(), name: file.name, url };
+      if (!$("pdfready")) return;
+      $("pdfwait").hidden = true; $("pdfready").hidden = false; $("pdfopen").href = url; $("pdfopen").download = file.name;
+      $("pdfshare").hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+      $("pdfshare").onclick = () => navigator.share({ files: [file], title: file.name }).catch(e => { if (e && e.name !== "AbortError") toast("Partage impossible : ouvre le PDF à la place."); });
+    } catch (e) { console.error(e); if ($("pdferr")) { $("pdfwait").hidden = true; $("pdferr").hidden = false; $("pdferr").textContent = "Le PDF n'a pas pu être préparé. Vérifie ta connexion et réessaie."; } }
+    finally { if (ifr) ifr.remove(); }
+  }
   function fitA4(el) {
     if (!el) return; const maxH = 281 * 96 / 25.4 - 4; el.classList.add("fit");
     let pt = 9.5; el.style.setProperty("--pfs", pt + "pt");
@@ -3113,7 +3183,7 @@
         <div class="stack noprint"><h1>Planche de cartes</h1><div class="chips"><button class="chip" data-pm="rv" aria-pressed="${mode === "rv"}">Recto verso (8 cartes par feuille)</button><button class="chip" data-pm="pli" aria-pressed="${mode === "pli"}">À plier (4 cartes par feuille)</button></div>
           <p class="note">${mode === "rv" ? "Imprime en recto verso, retournement sur le bord long, sur du papier bristol. Les réponses tombent au dos des questions. Découpe le long des pointillés." : "Imprime en recto simple. Plie chaque feuille le long du trait central, colle, puis découpe le long des pointillés."} ${plural(cards.length, "carte", "cartes")}, ${plural(pages.length, "page", "pages")}.</p></div>
         <div class="a4wrap">${pages.join("")}</div>`;
-      $("print").onclick = () => window.print();
+      $("print").onclick = () => printDoc(app.querySelector(".a4wrap"), "Planche de cartes " + ch.name);
       app.querySelectorAll("[data-pm]").forEach(b => b.onclick = () => { mode = b.dataset.pm; draw(); });
     }
     draw();

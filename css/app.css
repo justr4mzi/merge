@@ -852,3 +852,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0;hei
 @media (max-width:899px){.tabs{padding-bottom:max(4px,calc(env(safe-area-inset-bottom,0px) - 14px))}.tabs a{min-height:54px;margin:3px 0}}
 /* Réglages > Rappels : options masquées quand les rappels sont coupés */
 #remOpts.off{display:none}
+/* Pas de zoom quand on tape deux fois vite (boutons, cartes) ; le zoom à deux doigts reste possible. */
+html,body,a,button,input,select,textarea,label,summary,[role="button"]{touch-action:manipulation}
+/* La page « fiche à imprimer » porte aussi la classe .sheet (comme les fenêtres) : à l'impression, pleine largeur et sans ombre. */
+@media print{.app>.sheet{max-width:none!important;width:auto!important;box-shadow:none!important;padding:0!important;animation:none!important}}

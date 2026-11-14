@@ -831,6 +831,49 @@ async function annulerCarte(browser) {
   }
 }
 
+async function leurres(browser) {
+  const ai = fs.readFileSync(path.join(ROOT, "supabase/functions/ai/index.ts"), "utf8");
+  ok(/const LEURRES = /.test(ai) && (ai.match(/\$\{LEURRES\}/g) || []).length >= 3 && /"leurres":\[/.test(ai), "leurres : consignes de l'IA pour le quiz, le contrôle et le texte à trous");
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  const L = (t, pool, n) => page.evaluate(([t, pool, n]) => window.__mergeLookalikes(t, pool, n), [t, pool, n]);
+  for (let k = 0; k < 5; k++) {
+    ok((await L("46", ["mitose", "identiques", "23", "interphase", "quatre", "La cellule se divise"], 1))[0] === "23", "leurres : un nombre contre un nombre");
+    const v = await L("3,2 V", ["mitose", "5 V", "12 A", "Loi d'Ohm", "0,8 V"], 2); ok(v.includes("5 V") && v.includes("0,8 V"), "leurres : même unité d'abord", v.join(" | "));
+    const m = await L("mitose", ["46", "méiose", "La cellule se divise en deux cellules filles", "interphase", "12 V"], 2); ok(m.includes("méiose") && m.includes("interphase"), "leurres : un mot contre des mots", m.join(" | "));
+    const ph = await L("Deux cellules filles génétiquement identiques", ["46", "ADN", "Quatre cellules filles haploïdes", "Pendant l'interphase", "Une des deux copies d'un chromosome"], 2); ok(ph.includes("Quatre cellules filles haploïdes") && !ph.includes("46") && !ph.includes("ADN"), "leurres : une phrase contre des phrases", ph.join(" | "));
+  }
+  ok((await L("Mitose", ["mitose", "méiose"], 2)).join() === "méiose", "leurres : jamais la bonne réponse en double");
+  await go(page, "#trous-c1"); await page.click("#mk"); await page.waitForTimeout(400);
+  const bank = await page.evaluate(() => [...document.querySelectorAll(".bank .chip")].map(b => b.textContent.trim()));
+  ok(["mitose", "identiques", "méiose", "différentes", "haploïdes"].every(w => bank.includes(w)) && bank.length === 5, "leurres : texte à trous avec les leurres préparés par l'IA", bank.join(" | "));
+  for (let k = 0; k < 2; k++) await page.click(".bank .chip:not([disabled]) >> nth=0"); await page.click("#chk"); await page.waitForTimeout(150); await page.click("#chk"); await page.waitForTimeout(250);
+  const bank2 = await page.evaluate(() => [...document.querySelectorAll(".bank .chip")].map(b => b.textContent.trim()));
+  ok(bank2.includes("quatre") && bank2.includes("haploïdes") && bank2.length >= 4 && new Set(bank2).size === bank2.length, "leurres : sans leurres de l'IA (anciens textes), mots du chapitre qui ressemblent", bank2.join(" | "));
+  ok(!page.errors.length, "leurres : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
+async function iphoneAppli(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  // Double appui : plus de zoom sur les boutons et les cartes (le zoom à deux doigts reste possible).
+  await go(page, "#cartes-c1", 400);
+  ok(await page.evaluate(() => ["html", "body", "#yes", "#flip", ".tabs a"].every(sel => { const e = document.querySelector(sel); return !e || getComputedStyle(e).touchAction === "manipulation"; })), "iPhone : pas de zoom au double appui");
+  ok(!(await page.evaluate(() => document.querySelector('meta[name="viewport"]').content.includes("user-scalable=no"))), "iPhone : zoom à deux doigts toujours possible");
+  ok(await page.evaluate(() => [...document.querySelectorAll("input:not([type=range]):not([type=checkbox]),select,textarea")].every(e => parseFloat(getComputedStyle(e).fontSize) >= 16)), "iPhone : champs en 16 px au moins (pas de zoom automatique en écrivant)");
+  // Imprimer : dans l'appli installée sur iPhone, un PDF au lieu de window.print().
+  await page.evaluate(() => { window.__mergeForcePdf = true; window.__printed = 0; window.print = () => { window.__printed++; }; });
+  for (const [route, min] of [["#synthese-c1", 1], ["#fiche-c1", 1], ["#planche-c1", 2]]) {
+    await go(page, route, 500); if (await page.locator("#mk").count()) { await page.click("#mk"); await page.waitForTimeout(500); }
+    await page.evaluate(() => { window.__mergeLastPdf = null; }); await page.click("#print");
+    await page.waitForFunction(() => window.__mergeLastPdf || (document.getElementById("pdferr") && !document.getElementById("pdferr").hidden), null, { timeout: 30000 }).catch(() => {});
+    const r = await page.evaluate(() => ({ pdf: window.__mergeLastPdf, ready: !!document.getElementById("pdfready") && !document.getElementById("pdfready").hidden, printed: window.__printed }));
+    ok(r.pdf && r.pdf.pages >= min && r.pdf.size > 20000 && r.ready && !r.printed, "iPhone : PDF prêt pour " + route, JSON.stringify(r));
+    if (route === "#synthese-c1") await page.screenshot({ path: path.join(SHOTS, "pdf-pret-390.png") });
+    if (r.pdf && process.env.SAVEPDF) { const b64 = await page.evaluate(async u => { const b = await (await fetch(u)).blob(); return await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result.split(",")[1]); f.readAsDataURL(b); }); }, r.pdf.url); fs.writeFileSync(path.join(SHOTS, route.slice(1) + ".pdf"), Buffer.from(b64, "base64")); }
+    await page.keyboard.press("Escape");
+  }
+  ok(!page.errors.length, "iPhone : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -839,7 +882,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte, leurres, iphoneAppli };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

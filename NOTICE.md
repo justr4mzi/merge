@@ -8,3 +8,5 @@ Aucun code n'a été copié depuis Anki ni depuis Nibomo.
 
 ## Icône Réglages
 La roue dentée de la barre du bas reprend le dessin « settings » de Lucide (https://lucide.dev), licence ISC : Copyright (c) Lucide Contributors. Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted.
+- html2canvas-pro 2.5.0, licence MIT (PDF des fiches sur iPhone, chargée seulement pour imprimer)
+- jsPDF 2.5.2, licence MIT (PDF des fiches sur iPhone, chargée seulement pour imprimer)
