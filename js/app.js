@@ -771,6 +771,7 @@
     pieges: { i: "trap", n: "Chasse aux pièges", s: "Deviens le correcteur", ia: 1, a: "Une copie d'élève contient des erreurs classiques. À toi de les repérer. Tu apprends en corrigeant." },
     faceaface: { i: "vs", n: "Face-à-face", s: "Les notions qu'on confond", ia: 1, a: "Les notions qui se ressemblent, comparées côte à côte, puis un mini quiz pour ne plus les mélanger." },
     exercices: { i: "steps", n: "Exercices guidés", s: "Indices pas à pas", ia: 1, a: "Trois exercices de difficulté croissante. Deux indices si tu bloques, puis la solution rédigée comme sur une copie." },
+    interro: { i: "learn", n: "Interro écrite", s: "Tape ta réponse, correction immédiate", ia: 1, a: "Une question à la fois, comme une interro sur feuille. Tu tapes ta réponse : un nombre, un mot ou une phrase est corrigé tout de suite par Merge, une justification est corrigée par l'IA (1 appel par justification). « Refaire » prépare une nouvelle interro." },
     trous: { i: "cloze", n: "Texte à trous", s: "Complète les phrases clés", ia: 1, a: "Les phrases importantes du cours avec des mots manquants. Tu complètes, Merge corrige." },
     carte: { i: "map", n: "Carte mentale", s: "Le chapitre en un schéma", ia: 1, a: "Tout le chapitre en arbre : les grandes idées, puis les notions. Tu peux zoomer et replier les branches." },
     boss: { i: "shield", n: "Combat de boss", s: "Bats le boss du chapitre", ia: 0, a: "Chaque bonne réponse retire des points de vie au boss, chaque erreur t'en coûte. À faire quand tu te sens prêt." },
@@ -786,7 +787,7 @@
     stats: { i: "chart", n: "Statistiques", s: "Ta progression sur ce chapitre", ia: 0, a: "Ta maîtrise dans le temps, les cartes que tu rates le plus et le temps passé sur ce chapitre." },
     erreurs: { i: "book", n: "Carnet d'erreurs", s: "Tes erreurs, expliquées", ia: 0, a: "Toutes les questions que tu as ratées dans ce chapitre. Le bouton « Pourquoi ? » t'explique chaque erreur (1 appel IA)." },
   };
-  const MODE_CATS = [["Réviser", ["cartes", "resume", "apprendre", "quiz", "controle", "ecouter"]], ["Comprendre", ["questions", "libre", "blurting", "feynman", "pieges", "faceaface", "exercices", "trous", "carte", "schema"]], ["Jouer", ["boss", "flash", "associer", "vraifaux"]], ["Oral et audio", ["khole", "bus"]], ["Fiches", ["synthese", "planche", "erreurs", "stats"]]];
+  const MODE_CATS = [["Réviser", ["cartes", "resume", "apprendre", "interro", "quiz", "controle", "ecouter"]], ["Comprendre", ["questions", "libre", "blurting", "feynman", "pieges", "faceaface", "exercices", "trous", "carte", "schema"]], ["Jouer", ["boss", "flash", "associer", "vraifaux"]], ["Oral et audio", ["khole", "bus"]], ["Fiches", ["synthese", "planche", "erreurs", "stats"]]];
   const IA_NOTE = ["Sans IA : gratuit et illimité.", "1 appel IA la première fois, puis c'est gardé : tu le rouvres autant que tu veux.", "1 appel IA à chaque utilisation."];
   const favs = () => { try { const f = JSON.parse(safeGet("merge.fav") || "[]"); return Array.isArray(f) ? f.filter(k => MODES[k]) : []; } catch (e) { return []; } };
 
@@ -2346,7 +2347,7 @@
   // ---------- carte mentale interactive (SVG pur) ----------
   function screenMindmap(id) {
     toolGate(id, "mindmap", "Carte mentale", "Tout le chapitre sous forme d'arbre : les grandes idées, puis les notions. Tu peux zoomer, déplacer la carte et replier les branches.", (data, ch, regen) => {
-      let uid = 0; const prep = (n, d) => ({ id: uid++, t: texPlain(String((n && n.titre) || "")).slice(0, 60), tt: String((n && n.titre) || ""), detail: (n && n.detail) || "", d, open: d < 1, kids: d >= 3 ? [] : ((n && n.enfants) || []).slice(0, 8).map(k => prep(k, d + 1)) });
+      let uid = 0; const prep = (n, d) => ({ id: uid++, t: texPlain(String((n && n.titre) || "")).slice(0, 60), tt: String((n && n.titre) || ""), detail: (n && n.detail) || "", d, open: d < 1, kids: d >= 4 ? [] : ((n && n.enfants) || []).slice(0, 10).map(k => prep(k, d + 1)) });
       const root = prep(data, 0); if (!root.t) root.t = ch.name;
       const W = 184, H = 50, GX = 56, GY = 12, K0 = innerWidth < 600 ? 0.7 : 1, V = { x: 16, y: 16, k: K0 }; let sel = root, byId = {};
       const wrap = (t) => { const w = t.split(/\s+/), lines = [""]; w.forEach(x => { const l = lines[lines.length - 1]; if ((l + " " + x).trim().length <= 22 || !l) lines[lines.length - 1] = (l + " " + x).trim(); else lines.push(x); }); if (lines.length > 2) { lines.length = 2; lines[1] = lines[1].slice(0, 20) + "…"; } return lines; };
@@ -2404,6 +2405,84 @@
       }
       function end() { app.innerHTML = toolHead(id, "Texte à trous") + `<div class="card done"><h1>${good === total ? "Bon travail !" : "C'est fini"}</h1><div class="big">${good} / ${total}</div><p class="muted">mots bien placés.</p><button class="btn" id="again">Recommencer</button><a class="btn ghost" href="#chapitre-${id}">Retour au chapitre</a></div>${regenHtml}`; $("again").onclick = () => { i = 0; good = 0; total = 0; show(); }; wireRegen(regen); }
       show();
+    });
+  }
+
+  // ---------- interro écrite : l'élève tape sa réponse, correction immédiate ----------
+  // Nombre : comparé avec une tolérance ; mot et phrase : comparés sans accents ni casse, avec les variantes et une faute de frappe permise ;
+  // justification (ou phrase non reconnue, sur demande) : corrigée par l'IA, 1 appel.
+  function parseNum(t) {
+    let x = String(t || "").replace(/\s| /g, "").replace(/\$/g, "").replace(/×|\\times|\*/g, "x").replace(/,/g, ".");
+    x = x.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)").replace(/[{}]/g, "");
+    const m = x.match(/^([-+]?\d*\.?\d+(?:e[-+]?\d+)?)(?:x10\^?\(?([-+]?\d+)\)?)?/i) || x.match(/^10\^\(?([-+]?\d+)\)?/);
+    if (!m) { const f = x.match(/^\(?([-+]?\d*\.?\d+)\)?\/\(?([-+]?\d*\.?\d+)\)?/); return f && +f[2] ? +f[1] / +f[2] : NaN; }
+    if (/^10\^/.test(x) && m.length === 2) return Math.pow(10, +m[1]);
+    return parseFloat(m[1]) * (m[2] != null ? Math.pow(10, +m[2]) : 1);
+  }
+  function lev(a, b) { if (Math.abs(a.length - b.length) > 2) return 9; const d = Array.from({ length: a.length + 1 }, (_, i) => [i]); for (let j = 1; j <= b.length; j++) d[0][j] = j; for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); return d[a.length][b.length]; }
+  const normW = t => norm(texPlain(t)).replace(/\b(le|la|les|l|un|une|des|du|de|d)\b/g, " ").replace(/\s+/g, " ").trim();
+  function checkInterro(q, given) {
+    const type = q.type || "phrase", want = [q.reponse].concat(q.variantes || []).filter(x => x != null && String(x).trim());
+    if (type === "nombre") {
+      const g = parseNum(given), tol = Math.max(0.001, Math.min(0.2, +q.tolerance || 0.01));
+      return want.some(w => { const v = parseNum(w); return isFinite(v) && isFinite(g) && (v === 0 ? Math.abs(g) < 1e-9 : Math.abs(g - v) / Math.abs(v) <= tol); }) ? "ok" : "ko";
+    }
+    const gn = normW(given); if (!gn) return "ko";
+    if (want.some(w => { const wn = normW(w); return wn === gn || (wn.length >= 5 && lev(wn, gn) <= 1); })) return "ok";
+    if (type === "mot") return want.some(w => gn.split(" ").includes(normW(w)) && normW(w).length >= 4) ? "ok" : "ko";
+    // phrase : assez de mots importants de la réponse attendue → juste ; sinon l'IA peut trancher.
+    const keys = normW(q.reponse).split(" ").filter(w => w.length >= 4), have = new Set(gn.split(" "));
+    const hit = keys.filter(w => have.has(w) || [...have].some(h => h.length >= 5 && lev(h, w) <= 1)).length;
+    return keys.length && hit / keys.length >= 0.75 ? "ok" : "ia";
+  }
+  function screenInterro(id) {
+    toolGate(id, "interro", "Interro écrite", "Une interro comme sur feuille : une question à la fois, tu tapes ta réponse (un nombre, un mot, une phrase ou une justification) et Merge te corrige tout de suite.", (data, ch, regen) => {
+      const qs = (data.questions || []).filter(q => q && q.q && q.reponse != null).map(q => Object.assign({}, q, { type: ["nombre", "mot", "phrase", "justification"].includes(q.type) ? q.type : "phrase" }));
+      if (!qs.length) return emptyTool(id, "Interro écrite", "Aucune question n'a pu être préparée pour ce cours.");
+      const T = "Interro écrite", R = qs.map(() => null); let i = 0;
+      const LBL = { nombre: "Un nombre", mot: "Un mot", phrase: "Une phrase", justification: "Justifie" };
+      const pts = r => r ? (r.points != null ? r.points : r.v === "ok" ? 2 : 0) : 0;
+      function draw(focus) {
+        const q = qs[i], r = R[i], long = q.type === "justification" || q.type === "phrase";
+        const fb = !r ? "" : r.v === "wait" ? `<p class="fb" role="status">L'IA corrige ta réponse…</p>` : r.v === "ia" ? `<div class="fb">Merge n'est pas sûr. <button class="linkbtn" id="iaok">Faire corriger par l'IA (1 appel)</button> ou <button class="linkbtn" id="selfok">J'avais juste</button></div><p class="small muted">Réponse attendue : ${mx(q.reponse)}</p>`
+          : `<div class="fb ${r.v === "ok" ? "ok" : "ko"}" role="status"><b>${r.v === "ok" ? "Juste" : r.points ? "En partie juste" : "Pas tout à fait"}</b>${r.points != null ? ` · ${String(r.points).replace(".", ",")} / 2` : ""}</div>${r.comment ? `<p>${mx(r.comment)}</p>` : ""}${r.v !== "ok" || q.type === "justification" ? `<div class="solution"><b>Correction</b><p>${mx(r.correction || q.reponse)}${q.unite && q.type === "nombre" ? " " + mx(q.unite) : ""}</p></div>` : ""}`;
+        app.innerHTML = toolHead(id, T) + `<div class="bar"><i style="width:${i / qs.length * 100}%"></i></div><div class="card pad stack interro">
+          <div class="row between"><span class="pill">Question ${i + 1} sur ${qs.length}</span><span class="small muted">${LBL[q.type]}</span></div>
+          <p class="qtxt">${mx(q.q)}</p>
+          <div class="field"><label for="ians">Ta réponse${q.type === "nombre" && q.unite ? " (en " + esc(texPlain(q.unite)) + ")" : ""}</label>${long ? `<textarea id="ians" style="min-height:${q.type === "justification" ? 150 : 80}px" maxlength="3000" ${r ? "disabled" : ""}>${esc(r ? r.given : "")}</textarea>` : `<input id="ians" ${q.type === "nombre" ? 'inputmode="decimal"' : ""} autocomplete="off" maxlength="200" value="${esc(r ? r.given : "")}" ${r ? "disabled" : ""}>`}</div>
+          ${fb}
+          <div class="row">${i > 0 ? `<button class="btn ghost" id="iprev">Précédente</button>` : ""}${r && r.v !== "wait" && r.v !== "ia" ? `<button class="btn grow" id="inext">${i < qs.length - 1 ? "Question suivante" : "Voir ma note"}</button>` : !r ? `<button class="btn grow" id="ichk">Valider</button>` : ""}</div>
+          ${!r ? `<p class="note">${q.type === "justification" ? "Corrigée par l'IA : 1 appel." : q.type === "nombre" ? "Virgule ou point, puissances acceptées (ex. 1,5 ou 3x10^4)." : "Les accents et les majuscules ne comptent pas."}</p>` : ""}</div>${regenHtml}`;
+        wireRegen(regen);
+        const inp = $("ians"); if (inp && !r && focus !== false) inp.focus();
+        if (inp && !r && !long) inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("ichk").click(); } };
+        if ($("iprev")) $("iprev").onclick = () => { i--; draw(false); };
+        if ($("inext")) $("inext").onclick = () => { if (i < qs.length - 1) { i++; draw(); } else end(); };
+        if ($("ichk")) $("ichk").onclick = () => { const g = inp.value.trim(); if (!g) return toast("Écris ta réponse."); if (q.type === "justification") return correct(g); const v = checkInterro(q, g); R[i] = { given: g, v }; if (v !== "ia") done(v === "ok"); draw(false); };
+        if ($("iaok")) $("iaok").onclick = () => correct(R[i].given);
+        if ($("selfok")) $("selfok").onclick = () => { R[i].v = "ok"; done(true); draw(false); };
+      }
+      function done(okay) { const q = qs[i]; ping(okay); if (!okay) logMistake(id, q.q, q.reponse, R[i].given, "interro écrite"); }
+      async function correct(g) {
+        const k = i, q = qs[k], here = location.hash; R[k] = { given: g, v: "wait" }; draw(false);
+        try {
+          let text = ""; try { text = await courseText(id); } catch (e) { text = ""; }
+          const r = await ai({ action: "interro", text, question: q.q, attendu: q.reponse, donne: g }); const c = (r && r.content) || {};
+          const p = Math.max(0, Math.min(2, Math.round((+c.points || 0) * 2) / 2));
+          R[k] = { given: g, v: p >= 1.5 ? "ok" : "ko", points: p, comment: c.commentaire || "", correction: c.correction || q.reponse };
+          if (k === i) done(p >= 1.5); else ping(p >= 1.5);
+        } catch (e) { R[k] = null; if (location.hash === here) { draw(false); toast(e.code === "quota" ? QUOTA_MSG : (e.message || "Correction impossible.")); } return; }
+        if (location.hash === here && k === i) draw(false);
+      }
+      function end() {
+        const total = qs.reduce((a, q, k) => a + pts(R[k]), 0), sur = qs.length * 2, n20 = Math.round(total / sur * 40) / 2;
+        app.innerHTML = toolHead(id, T) + `<div class="card done"><h1>${n20 >= 14 ? "Très bien !" : n20 >= 10 ? "C'est la moyenne" : "On s'accroche"}</h1><div class="big">${String(n20).replace(".", ",")} / 20</div><p class="muted">${plural(R.filter(r => r && r.v === "ok").length, "réponse juste", "réponses justes")} sur ${qs.length}.</p>
+          <div class="stack" style="text-align:left;width:100%">${qs.map((q, k) => `<details class="card pad"><summary><b>${R[k] && R[k].v === "ok" ? "Juste" : "À revoir"}</b> · ${mx(q.q)}</summary><p class="small">Ta réponse : ${esc(R[k] ? R[k].given : "(aucune)")}</p><p class="small">Attendu : ${mx(q.reponse)}</p></details>`).join("")}</div>
+          <button class="btn" id="again">Recommencer</button><a class="btn ghost" href="#chapitre-${id}">Retour au chapitre</a></div>${regenHtml}`;
+        if (n20 >= 14) confetti();
+        $("again").onclick = () => { R.fill(null); i = 0; draw(); }; wireRegen(regen);
+      }
+      draw();
     });
   }
 
@@ -2519,6 +2598,7 @@
     else if (h.startsWith("exercices-")) screenExercises(arg);
     else if (h.startsWith("carte-")) screenMindmap(arg);
     else if (h.startsWith("trous-")) screenCloze(arg);
+    else if (h.startsWith("interro-")) screenInterro(arg);
     else if (h.startsWith("synthese-")) screenSynth(arg);
     else if (h.startsWith("planche-")) screenPrintCards(arg);
     else if (h === "calendrier") screenCalendar();

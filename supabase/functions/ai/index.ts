@@ -114,9 +114,12 @@ De 1 à 4 paires, 3 à 5 critères par paire, 4 affirmations par paire ("reponse
   exercices: { temp: 0.4, ask: `Écris 3 exercices guidés pas à pas, de difficulté croissante, qui appliquent les méthodes, formules, valeurs et exemples de ce cours (rien d'autre). JSON strict :
 {"exercices":[{"titre":"...","enonce":"énoncé complet avec les données utiles","indice1":"petit coup de pouce : par où commencer","indice2":"indice plus précis : la formule ou la notion du cours à utiliser","etapes":["étape 1 de la résolution","étape 2"],"solution":"solution rédigée complète, comme sur une copie"}]}
 Écris les formules en LaTeX entre $…$ (voir FORMULES). Si le cours ne contient ni méthode ni calcul, fais des exercices de raisonnement ou d'analyse à partir des notions du cours.` },
-  mindmap: { temp: 0.2, ask: `Construis la carte mentale de ce cours. JSON strict :
-{"titre":"titre du chapitre","enfants":[{"titre":"grande idée","detail":"une phrase du cours","enfants":[{"titre":"notion","detail":"...","enfants":[]}]}]}
-3 niveaux maximum sous la racine, 3 à 6 branches principales, 6 enfants maximum par nœud, titres de 40 caractères maximum. Couvre tout le cours.` },
+  mindmap: { temp: 0.2, ask: `Construis une carte mentale TRÈS complète de ce cours : un élève doit pouvoir réviser tout le chapitre rien qu'avec elle. JSON strict :
+{"titre":"titre du chapitre","enfants":[{"titre":"grande idée","detail":"1 ou 2 phrases tirées du cours","enfants":[{"titre":"notion","detail":"définition, formule, exemple ou valeur du cours","enfants":[{"titre":"détail","detail":"...","enfants":[]}]}]}]}
+4 niveaux sous la racine au maximum. 4 à 8 branches principales qui suivent les parties du cours. Chaque branche principale a 3 à 8 enfants, et les notions importantes ont leurs propres enfants (définitions, formules, unités, exemples, conditions, exceptions, méthodes, dates, pièges). Titres courts : 40 caractères maximum. Chaque nœud sauf la racine a un "detail" utile (jamais vide, jamais une simple répétition du titre). Couvre TOUT le cours, sans rien oublier ni inventer.` },
+  interro: { temp: 0.3, ask: `Écris une interrogation écrite sur ce cours, comme un professeur sur une feuille : chaque question attend une réponse courte que l'élève tape. JSON strict :
+{"questions":[{"q":"énoncé de la question","type":"nombre","reponse":"réponse attendue","variantes":["autres écritures acceptées"],"unite":"unité attendue ou chaîne vide","tolerance":0.01}]}
+12 questions qui couvrent tout le cours, dans l'ordre du cours. "type" vaut : "nombre" (un résultat numérique : "reponse" ne contient QUE le nombre, sans unité, avec un point décimal ; "tolerance" = écart relatif accepté, 0.01 par défaut), "mot" (un mot ou un groupe de 1 à 4 mots ; mets dans "variantes" les synonymes et écritures acceptées), "phrase" (une phrase courte, 20 mots maximum ; "reponse" = la phrase idéale) ou "justification" (l'élève doit démontrer, justifier ou expliquer en quelques lignes ; "reponse" = la justification attendue, étape par étape). Si le cours contient des calculs, des formules ou des valeurs, au moins 4 questions "nombre" (application directe des formules du cours, avec les données dans l'énoncé). Toujours 2 ou 3 questions "justification". Chaque réponse se trouve ou se calcule avec le cours seul.` },
   cloze: { temp: 0.3, ask: `Choisis 10 phrases clés de ce cours (définitions, lois, formules en toutes lettres, propriétés) et transforme-les en texte à trous. JSON strict :
 {"phrases":["phrase du cours où 1 ou 2 mots ou groupes de mots importants sont entourés de doubles accolades, ex. La {{mitose}} donne deux cellules {{identiques}}."]}
 Les phrases restent fidèles au cours. Les mots entre accolades sont courts (1 à 3 mots) et vraiment importants.` },
@@ -137,10 +140,14 @@ Deno.serve(async (req) => {
     const uid = u.user.id;
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const day = new Date().toISOString().slice(0, 10);
-    const { data: usage } = await admin.from("ai_usage").select("calls,tokens_in,tokens_out").eq("user_id", uid).eq("day", day).maybeSingle();
+    // Quota, classe de l'élève et lecture de la requête en parallèle : quelques centaines de ms gagnées par appel.
+    const [{ data: usage }, { data: prof }, body] = await Promise.all([
+      admin.from("ai_usage").select("calls,tokens_in,tokens_out").eq("user_id", uid).eq("day", day).maybeSingle(),
+      admin.from("profiles").select("classe").eq("user_id", uid).maybeSingle(),
+      req.json(),
+    ]);
     const calls = usage?.calls ?? 0;
 
-    const body = await req.json();
     if (body.action === "quota") return json({ calls, quota: QUOTA });
     if (calls >= QUOTA) return json({ error: "quota", calls, quota: QUOTA }, 429);
 
@@ -150,12 +157,12 @@ Deno.serve(async (req) => {
     let sa: any;
     try { sa = JSON.parse(raw); } catch { return json({ error: "config", detail: "Le secret GCP_SERVICE_ACCOUNT_JSON n'est pas un JSON valide." }, 500); }
 
-    const { data: prof } = await admin.from("profiles").select("classe").eq("user_id", uid).maybeSingle();
     const sys = systemPrompt(prof?.classe ?? "");
     // deno-lint-ignore no-explicit-any
     let out: any = {};
     let tin = 0, tout = 0;
-    const thin = body.action === "transcribe" || body.action === "verify" ? "minimal" : "low";
+    // Réflexion minimale pour les tâches courtes (lecture, vérification, correction d'une réponse, astuce) : réponses plus rapides.
+    const thin = ["transcribe", "verify", "interro", "khole", "pourquoi", "mnemo", "concret"].includes(String(body.action)) ? "minimal" : "low";
     const run = async (parts: Part[], wantJson: boolean, temp = 0.2) => {
       const r = await gemini(sa, sys, parts, wantJson, temp, thin);
       tin += r.tin; tout += r.tout;
@@ -223,6 +230,10 @@ Deno.serve(async (req) => {
       const q = clip(body.question, 600), attendu = clip(body.attendu, 2000), oral = clip(body.transcription, 3000);
       if (oral.trim().length < 2) return json({ error: "requete", detail: "Je n'ai rien entendu." }, 400);
       out.content = await runJson([{ text: `Interrogation orale. Extrait du cours (seule source autorisée) :\nQuestion : ${q}\nRéponse du cours : ${attendu}\n\nTranscription automatique de la réponse orale de l'élève (elle peut contenir des fautes de reconnaissance vocale, ne les compte pas) :\n<<<\n${oral}\n>>>\n\n${REGLE}\nÉvalue la réponse. JSON strict :\n{"note":0,"juste":true,"precision":"ce qui est exact et ce qui manque par rapport à la réponse du cours, 1 ou 2 phrases","aisance":"remarque sur la fluidité : hésitations, mots de remplissage (euh, bah, genre), phrases inachevées, 1 phrase","conseil":"un conseil pour l'oral"}\n"note" sur 20 ; "juste" = true si le sens correspond à la réponse du cours.` }], 0.2);
+    } else if (body.action === "interro") {
+      const q = clip(body.question, 800), attendu = clip(body.attendu, 2500), donne = clip(body.donne, 3000);
+      if (donne.trim().length < 2) return json({ error: "requete", detail: "Écris ta réponse." }, 400);
+      out.content = await runJson([{ text: (needText() ? cours(text) : "") + `Interrogation écrite.\nQuestion : ${q}\nRéponse attendue : ${attendu}\nRéponse de l'élève :\n<<<\n${donne}\n>>>\n\n${REGLE}\nCorrige comme un professeur bienveillant mais exigeant. Accepte une réponse juste formulée autrement. JSON strict :\n{"points":0,"sur":2,"juste":false,"commentaire":"1 ou 2 phrases : ce qui est juste, ce qui manque ou est faux","correction":"la réponse attendue rédigée proprement"}\n"points" vaut 0, 0.5, 1, 1.5 ou 2. "juste" vaut true si points >= 1.5.` }], 0.1);
     } else if (body.action === "pourquoi") {
       const q = clip(body.question, 600), attendu = clip(body.attendu, 2000), donne = clip(body.donne, 1500);
       out.answer = await run([{ text: (needText() ? cours(text) : "") + `Question : ${q}\nRéponse du cours : ${attendu}\n` + (donne.trim() ? `Réponse de l'élève : ${donne}\n` : "L'élève n'a pas su répondre.\n") + `\n${REGLE}\nExplique en 2 à 4 phrases simples POURQUOI la réponse du cours est la bonne, et d'où vient probablement l'erreur de l'élève. Termine par une phrase « À retenir : ».` }], false, 0.2);

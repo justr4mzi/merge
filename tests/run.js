@@ -362,6 +362,27 @@ async function formules(browser) {
   ok(!page.errors.length, "formules : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function interro(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "light" });
+  await go(page, "#interro-c1", 400); await page.click("#mk"); await page.waitForTimeout(500);
+  ok((await txt(page)).includes("Question 1 sur 4"), "interro : première question");
+  await page.fill("#ians", "2,0"); await page.click("#ichk"); await page.waitForTimeout(150);
+  ok(await page.locator(".fb.ok").count() === 1, "interro : nombre juste (virgule)");
+  await page.click("#inext"); await page.fill("#ians", "La meiose"); await page.click("#ichk"); await page.waitForTimeout(150);
+  ok(await page.locator(".fb.ok").count() === 1, "interro : mot juste sans accent ni article");
+  await page.click("#inext"); await page.fill("#ians", "Les mitochondries bougent"); await page.click("#ichk"); await page.waitForTimeout(150);
+  ok(await page.locator("#iaok").count() === 1, "interro : phrase douteuse, correction IA proposée");
+  await page.click("#iaok"); await page.waitForTimeout(400);
+  ok(await page.locator(".fb.ok").count() === 1, "interro : phrase corrigée par l'IA");
+  await page.click("#inext"); await page.fill("#ians", "Parce que l'ADN est copié avant."); await page.click("#ichk"); await page.waitForTimeout(400);
+  ok((await txt(page)).includes("1,5 / 2"), "interro : justification notée par l'IA");
+  let sm = await small(page); ok(!sm.length, "interro : boutons de 44 px minimum", sm.join(" | ")); let o = await overflow(page); ok(o.sw <= o.iw, "interro : pas de débordement", JSON.stringify(o));
+  await page.screenshot({ path: path.join(SHOTS, "interro.png"), fullPage: true });
+  await page.click("#inext"); await page.waitForTimeout(200);
+  ok((await txt(page)).includes("/ 20"), "interro : note sur 20");
+  ok(!page.errors.length, "interro : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -370,7 +391,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
