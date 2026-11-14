@@ -1,86 +1,58 @@
-# Retours du 13 nov. 2026, soir (à faire quand Ramzi dit « go »)
+# Merge. — À FAIRE (session de nuit du 14 nov. 2026, 3 h 25)
 
-## Déjà fait et en ligne (commit ab3638e), vérifié
-- Musique : MP3 réencodés et découpés dans `audio/` (servis par le site, `audio/mpeg`), départ à une minute au hasard. Vérifié en ligne ; pas encore testé sur iPhone.
-- Synchronisation PC / téléphone : table `user_kv` créée (migration v11 appliquée) et code de synchronisation en ligne. Rien d'interrompu côté Supabase.
-- Icônes du bas : 6 colonnes égales, icônes de 24 px centrées (mesuré).
+Ramzi dort : ne pose aucune question, fais des choix raisonnables et note-les dans `DECISIONS.md`. Fais TOUT ce qui est dans « À faire », dans l'ordre. Raye chaque point fini dans ce fichier (déplace-le dans « Déjà fait »), commite et pousse après chaque bloc. Les captures citées sont dans ce dossier.
 
-Vérification du 13 nov. au soir, après la coupure : la table `user_kv` existe, la sécurité par ligne est active (lecture, ajout et modification réservés au propriétaire) et elle contient déjà 7 éléments venus de l'appli (`merge.libre.*`, `merge.hist.*`, `merge.hl.*`, `merge.badges`, `merge.level`, `merge.typed`). Le code de synchronisation et la nouvelle barre du bas sont bien sur le site en ligne. Rien n'était resté à moitié.
+RÈGLE GÉNÉRALE : absolument tout est synchronisé entre téléphone et PC sur le même compte (table `user_kv` via `safeSet` et la liste `SYNC` de `js/app.js`, ou tables dédiées). Chaque nouvelle fonctionnalité aussi. Plus rien seulement sur l'appareil.
 
-À revérifier au « go » (retours du message où la coupure a eu lieu) :
-- Synchronisation : modifier un favori, une note, un surlignage ou un cache de schéma sur le téléphone, puis le retrouver sur le PC, et l'inverse. Points à surveiller : suppressions (une note vidée doit se vider partout), premier chargement d'un appareil neuf, conflits (le plus récent gagne), connexion coupée.
-- Ce qui n'est PAS encore synchronisé : la voix choisie, le volume de la musique, l'interrupteur « couper la musique pendant la pause », « ne plus proposer l'installation ». À synchroniser aussi.
-- Icônes du bas : vérifier sur une capture de l'iPhone de Ramzi (pas seulement dans le simulateur) qu'elles sont toutes de la même taille et centrées.
-- Musique : écouter les deux titres sur l'iPhone.
+## Déjà fait (ne pas refaire, juste vérifier que ça marche)
+Musique servie par le site ; synchronisation `user_kv` (favoris, notes, surlignages, caches de schémas, stats, demandes libres, niveau, badges…) ; icônes du bas égales et centrées ; flèche retour « Nouvelle matière » ; pastille de série sur une ligne ; champ heure du rappel ; fondu en haut sur iPhone ; calendrier en cases carrées ; vacances zone A 2026-2027 ; « Écouter » en dernier dans Réviser ; « Modifier la carte », « Je ne comprends pas » et menu « Plus d'options » sur les flashcards ; classe libre « Autre formation » ; notifications quotidiennes variées avec le prénom + contrôles à J-7, J-3, veille, matin (fonction `remind` v4) ; quota à 1000 (`AI_DAILY_QUOTA`) et compteur « x/40 » retiré ; fiche de synthèse sur une page A4 ; formules KaTeX dans résumé, prof IA, demande libre, flashcards, liste des cartes, fiche ; quiz, contrôle et flashcards régénérables (« Créer d'autres cartes ») ; raccourcis d'appli et pastille du nombre de cartes sur l'icône.
 
-RÈGLE GÉNÉRALE (Ramzi) : ABSOLUMENT TOUT doit être synchronisé entre téléphone et PC sur le même compte, sans exception. Ça vaut pour tout ce qui existe déjà (voix, volume, musique, thème, réglages, Pomodoro, bandeaux masqués, favoris, notes, surlignages, caches, stats, sessions en cours…) et pour chaque nouvelle fonctionnalité (emploi du temps, récompenses, corbeille, partages, etc.). Plus rien ne doit être gardé seulement sur l'appareil. Faire l'inventaire de chaque `localStorage` du code et vérifier.
+## À faire
 
-## Fait le 13 nov. vers 23 h (commit suivant b5ea64b)
-- Flèche retour de « Nouvelle matière » (page avec sa propre adresse).
-- Pastille « jour d'affilée » : sur téléphone elle affiche « 1 jour » sur une ligne, en entier sur PC.
-- Champ « Heure du rappel » : ne déborde plus (à confirmer sur iPhone).
-- Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou (à confirmer sur iPhone).
-- Calendrier : cases carrées sur PC, plus compactes sur téléphone.
-- « Écouter » dans « Réviser », en dernier.
-- Bouton « Modifier la carte » pendant les flashcards.
-- Classe libre : « Autre formation (à écrire)… » à l'inscription et dans Réglages.
-- Notifications (fonction `remind` v3) : chaque jour avec le prénom (18 h par défaut, ou l'heure choisie), contrôles annoncés à J-7, J-3 et la veille, et message le matin du contrôle à 7 h 30. Reste : proposer d'activer les notifications plus tôt (à l'inscription).
-- Fiche de synthèse : le texte rétrécit automatiquement (jusqu'à 6 pt) pour tenir sur une page A4. Vérifié : une fiche très chargée passe sur 1 page à 8,25 pt.
-- Notifications variées selon la situation (8 messages quand il y a des cartes, 3 sur la série, 4 quand tout est à jour).
-- Vacances zone A 2026-2027 dans le calendrier (cases vertes, légende, encart « Prochaines vacances »). Source : service-public.gouv.fr. À ajouter chaque année (tableau `VACANCES` dans app.js).
-- Tout est régénérable : « Nouveau quiz, nouvelles questions » et « Nouveau contrôle » à la fin ; « Créer d'autres cartes avec l'IA » (outils du chapitre, fin de session à 100 %, fin du mode Apprendre), sans doublons. Les outils préparés par l'IA (carte mentale, fiche, pièges, exercices, trous, face-à-face) avaient déjà « Refaire avec l'IA ».
-- Bouton « Je ne comprends pas » sous chaque flashcard (explication tirée du cours, 1 appel).
-- Compteur « x/40 » retiré de l'accueil et des Réglages (seul le nombre d'appels du jour s'affiche).
-- Quota : `AI_DAILY_QUOTA` = 1000 dans les secrets Supabase (vérifié par l'empreinte SHA-256). Ancien point : (il faut redéployer les fonctions `ai` et `studio` avec un plafond très haut). Solution simple : Ramzi met le secret `AI_DAILY_QUOTA` = `100000` dans Supabase (Edge Functions, Secrets) ; les deux fonctions le lisent déjà.
+### Synchronisation à compléter
+1. Synchroniser aussi : voix choisie et vitesse (`merge.voice`, `merge.rate`), volume et titre de la musique (`merge.lofivol`, `merge.lofi`), menu « Plus d'options » ouvert (`merge.cmore`), bandeau d'installation masqué (`merge.noinstall`), tutoriel vu (`merge.tuto`), thème, et tout autre `localStorage` encore local (inventaire complet du code).
+2. Tester les deux sens téléphone ↔ PC, suppressions comprises (une note vidée se vide partout), premier chargement d'un appareil neuf, conflits (le plus récent gagne), hors ligne.
 
-## Bugs
-6. Formules : RENDU FAIT (KaTeX dans `vendor/katex`, chargé seulement quand une formule apparaît ; résumé, prof IA, demande libre, flashcards, liste des cartes, fiche de synthèse ; symboles \times, \Omega… hors $ convertis). RESTE : (a) consignes IA (fonctions `ai` et `studio`) : écrire toutes les formules en LaTeX entre $…$ et les fractions avec \frac, jamais avec « / » ; (b) appliquer le rendu aux quiz, contrôles, carte mentale, textes à trous, exercices, pièges, face-à-face.
+### Formules
+3. Consignes IA (fonctions `ai` et `studio`) : écrire toutes les formules en LaTeX entre $…$, fractions avec \frac (posées, jamais « / »), indices et exposants. Puis `deno check` et redéployer les deux fonctions.
+4. Appliquer le rendu KaTeX (`mx()` / `md()`) aux quiz, contrôles, examen blanc, carte mentale, textes à trous, exercices, pièges, face-à-face, vrai ou faux, associer, carnet d'erreurs.
 
-## Nouveautés
-9. Nouveau mode « Interro écrite » sur le modèle de `08-mode-question-reponse.png` : une question, l'élève tape sa réponse (nombre, mot, phrase), correction immédiate. Justifications corrigées par l'IA.
-10. Carte mentale beaucoup plus complète (plus de branches, de niveaux et de détails).
+### Nouveaux modes
+5. « Interro écrite » sur le modèle de `08-mode-question-reponse.png` : une question, l'élève tape sa réponse (nombre, mot, phrase), correction immédiate ; justifications corrigées par l'IA ; régénérable.
+6. Carte mentale beaucoup plus complète (plus de branches, de niveaux et de détails), consigne IA revue.
 
-## Musique
-19. Écran « Musique de fond » plus beau (titre en cours, artiste, morceau suivant, lecture / pause / suivant).
-20. Toujours démarrer au début d'un morceau (jamais au milieu), à un morceau tiré au hasard. Afficher le titre en cours. Repères (en secondes depuis le début du fichier d'origine de 3 h, à recalculer pour les fichiers découpés de 40 min = 2400 s) :
+### Classes et premier lancement
+7. Matières proposées pour les formations du supérieur (ex. licence informatique : algorithmique, programmation, bases de données, réseaux, systèmes, maths discrètes, anglais…).
+8. Refaire l'inscription et le tutoriel : expliquer d'abord à quoi sert Merge et pourquoi on demande la classe et les matières, ton plus doux, puis les questions. Proposer d'activer les notifications à l'inscription.
+
+### Musique
+9. Écran « Musique de fond » plus beau : titre et artiste en cours, morceau suivant, lecture, pause, suivant.
+10. Toujours démarrer au DÉBUT d'un morceau tiré au hasard, jamais au milieu, et afficher le titre en cours. Repères ci-dessous en secondes depuis le début du fichier d'origine de 3 h ; les fichiers sont découpés en morceaux de 2400 s (`audio/lofi-0..4.mp3`, `audio/christmas-0..4.mp3`) : convertir (morceau = floor(t / 2400), position = t mod 2400).
 - Lofi (titre + artiste) : 0 evening glow (Rook1e, softy, Lofi Girl) · 139 schooltrips (mell-ø) · 228 Brioche (Lazlow, Oaty.) · 346 dream machine (ornaut, little blue) · 476 Siljan (dryhope) · 588 clocks pt.2 (mell-ø) · 697 the places i'll go (Laffey, Juliàn) · 820 Helix (dryhope) · 979 Outer Wilds (mell-ø) · 1075 past 3am (j'san, Lofi Girl) · 1175 a place together (mell-ø) · 1294 Pianta (takeo, Spencer Hunt, Lofi Girl) · 1413 Evolutions (dryhope) · 1524 Radience (Toti Cisneros, yungmerrin) · 1640 Miles Away (Idealism) · 1820 Setup (Monma) · 1908 Green Hands (dryhope) · 2010 School Trip (S I M, MFakka, Lofi Girl) · 2094 Ripples (Nothingtosay, D0d.) · 2240 Sequoia (No Spirit, Casiio) · 2382 Albedo (softy) · 2536 Sirens (trxxshed, Gemp) · 2671 mistwood (Sleepermane) · 2790 Past Reflections (cxlt., amies) · 2968 Unfolds (Casiio, Tah.) · 3130 Pillow (MyceliumBug) · 3258 Parade (Nokiaa, Dontcry) · 3388 Iluvitar (Towerz) · 3535 Highlands (dryhope) · 3661 Persist (softy) · 3807 Soulforce (Casiio, Tah.) · 3957 Follow The Light (cxlt., amies) · 4084 Hippocampus (No Spirit, Casiio) · 4229 Starlit (Team Astro) · 4384 Forest Dreams (No Spirit, Casiio) · 4565 Another Chance (Lomme, Elk Beats) · 4680 Serenityville (BluntOne, dmtbeatz) · 4804 Skylark (softy, Sleepermane, Casiio) · 4925 Lendemain (anbuu, Epektase) · 5085 Sunroof (Hazy Year) · 5235 Afternoon Coffee (John Lee, JazzyHan) · 5376 Pearl (Kurt Stewart, Lomme) · 5516 Hibernate (anbuu) · 5671 Willow (morningtime) · 5829 Palms (Nokiaa, Deauxnuts) · 5932 Circle of Life (No Spirit, Casiio) · 6111 Demura (Casiio, Tah.) · 6267 Carry Me Home (Kupla) · 6392 Quest (Casiio, Tah.) · 6546 Satellite (Nokiaa) · 6675 nebula (Theo Aabel, brillion.) · 6853 Compassion (Kupla) · 6995 campfire (mell-ø, Ambulo) · 7128 Where Light Can't Reach (Nothingtosay, D0d.) · 7300 open field (96 Zeus, HM Surf) · 7436 indigo (mell-ø) · 7566 Angels Above Us (cxlt., amies, jxsn) · 7723 juno (ornaut, if only) · 7886 nap (96 Zeus, HM Surf) · 8051 Imaginary Worlds (cxlt., amies) · 8175 We Are Not Human (Tibeauthetraveler, Quist) · 8335 Visiting Friends (Lomme, Elk Beats) · 8485 In Place (dryhope) · 8610 Moon Shower (Kurt Stewart, Lomme) · 8773 Lillypads (No Spirit, Casiio) · 8922 Downpour (anbuu) · 9099 Beach Cat (Kurt Stewart, Lomme) · 9241 Blue Moon (Sleepermane, Dontcry) · 9373 generosity (Laffey) · 9508 Do You (Team Astro) · 9673 Passing Through (Sleepermane, Dontcry) · 9790 Aperitif (Ambulo) · 9924 idyllic (mell-ø) · 10031 Afterglow (eleven, Hoogway) · 10186 Descent (Tibeauthetraveler) · 10367 Breathe (Elijah Lee, Casiio) · 10500 Callisto (slowburn) · 10634 you've changed (Blurred Figures, another silent weekend)
 - Christmas Lofi (titres sans nom = « Lofi de Noël ») : 0 The First Noel · 190 Joy to the World · 382 Jingle Bells · 569 We Wish You a Merry Christmas · 754 Silent Night · 1118 Auld Lang Syne · 1303 · 1495 Let It Snow · 1678 · 1866 All I Want for Christmas Is You · 2053 · 2247 Snowflake (lofi geek) · 2441 · 2623 The First Noel · 2814 Joy to the World · 3006 · 3201 · 3405 Jingle Bells · 3586 We Wish You a Merry Christmas · 3778 · 4016 · 4201 Silent Night · 4377 Deck the Halls · 4563 · 4751 · 4938 · 5125 · 5314 · 5511 · 5711 Let It Snow · 5894 Last Christmas · 6088 · 6284 · 6478 · 6666 All I Want for Christmas Is You · 6852 · 7047 · 7228
+11. Christmas Lofi dure environ 2 h 56 mais les repères s'arrêtent à 7228 s : détecter les débuts de morceaux suivants automatiquement (ffmpeg `silencedetect` sur les fichiers de `audio/`), vérifier sur les repères connus, faire la même vérification sur Lofi.
 
-21. Christmas Lofi dure environ 2 h 56, mais les repères ci-dessus s'arrêtent à 2 h 00 (7228 s). Pour la suite, détecter automatiquement les débuts de morceaux (silences ou baisses de volume, par exemple avec ffmpeg `silencedetect`), puis vérifier que ça retombe sur les repères connus. Faire la même vérification sur Lofi.
+### IA et voix (à présenter dans le résumé final, rien de payant installé)
+12. Encore plus rapide partout (parallélisme, réflexion minimale, petits modèles pour les tâches simples).
+13. Expliquer les options avec les abonnements de Ramzi : Claude Pro (ce mois-ci), ChatGPT Go et Google AI Pro (permanents). Ne pas conseiller de recréer un compte Google pour l'essai gratuit (probablement contraire aux conditions de Google). Alternatives : clé gratuite Gemini (Google AI Studio), crédits restants, modèles plus légers.
+14. Lister les solutions de voix (voix du navigateur actuelle, Google Cloud Text-to-Speech couvert par les crédits, voix Gemini, OpenAI, ElevenLabs…), avec coût et qualité, pour que Ramzi choisisse.
 
-## IA
-16. Encore plus rapide partout.
-17. Expliquer les options, avec ses abonnements : Claude Pro (ce mois-ci), ChatGPT Go (permanent), Google AI Pro (permanent). Point à signaler : recréer un compte Google pour reprendre l'essai gratuit est probablement contraire aux conditions de Google. Alternatives : clé gratuite Gemini (Google AI Studio), crédits restants, modèle plus léger.
+### Idées retenues par Ramzi
+15. Thème clair aussi soigné que le sombre.
+16. Photo du cours avec la caméra, page redressée et recadrée automatiquement.
+17. Hors ligne complet (résumé, fiche, quiz déjà générés).
+18. Révision mélangée qui donne la priorité aux matières dont le contrôle approche, plus « Réviser tous les chapitres de la matière » bien visible.
+19. Images sur les cartes ; fiches de révision imprimables refaites pour donner envie de réviser (plus visuelles).
+20. Partage d'un chapitre par lien : n'importe qui révise, même sans compte ; l'invité n'utilise que ce qui est déjà créé, aucune IA ; lien imprévisible, désactivable et renouvelable.
+21. Animations de réussite plus variées.
+22. Corbeille 30 jours (matières, chapitres, cartes).
+23. Recherche dans le texte du cours (pas seulement les cartes).
+24. Fiche méthode par matière (philo, démonstration en maths, analyse en SIN…).
+25. Vrais sujets de bac des années précédentes : seulement quand l'élève clique, l'IA récupère sur le web le sujet officiel (filière et matière de l'élève), le transforme en épreuve interactive avec barème et correction, cite source et année ; si introuvable, le dire, ne rien inventer.
+26. Emploi du temps : envoi en photo, PDF ou saisie, affiché dans l'appli ; semaines A et B, demander si la semaine actuelle est A ou B ; s'en servir pour proposer quoi réviser le soir.
+27. Récompenses à débloquer avec les points : thèmes, couleurs, fonds animés, sons, mascotte, titres, confettis, coffres surprise. Objectif : motiver en permanence.
 
-## Voix
-18. Lister toutes les solutions pour une voix correcte (voix du navigateur actuelle, Google Cloud Text-to-Speech couvert par les crédits, voix Gemini, OpenAI, ElevenLabs…). Ramzi choisit avant toute installation.
-
-## Chasse aux bugs (au « go »)
-22. Passer tout le site en revue sur téléphone et PC pour trouver d'autres bugs : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
-
-## Idées retenues par Ramzi
-
-- Thème clair aussi soigné que le sombre.
-- Photo du cours avec la caméra, page redressée et recadrée automatiquement.
-- Hors ligne complet (résumé, fiche, quiz déjà générés).
-- Révision mélangée, qui tient compte des contrôles qui arrivent (priorité aux matières à date proche). Plus un bouton « Réviser tous les chapitres de la matière ».
-- Images sur les cartes. Revoir aussi les fiches de révision imprimables : actuellement elles ne donnent pas envie de réviser, à rendre plus belles et plus visuelles.
-- Partage d'un chapitre par lien : n'importe qui peut réviser, même sans compte et sans être jamais venu sur le site (invité). L'invité n'utilise que ce qui est déjà créé (résumé, cartes, quiz, fiche…), aucune génération IA.
-- Widget : raccourcis d'appli AJOUTÉS (appui long sur l'icône : Réviser maintenant, Calendrier, Matières ; Android et PC, pas iPhone). Pastille du nombre de cartes à revoir sur l'icône AJOUTÉE (appli installée, selon le téléphone). Ancien point : vérifier si c'est possible avec une PWA (à priori non sur iPhone ; proposer les raccourcis d'appli du manifeste et le badge du nombre de cartes à revoir si c'est faisable).
-- Animations de réussite plus variées.
-- Corbeille 30 jours.
-- Recherche dans le texte du cours.
-
-- Fiche méthode par matière (rédiger en philo, démonstration en maths, analyse en SIN…).
-- Sujets type bac à partir de VRAIS sujets des années précédentes. Rien d'automatique : quand l'élève clique, l'IA récupère sur le web le sujet officiel de l'année demandée (filière et matière de l'élève, ex. bac STI2D) et le transforme en épreuve interactive dans Merge (questions, barème, correction). Citer la source et l'année. Si le sujet n'est pas trouvé, le dire au lieu d'en inventer un.
-- Emploi du temps : l'élève peut l'envoyer (photo, PDF ou saisie) et le voir dans l'appli. Gérer les semaines A et B, et demander si la semaine actuelle est A ou B. S'en servir pour savoir quels cours il a eus et quoi réviser le soir.
-- Récompenses à débloquer avec les points : beaucoup de choses à débloquer (thèmes, couleurs, fonds animés, sons, mascotte ou avatar, cadres, titres, effets de confettis…). Faire chercher les meilleures idées. Objectif : donner envie et motiver en permanence (« dopamine ») : progression visible, objectifs proches, surprises, coffres, séries.
-
-## Classes et premier lancement (ajouté par Ramzi)
-- Classe libre : FAIT (choix « Autre formation » + champ). Reste : proposer des matières adaptées aux formations du supérieur (ex. licence informatique).
-- Revoir l'inscription et le tutoriel : tout expliquer avant de demander (à quoi sert Merge, pourquoi on demande la classe et les matières). Aujourd'hui ça « agresse direct » avec « Quelle classe, quelles matières ». Écrans d'accueil explicatifs, ton plus doux.
-
-## Solidité (ajouté par Ramzi)
-- Sécurité du partage par lien : l'invité ne voit que le chapitre partagé, en lecture seule, sans IA ; lien imprévisible ; le propriétaire peut désactiver ou renouveler le lien à tout moment.
-- Optimisation du code (`js/app.js` dépasse 200 Ko) : à toi de choisir la meilleure approche (découpage en modules chargés à la demande ou autre), avec un démarrage plus rapide sur téléphone et AUCUN bug. Tous les tests doivent repasser.
-- Sauvegarde de la base avant les grosses modifications (export des tables principales ou point de restauration), et le noter dans `DECISIONS.md`.
+### Solidité
+28. Sauvegarde de la base avant les grosses modifications (export des tables principales), notée dans `DECISIONS.md`.
+29. Optimiser `js/app.js` (plus de 200 Ko) : découpage en modules chargés à la demande ou autre, démarrage plus rapide sur téléphone, AUCUN bug, tous les tests repassent.
+30. Chasse aux bugs sur tout le site, téléphone et PC : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
