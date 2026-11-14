@@ -322,17 +322,45 @@ async function v10(browser) {
   ok(!page.errors.length, "v10 : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function sync(browser) {
+  // Deux appareils sur le même compte : A (téléphone) et B (PC). La fausse base est par page, on recopie donc les lignes de A dans B.
+  const A = await open(browser, { w: 390, h: 844, theme: "dark" }), B = await open(browser, { w: 1280, h: 800, theme: "light" });
+  const keys = ["merge.voice", "merge.rate", "merge.lofivol", "merge.lofi", "merge.cmore", "merge.noinstall", "merge.tuto", "merge.ecoute.c1", "merge.flash.c1", "merge.note.k1"];
+  ok(await A.evaluate(k => k.every(x => window.__mergeSync.synced(x)), keys), "synchro : toutes les clés de réglage sont synchronisées");
+  ok(await A.evaluate(() => !["merge.kvts", "merge.file", "merge.cache.user-1", "merge.gen.c1.quiz"].some(x => window.__mergeSync.synced(x))), "synchro : les copies locales restent locales");
+  await A.evaluate(() => { const s = window.__mergeSync; s.set("merge.rate", "1.2"); s.set("merge.lofivol", "0.7"); s.set("merge.note.k1", "retenir ça"); s.set("merge.cmore", "1"); });
+  await A.evaluate(() => window.__mergeSync.flush()); await A.waitForTimeout(100);
+  const rowsA = await A.evaluate(() => window.__fake.DB.user_kv.map(r => Object.assign({}, r)));
+  ok(["merge.rate", "merge.lofivol", "merge.note.k1", "merge.cmore"].every(k => rowsA.some(r => r.key === k)), "synchro : téléphone → base", JSON.stringify(rowsA.map(r => r.key)));
+  await B.evaluate(rows => { window.__fake.DB.user_kv.push(...rows); }, rowsA);
+  await B.evaluate(() => window.__mergeSync.pull());
+  ok(await B.evaluate(() => localStorage.getItem("merge.rate") === "1.2" && localStorage.getItem("merge.lofivol") === "0.7" && localStorage.getItem("merge.note.k1") === "retenir ça"), "synchro : base → PC (premier chargement)");
+  // Suppression : la note vidée sur le PC se vide sur le téléphone.
+  await B.waitForTimeout(20); await B.evaluate(() => { window.__mergeSync.set("merge.note.k1", ""); return window.__mergeSync.flush(); }); await B.waitForTimeout(100);
+  const rowsB = await B.evaluate(() => window.__fake.DB.user_kv.map(r => Object.assign({}, r)));
+  await A.evaluate(rows => { const db = window.__fake.DB.user_kv; rows.forEach(r => { const i = db.findIndex(x => x.key === r.key); if (i >= 0) db[i] = r; else db.push(r); }); }, rowsB);
+  await A.evaluate(() => window.__mergeSync.pull());
+  ok(await A.evaluate(() => localStorage.getItem("merge.note.k1") === ""), "synchro : note vidée sur PC, vidée sur téléphone");
+  // Conflit : la valeur la plus récente gagne, même si l'autre appareil était hors ligne.
+  await A.evaluate(() => { window.__fake.DB.user_kv.find(r => r.key === "merge.rate").updated_at = new Date(Date.now() - 3600000).toISOString(); });
+  await A.waitForTimeout(20); await A.evaluate(() => window.__mergeSync.set("merge.rate", "0.8"));
+  await A.evaluate(() => { const r = window.__fake.DB.user_kv.find(x => x.key === "merge.rate"); r.value = "1.4"; r.updated_at = new Date(Date.now() - 7200000).toISOString(); });
+  await A.evaluate(() => window.__mergeSync.pull()); await A.waitForTimeout(100);
+  ok(await A.evaluate(() => localStorage.getItem("merge.rate") === "0.8" && window.__fake.DB.user_kv.find(x => x.key === "merge.rate").value === "0.8"), "synchro : le plus récent gagne et repart vers la base");
+  ok(!A.errors.length && !B.errors.length, "synchro : aucune erreur JavaScript", A.errors.concat(B.errors).slice(0, 3).join(" | "));
+  await A.context().close(); await B.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
   await new Promise(r => server.listen(0, "127.0.0.1", r)); BASE = "http://127.0.0.1:" + server.address().port;
   const browser = await chromium.launch();
   try {
-    for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    await flows(browser);
-    await v7(browser);
-    await v8(browser);
-    await v10(browser);
+    const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
+    if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
+    const SUITES = { flows, v7, v8, v10, sync };
+    for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
   const bad = log.filter(l => !l.startsWith("ok"));

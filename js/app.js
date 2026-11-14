@@ -98,13 +98,14 @@
   function $(id) { return document.getElementById(id); }
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+)$/;
+  // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
   function safeSet(k, v) {
-    try { localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ }
-    if (SYNC.test(k)) { kvTs[k] = Date.now(); kvSaveTs(); kvQueue[k] = String(v); clearTimeout(kvTimer); kvTimer = setTimeout(kvFlush, 900); }
+    let same = false; try { same = localStorage.getItem(k) === String(v); localStorage.setItem(k, v); } catch (e) { /* stockage indisponible */ }
+    if (SYNC.test(k) && !(same && kvTs[k])) { kvTs[k] = Date.now(); kvSaveTs(); kvQueue[k] = String(v); clearTimeout(kvTimer); kvTimer = setTimeout(kvFlush, 900); }
   }
   async function kvFlush() {
     clearTimeout(kvTimer); if (!state.user || kvOff) return;
@@ -131,6 +132,10 @@
     if (state.user && state.profile && Date.now() - kvAt > 45000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier|chapitre-.*|matiere-.*)?$/.test(location.hash)) route(); });
   });
   window.addEventListener("pagehide", () => { kvFlush(); });
+  // Toutes les 2 minutes quand l'appli est ouverte : récupère ce qui a changé sur l'autre appareil.
+  setInterval(() => { if (document.visibilityState === "visible" && state.user && state.profile && !state.offline && Date.now() - kvAt > 110000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier)?$/.test(location.hash)) route(); }); }, 120000);
+  window.addEventListener("online", () => { kvFlush(); });
+  window.__mergeSync = { pull: kvPull, flush: kvFlush, set: (k, v) => safeSet(k, v), synced: k => SYNC.test(k) };
   function applyLook(p) {
     const r = document.documentElement;
     const theme = (p && p.theme) || safeGet("merge.theme") || "system";
