@@ -75,7 +75,8 @@
   // Animations de réussite : 5 styles tirés au hasard (pluie de confettis, explosion, feu d'artifice, étoiles, serpentins).
   function confetti(kind) {
     if (window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches) return;
-    const K = ["pluie", "explosion", "feux", "etoiles", "serpentins"], k = K.includes(kind) ? kind : K[Math.floor(Math.random() * K.length)];
+    const K = ["pluie", "explosion", "feux", "etoiles", "serpentins"], fav = (typeof rwEquipped === "function" && state.user && (rwEquipped("confettis") || {}).v) || "";
+    const k = K.includes(kind) ? kind : K.includes(fav) ? fav : K[Math.floor(Math.random() * K.length)];
     const box = document.createElement("div"); box.className = "confetti c-" + k; box.setAttribute("aria-hidden", "true");
     const r = (a, b) => a + Math.random() * (b - a), col = i => COULEURS[i % COULEURS.length];
     const add = (css) => { const el = document.createElement("i"); el.style.cssText = css; box.appendChild(el); };
@@ -136,7 +137,7 @@
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
   // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
@@ -166,7 +167,7 @@
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") return void kvFlush();
-    if (state.user && state.profile && Date.now() - kvAt > 45000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier|chapitre-.*|matiere-.*)?$/.test(location.hash)) route(); });
+    if (state.user && state.profile && Date.now() - kvAt > 45000) kvPull().then(ch => { if (ch) applyRewards(); if (ch && /^#?(accueil|matieres|progres|calendrier|chapitre-.*|matiere-.*)?$/.test(location.hash)) route(); });
   });
   window.addEventListener("pagehide", () => { kvFlush(); });
   // Toutes les 2 minutes quand l'appli est ouverte : récupère ce qui a changé sur l'autre appareil.
@@ -286,7 +287,7 @@
     state.offline = false;
     try { await kvPull(); } catch (e) { /* synchronisation au prochain passage */ }
     safeSet("merge.cache." + uid, JSON.stringify({ profile: state.profile, subjects: state.subjects, groups: state.groups, chapters: state.chapters, cards: state.cards, sessions: state.sessions, legacy: state.legacy }));
-    applyLook(state.profile);
+    applyLook(state.profile); applyRewards();
     setTimeout(prefetchOffline, 4000);
   }
   // Hors ligne complet : résumés et contenus déjà générés (quiz, fiche, carte mentale…) copiés sur l'appareil, au plus toutes les 30 min.
@@ -615,6 +616,43 @@
     const level = Math.floor((Math.sqrt(1 + 8 * xp / 100) - 1) / 2) + 1, base = 100 * (level - 1) * level / 2, next = 100 * level * (level + 1) / 2;
     return { xp, level, pct: Math.round((xp - base) / (next - base) * 100), left: next - xp };
   }
+
+  // ---------- récompenses : débloquées avec les points (rien à dépenser), équipées sur tous les appareils ----------
+  const REWARDS = [
+    { id: "t-novice", type: "titre", n: "Apprenti", pts: 0 }, { id: "t-regulier", type: "titre", n: "Régulier", pts: 300 }, { id: "t-studieux", type: "titre", n: "Studieux", pts: 800 }, { id: "t-acharne", type: "titre", n: "Acharné", pts: 2000 }, { id: "t-maitre", type: "titre", n: "Maître des fiches", pts: 4000 }, { id: "t-legende", type: "titre", n: "Légende de Merge", pts: 8000 },
+    { id: "c-violet", type: "couleur", n: "Violet Merge", pts: 0, v: "" }, { id: "c-ocean", type: "couleur", n: "Océan", pts: 200, v: "#2f7cf6" }, { id: "c-menthe", type: "couleur", n: "Menthe", pts: 500, v: "#14a37f" }, { id: "c-corail", type: "couleur", n: "Corail", pts: 1000, v: "#f0605a" }, { id: "c-or", type: "couleur", n: "Or", pts: 2500, v: "#d99a0b" }, { id: "c-rose", type: "couleur", n: "Rose néon", pts: 0, chest: true, v: "#e0409c" }, { id: "c-lagon", type: "couleur", n: "Lagon", pts: 0, chest: true, v: "#0ea5b7" },
+    { id: "f-aucun", type: "fond", n: "Sans fond animé", pts: 0, v: "" }, { id: "f-aurore", type: "fond", n: "Aurore", pts: 400, v: "aurore" }, { id: "f-etoiles", type: "fond", n: "Ciel étoilé", pts: 1200, v: "etoiles" }, { id: "f-vagues", type: "fond", n: "Vagues", pts: 0, chest: true, v: "vagues" },
+    { id: "s-doux", type: "son", n: "Sons doux", pts: 0, v: "doux" }, { id: "s-arcade", type: "son", n: "Sons arcade", pts: 600, v: "arcade" }, { id: "s-cristal", type: "son", n: "Sons cristal", pts: 0, chest: true, v: "cristal" },
+    { id: "m-aucune", type: "mascotte", n: "Pas de mascotte", pts: 0, v: "" }, { id: "m-mergo", type: "mascotte", n: "Mergo", pts: 150, v: "mergo" }, { id: "m-mergo-lunettes", type: "mascotte", n: "Mergo à lunettes", pts: 1500, v: "lunettes" }, { id: "m-mergo-couronne", type: "mascotte", n: "Mergo couronné", pts: 0, chest: true, v: "couronne" },
+    { id: "k-hasard", type: "confettis", n: "Animations au hasard", pts: 0, v: "" }, { id: "k-feux", type: "confettis", n: "Toujours le feu d'artifice", pts: 700, v: "feux" }, { id: "k-etoiles", type: "confettis", n: "Toujours les étoiles", pts: 0, chest: true, v: "etoiles" },
+  ];
+  const RTYPES = [["titre", "Titres"], ["couleur", "Couleurs"], ["fond", "Fonds animés"], ["mascotte", "Mascotte"], ["son", "Sons"], ["confettis", "Animations de réussite"]];
+  const CHEST_EVERY = 500;
+  const rwState = () => { const d = jget("merge.rewards", null) || {}; return { equip: d.equip || {}, chest: d.chest || [], opened: d.opened || 0 }; };
+  const rwSave = (st) => jset("merge.rewards", st);
+  const rwOwned = (r, xp, st) => r.chest ? st.chest.includes(r.id) : xp >= r.pts;
+  const rwEquipped = (type) => { const st = rwState(), id = st.equip[type], r = REWARDS.find(x => x.id === id && x.type === type); return r && rwOwned(r, xpInfo().xp, st) ? r : null; };
+  const MASCOT = (v) => !v ? "" : `<svg class="mascot" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="38" rx="22" ry="20" fill="var(--accent)"/><circle cx="24" cy="34" r="6" fill="#fff"/><circle cx="40" cy="34" r="6" fill="#fff"/><circle cx="25" cy="35" r="2.6" fill="#1a1d28"/><circle cx="41" cy="35" r="2.6" fill="#1a1d28"/><path d="M27 46q5 4 10 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M14 26l5-12 7 9M50 26l-5-12-7 9" fill="var(--accent)"/>${v === "lunettes" ? '<g fill="none" stroke="#1a1d28" stroke-width="2.2"><circle cx="24" cy="34" r="8"/><circle cx="40" cy="34" r="8"/><path d="M32 34h0"/></g>' : ""}${v === "couronne" ? '<path d="M20 14l4 8 8-10 8 10 4-8 2 14H18z" fill="#f5c542" stroke="#b8860b" stroke-width="1.2"/>' : ""}</svg>`;
+  function applyRewards() {
+    const r = document.documentElement, col = rwEquipped("couleur"), bg = rwEquipped("fond");
+    if (col && col.v) { r.style.setProperty("--accent", col.v); r.style.setProperty("--btn-bg", col.v); r.style.setProperty("--today-bg", col.v); } else { ["--accent", "--btn-bg", "--today-bg"].forEach(k => r.style.removeProperty(k)); }
+    document.body.dataset.bg = bg && bg.v ? bg.v : "";
+  }
+  function screenRewards() {
+    drawTabs("progres"); const xp = xpInfo().xp, st = rwState(), chests = Math.floor(xp / CHEST_EVERY) - st.opened;
+    const next = REWARDS.filter(r => !r.chest && r.pts > xp).sort((a, b) => a.pts - b.pts)[0];
+    app.innerHTML = `<div class="row"><a class="iconbtn" href="#progres" aria-label="Retour">${I.back}</a><h1>Récompenses</h1></div>
+      <div class="card pad stack rwtop"><div class="row">${MASCOT((rwEquipped("mascotte") || {}).v || "mergo")}<div class="grow"><b class="big">${xp} points</b><p class="small muted">${next ? "Prochaine récompense : " + esc(next.n) + " à " + next.pts + " points" : "Tu as tout débloqué avec les points !"}</p></div></div>
+        <div class="row chestrow"><span class="mico">${I.star}</span><p class="grow small">${chests > 0 ? plural(chests, "coffre surprise à ouvrir", "coffres surprise à ouvrir") : "Un coffre surprise tous les " + CHEST_EVERY + " points. Prochain à " + (Math.floor(xp / CHEST_EVERY) + 1) * CHEST_EVERY + "."}</p>${chests > 0 ? '<button class="btn sm" id="chest">Ouvrir</button>' : ""}</div></div>
+      <p class="small muted">Les points viennent de tes révisions : 10 par bonne réponse, 2 par erreur, 100 par chapitre maîtrisé à 100 %. Rien à dépenser : ce que tu débloques reste à toi, sur tous tes appareils.</p>
+      ${RTYPES.map(([t, label]) => `<div class="stack"><h2>${label}</h2><div class="rwgrid">${REWARDS.filter(r => r.type === t).map(r => { const own = rwOwned(r, xp, st), on = (st.equip[t] || REWARDS.find(x => x.type === t).id) === r.id; return `<button class="rw${own ? "" : " locked"}" data-rw="${r.id}" aria-pressed="${on}" ${own ? "" : "disabled"}>${t === "couleur" ? `<span class="rwdot" style="--c:${r.v || "#4b39c8"}"></span>` : t === "mascotte" && r.v ? MASCOT(r.v) : ""}<b>${esc(r.n)}</b><span class="small">${own ? (on ? "Équipé" : "Équiper") : r.chest ? "Dans un coffre" : r.pts + " points"}</span></button>`; }).join("")}</div></div>`).join("")}`;
+    app.querySelectorAll("[data-rw]").forEach(b => b.onclick = () => { const r = REWARDS.find(x => x.id === b.dataset.rw), s2 = rwState(); s2.equip[r.type] = r.id; rwSave(s2); applyRewards(); if (r.type === "son") ping(true); if (r.type === "confettis") confetti(r.v || undefined); screenRewards(); });
+    if ($("chest")) $("chest").onclick = () => {
+      const s2 = rwState(), left = REWARDS.filter(r => r.chest && !s2.chest.includes(r.id)); s2.opened++;
+      const got = left.length ? left[Math.floor(Math.random() * left.length)] : null; if (got) s2.chest.push(got.id); rwSave(s2); confetti("explosion");
+      sheet(`<div class="badgewin">${MASCOT("couronne")}<h1>Coffre ouvert</h1><p>${got ? "Tu gagnes : <b>" + esc(got.n) + "</b>" : "Tu as déjà tout ce que contiennent les coffres. Bravo !"}</p><button class="btn" data-close>Super</button></div>`); screenRewards();
+    };
+  }
   // Fête un badge ou un niveau gagné depuis la dernière fois (jamais au tout premier passage).
   function celebrate() {
     const got = badges().filter(b => b[1]).map(b => b[0]), seen = jget("merge.badges", null), lvl = xpInfo().level, old = jget("merge.level", null);
@@ -731,8 +769,8 @@
     const ups = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div><span class="grow"></span><span class="homemusic"><button class="iconbtn flat" data-qs aria-label="Recherche rapide">${I.search}</button><button class="iconbtn flat" data-pomo aria-label="Pomodoro">${I.clock}</button>${musicBtn()}</span>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak" title="${plural(st, "jour", "jours")} d'affilée">${plural(st, "jour", "jours")}<span class="stl">&nbsp;d'affilée</span></span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
-      <div class="hello"><h1>Salut ${esc(p.display_name || "")}</h1><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
-      <div class="level"><span class="lvl">Niveau ${lv.level}</span><div class="bar grow"><i style="width:${lv.pct}%"></i></div><span class="small muted">encore ${lv.left} points</span></div>
+      <div class="hello"><div class="row">${MASCOT((rwEquipped("mascotte") || {}).v || "")}<h1 class="grow">Salut ${esc(p.display_name || "")}${rwEquipped("titre") && rwEquipped("titre").pts ? ` <span class="rwtitle">${esc(rwEquipped("titre").n)}</span>` : ""}</h1></div><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
+      <div class="level"><a class="lvl" href="#recompenses" aria-label="Niveau ${lv.level}, voir les récompenses">Niveau ${lv.level}</a><div class="bar grow"><i style="width:${lv.pct}%"></i></div><span class="small muted">encore ${lv.left} points</span></div>
       ${resumeHtml()}${[0, 1].includes(new Date().getDay()) && state.sessions.length ? `<div class="banner"><div><h2>Ton bilan de la semaine est prêt</h2><p class="small">Ce que tu as fait, et ton objectif pour la suite.</p></div><a class="btn sm" href="#bilan">Voir</a></div>` : ""}
       <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
@@ -1555,8 +1593,11 @@
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)();
       const o = actx.createOscillator(), g = actx.createGain(); o.connect(g); g.connect(actx.destination);
-      o.type = "sine"; o.frequency.value = ok ? 660 : 220; g.gain.setValueAtTime(0.06, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.18);
-      o.start(); o.stop(actx.currentTime + 0.2);
+      const pack = (rwEquipped("son") || {}).v || "doux", t0 = actx.currentTime;
+      o.type = pack === "arcade" ? "square" : pack === "cristal" ? "triangle" : "sine";
+      o.frequency.setValueAtTime(ok ? (pack === "cristal" ? 1046 : 660) : 220, t0); if (ok && pack !== "doux") o.frequency.setValueAtTime(pack === "arcade" ? 990 : 1568, t0 + 0.08);
+      g.gain.setValueAtTime(pack === "arcade" ? 0.035 : 0.06, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + (pack === "doux" ? 0.18 : 0.26));
+      o.start(); o.stop(t0 + 0.28);
       if (navigator.vibrate) navigator.vibrate(ok ? 10 : [20, 40, 20]);
     } catch (e) { /* son indisponible */ }
   }
@@ -1765,7 +1806,7 @@
     drawTabs("progres");
     const d14 = lastDays(14, state.sessions), d7 = d14.slice(7), max = Math.max(1, ...d14.map(d => d.cards_reviewed));
     const mins = Math.round(d7.reduce((s, d) => s + d.seconds, 0) / 60), cards7 = d7.reduce((s, d) => s + d.cards_reviewed, 0);
-    app.innerHTML = `<div class="row between" style="flex-wrap:wrap"><h1>Progrès</h1><div class="row" style="flex-wrap:wrap"><a class="btn sm" href="#bilan">Bilan de la semaine</a><a class="btn sm ghost" href="#erreurs">Carnet d'erreurs</a><a class="btn sm ghost" href="#minuteur">Minuteur</a></div></div>
+    app.innerHTML = `<div class="row between" style="flex-wrap:wrap"><h1>Progrès</h1><div class="row" style="flex-wrap:wrap"><a class="btn sm" href="#recompenses">Récompenses</a><a class="btn sm ghost" href="#bilan">Bilan de la semaine</a><a class="btn sm ghost" href="#erreurs">Carnet d'erreurs</a><a class="btn sm ghost" href="#minuteur">Minuteur</a></div></div>
       <div class="card pad stack"><div class="level"><span class="lvl">Niveau ${xpInfo().level}</span><div class="bar grow"><i style="width:${xpInfo().pct}%"></i></div><span class="small muted">${xpInfo().xp} points · encore ${xpInfo().left}</span></div><p class="note">10 points par bonne réponse, 2 par erreur, 100 par chapitre maîtrisé à 100 %. ${streakInfo().left ? "Gel de série disponible : un jour raté cette semaine ne cassera pas ta série." : "Ton gel de série a déjà servi cette semaine."}</p></div>
       <div class="tiles"><div class="card tile"><b>${streak()}</b><span>jours d'affilée</span></div><div class="card tile"><b>${cards7}</b><span>cartes en 7 jours</span></div><div class="card tile"><b>${mins}</b><span>minutes en 7 jours</span></div><div class="card tile"><b>${mastery(state.cards)} %</b><span>maîtrise moyenne</span></div></div>
       <div class="card pad stack"><h2>Cartes révisées, 14 derniers jours</h2><div class="bars" role="img" aria-label="Cartes révisées par jour sur 14 jours">${d14.map(d => `<div><i style="height:${Math.max(3, d.cards_reviewed / max * 100)}%" class="${d.cards_reviewed ? "" : "zero"}" title="${d.cards_reviewed}"></i><span>${d.label}</span></div>`).join("")}</div></div>
@@ -2769,6 +2810,7 @@
     else if (h.startsWith("difficiles-")) screenSession(arg, true);
     else if (h.startsWith("revision-")) screenSession(arg, false, true);
     else if (h === "melange") screenSession("melange");
+    else if (h === "recompenses") screenRewards();
     else if (h.startsWith("vraifaux-")) screenTrueFalse(arg);
     else if (h.startsWith("fiche-")) screenSheet(arg);
     else if (h.startsWith("blanc-")) screenQuestions(arg, "blanc");

@@ -15,6 +15,7 @@
     if (t === "subjects" && !legacy) base.free_revision = false;
     if (t === "chapters") Object.assign(base, { status: "new", lang: "fr", group_id: null, notes: null });
     if (t === "cards") { Object.assign(base, { due_at: new Date().toISOString(), state: 0, reps: 0, lapses: 0, right_count: 0, wrong_count: 0, flagged: false, needs_check: false, last_review: null, image_path: null, source_quote: null }); if (!legacy) Object.assign(base, { mastered: false, mnemonic: null }); }
+    if (t === "cards" && opt("xp")) base.right_count = +opt("xp");
     if (t === "mistakes") Object.assign(base, { times: 1, explanation: null, updated_at: new Date().toISOString() });
     if (t === "summaries") base.edited_by_user = false;
     return Object.assign(base, r);

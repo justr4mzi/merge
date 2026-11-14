@@ -766,3 +766,27 @@ details.drop:not([open])>summary{margin:0}
 .confetti.c-serpentins i{width:5px;height:60px;border-radius:4px;animation:snake 2.4s ease-in forwards}
 @keyframes snake{0%{transform:translateY(-70px) rotate(0)}25%{transform:translateY(25vh) rotate(40deg)}50%{transform:translateY(50vh) rotate(-30deg)}75%{transform:translateY(75vh) rotate(35deg)}100%{transform:translateY(110vh) rotate(-20deg);opacity:.6}}
 .snip mark{background:color-mix(in srgb,var(--accent) 30%,transparent);color:inherit;border-radius:3px;padding:0 2px}
+/* Récompenses */
+.mascot{width:48px;height:48px;flex:none}
+.hello .mascot{width:44px;height:44px;animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-3px) rotate(-3deg)}}
+.rwtitle{font-size:.45em;font-weight:800;color:var(--accent);background:var(--accent-soft);border-radius:99px;padding:3px 10px;vertical-align:middle;white-space:nowrap}
+a.lvl{text-decoration:none}
+.rwtop .big{font-size:1.5em}
+.chestrow{align-items:center}
+.rwgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.rw{min-height:76px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:12px;text-align:left;cursor:pointer}
+.rw[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset}
+.rw.locked{opacity:.5;cursor:not-allowed}
+.rw .small{color:var(--muted)}
+.rw .mascot{width:36px;height:36px}
+.rwdot{width:22px;height:22px;border-radius:50%;background:var(--c)}
+/* Fonds animés (récompenses) */
+body[data-bg]:not([data-bg=""])::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.55}
+body[data-bg="aurore"]::after{background:radial-gradient(40% 30% at 20% 20%,color-mix(in srgb,var(--accent) 45%,transparent),transparent 70%),radial-gradient(35% 30% at 80% 30%,rgba(20,163,127,.35),transparent 70%),radial-gradient(40% 35% at 50% 85%,rgba(224,64,156,.25),transparent 70%);animation:aurore 18s ease-in-out infinite alternate}
+@keyframes aurore{100%{transform:translate3d(0,-4%,0) scale(1.15)}}
+body[data-bg="etoiles"]::after{background-image:radial-gradient(1.5px 1.5px at 10% 20%,#fff,transparent),radial-gradient(1px 1px at 30% 70%,#fff,transparent),radial-gradient(1.5px 1.5px at 55% 35%,#fff,transparent),radial-gradient(1px 1px at 75% 80%,#fff,transparent),radial-gradient(2px 2px at 90% 15%,#fff,transparent),radial-gradient(1px 1px at 45% 90%,#fff,transparent);background-size:280px 280px;animation:twinkle 6s ease-in-out infinite;opacity:.4}
+@keyframes twinkle{50%{opacity:.15}}
+body[data-bg="vagues"]::after{background:repeating-radial-gradient(circle at 50% 120%,transparent 0 38px,color-mix(in srgb,var(--accent) 18%,transparent) 38px 40px);animation:vagues 12s linear infinite}
+@keyframes vagues{100%{background-position:0 -80px}}
+@media (prefers-reduced-motion:reduce){body[data-bg]::after,.hello .mascot{animation:none}}

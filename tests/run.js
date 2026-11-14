@@ -13,14 +13,14 @@ const QUOTA_MSG = "Vous avez atteint votre limite journalière. Contacte le cré
 let failures = 0; const log = [];
 const ok = (cond, name, extra) => { if (!cond) { failures++; log.push("ÉCHEC  " + name + (extra ? "  → " + extra : "")); } else log.push("ok     " + name); };
 
-async function open(browser, { w, h, theme, seed = "plein", legacy, quota, mastered }) {
+async function open(browser, { w, h, theme, seed = "plein", legacy, quota, mastered, xp }) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, serviceWorkers: "block", colorScheme: theme === "dark" ? "dark" : "light" });
   const page = await ctx.newPage(); page.errors = [];
   page.on("pageerror", e => page.errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|fonts\.g/.test(m.text())) page.errors.push(m.text()); });
   await page.route("**/vendor/supabase.js", r => r.fulfill({ path: path.join(__dirname, "fake-supabase.js"), contentType: "text/javascript" }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-  await page.addInitScript(o => { if (sessionStorage.getItem("init")) return; sessionStorage.setItem("init", "1"); localStorage.clear(); localStorage.setItem("fake.seed", o.seed); localStorage.setItem("fake.theme", o.theme); localStorage.setItem("merge.tuto", "1"); if (o.legacy) localStorage.setItem("fake.legacy", "1"); if (o.quota != null) localStorage.setItem("fake.quota", String(o.quota)); if (o.mastered) localStorage.setItem("fake.mastered", "1"); }, { seed, theme, legacy, quota, mastered });
+  await page.addInitScript(o => { if (sessionStorage.getItem("init")) return; sessionStorage.setItem("init", "1"); localStorage.clear(); localStorage.setItem("fake.seed", o.seed); localStorage.setItem("fake.theme", o.theme); localStorage.setItem("merge.tuto", "1"); if (o.legacy) localStorage.setItem("fake.legacy", "1"); if (o.quota != null) localStorage.setItem("fake.quota", String(o.quota)); if (o.mastered) localStorage.setItem("fake.mastered", "1"); if (o.xp) localStorage.setItem("fake.xp", String(o.xp)); }, { seed, theme, legacy, quota, mastered, xp });
   await page.goto(BASE + "/"); await page.waitForSelector("#app > *");
   return page;
 }
@@ -29,7 +29,7 @@ const overflow = page => page.evaluate(() => { const d = document.documentElemen
 const small = page => page.evaluate(() => [...document.querySelectorAll("#app button, #app a.btn, #app a.chip, #app a.iconbtn, #app a.mini, .tabs a")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height < 43.5 && !e.closest(".mindmap") && !e.classList.contains("flip"); }).slice(0, 4).map(e => e.tagName + "." + e.className + ":" + Math.round(e.getBoundingClientRect().height) + ":" + e.textContent.trim().slice(0, 20)));
 const txt = page => page.evaluate(() => document.getElementById("app").innerText);
 
-const ROUTES = ["accueil", "matieres", "matiere-s1", "dossier-g1", "chapitre-c1", "calendrier", "progres", "duo", "reglages", "erreurs", "import-c1", "resume-c1", "cartes-c1", "apprendre-c1", "quiz-c1", "controle-c1", "associer-c1", "vraifaux-c1", "ecouter-c1", "questions-c1", "blurting-c1", "feynman-c1", "khole-c1", "boss-c1", "flash-c1", "bus-c1", "planche-c1", "erreurs-c1", "fiche-c1", "recherche", "minuteur", "blanc-c1", "difficiles-c1", "revision-s1"];
+const ROUTES = ["recompenses", "melange", "interro-c1", "accueil", "matieres", "matiere-s1", "dossier-g1", "chapitre-c1", "calendrier", "progres", "duo", "reglages", "erreurs", "import-c1", "resume-c1", "cartes-c1", "apprendre-c1", "quiz-c1", "controle-c1", "associer-c1", "vraifaux-c1", "ecouter-c1", "questions-c1", "blurting-c1", "feynman-c1", "khole-c1", "boss-c1", "flash-c1", "bus-c1", "planche-c1", "erreurs-c1", "fiche-c1", "recherche", "minuteur", "blanc-c1", "difficiles-c1", "revision-s1"];
 const GATED = ["pieges-c1", "faceaface-c1", "exercices-c1", "carte-c1", "trous-c1", "synthese-c1"];
 
 async function sweep(browser, w, h, theme) {
@@ -473,6 +473,20 @@ async function horsligne(browser) {
   ok(!page.errors.length, "hors ligne : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function recompenses(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark", xp: 20 });
+  await go(page, "#recompenses", 400);
+  const t = await txt(page); ok(t.includes("Récompenses") && t.includes("points"), "récompenses : écran");
+  const can = await page.locator(".rw:not(.locked)").count(); ok(can >= 4, "récompenses : objets débloqués avec les points", String(can));
+  await page.click('[data-rw="c-ocean"]'); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() === "#2f7cf6"), "récompenses : couleur équipée appliquée");
+  ok(await page.evaluate(() => localStorage.getItem("merge.rewards").includes("c-ocean") && window.__mergeSync.synced("merge.rewards")), "récompenses : choix synchronisé");
+  if (await page.locator("#chest").count()) { await page.click("#chest"); await page.waitForTimeout(300); ok((await page.locator(".badgewin").count()) === 1, "récompenses : coffre ouvert"); }
+  let sm = await small(page); ok(!sm.length, "récompenses : boutons de 44 px minimum", sm.join(" | "));
+  await page.screenshot({ path: path.join(SHOTS, "recompenses.png"), fullPage: true });
+  ok(!page.errors.length, "récompenses : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -481,7 +495,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
