@@ -616,6 +616,17 @@ async function redressement(browser) {
   ok(!page.errors.length, "redressement : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function imageCarte(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#chapitre-c1", 500); await page.click("#cardsdrop summary"); await page.waitForTimeout(100);
+  await page.click("#list [data-edit] >> nth=0"); await page.waitForTimeout(100);
+  await page.setInputFiles("#list [data-pic-in] >> nth=0", path.join(__dirname, "photo-feuille.jpg")); await page.waitForTimeout(1200);
+  ok(await page.evaluate(() => window.__fake.DB.cards.some(c => /carte-/.test(c.picture || ""))), "image de carte : enregistrée");
+  ok(await page.locator("#list img.cardpic").count() === 1, "image de carte : affichée dans la liste");
+  let o = await overflow(page); ok(o.sw <= o.iw, "image de carte : pas de débordement", JSON.stringify(o));
+  ok(!page.errors.length, "image de carte : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -624,7 +635,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

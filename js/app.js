@@ -231,7 +231,7 @@
     const els = (root || document).querySelectorAll("span.m:not([data-ok])"); if (!els.length) return;
     loadKatex().then(() => els.forEach(el => { if (el.dataset.ok) return; try { window.katex.render(el.dataset.tex, el, { displayMode: el.classList.contains("md"), throwOnError: false, strict: false, output: "html" }); } catch (e) { /* formule laissée en texte */ } el.dataset.ok = "1"; })).catch(() => {});
   }
-  new MutationObserver(() => renderMath(document.body)).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver(() => { renderMath(document.body); if (typeof fillPics === "function" && state.user) fillPics(document.body); }).observe(document.body, { childList: true, subtree: true });
   function md(text) {
     const out = []; let list = false;
     const inline = s => mathify(s, true);
@@ -289,12 +289,12 @@
       sb.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
       sb.from("subjects").select("*").eq("archived", false).eq("user_id", uid).order("created_at"),
       sb.from("chapters").select("id,name,status,subject_id,group_id,cards_target,lang,notes,color,created_at").eq("archived", false).eq("user_id", uid).order("created_at"),
-      allCards(CARD_META + ",mastered,mnemonic"),
+      allCards(CARD_META + ",mastered,mnemonic,picture"),
       sb.from("study_sessions").select("day,seconds,cards_reviewed").eq("user_id", uid).gte("day", localDay(since)),
       sb.from("groups").select("id,name,subject_id,color,created_at").eq("user_id", uid).order("created_at")
     ]);
     state.legacy = false;
-    if (k.error) { k = await allCards(CARD_META); state.legacy = true; }
+    if (k.error) { k = await allCards(CARD_META + ",mastered,mnemonic"); if (k.error) { k = await allCards(CARD_META); state.legacy = true; } }
     for (const r of [p, s, c, k, ss]) if (r.error) throw r.error;
     state.profile = p.data; state.subjects = s.data || []; state.chapters = c.data || []; state.sessions = ss.data || []; state.groups = g.error ? [] : (g.data || []);
     state.chapters = state.chapters.filter(c => state.subjects.some(x => x.id === c.subject_id));
@@ -960,7 +960,7 @@
     const s = state.subjects.find(x => x.id === ch.subject_id) || { name: "", color: "#888", id: "" }, grp = state.groups.find(x => x.id === ch.group_id), here = location.hash;
     app.innerHTML = `<p class="muted">Chargement…</p>`;
     let [cr, sr] = state.offline ? [{ error: { message: "hors ligne" } }, { error: true }] : await Promise.all([
-      sb.from("cards").select("id,front,back,source_quote,needs_check,flagged,state,image_path").eq("chapter_id", id).order("created_at"),
+      sb.from("cards").select("id,front,back,source_quote,needs_check,flagged,state,image_path,picture").eq("chapter_id", id).order("created_at"),
       sb.from("summaries").select("chapter_id").eq("chapter_id", id).maybeSingle()
     ]).catch(() => [{ error: { message: "hors ligne" } }, { error: true }]);
     // Hors ligne : cartes de la copie locale, résumé s'il a été enregistré sur l'appareil.
@@ -991,9 +991,14 @@
     wireChapterTools(id, ch, cards); wireModes();
     if (!cards.length) return;
     const list = $("list");
-    const drawCard = (c) => `<div class="card term" data-id="${c.id}"><div class="row between"><b>${mx(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${mx(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
+    const drawCard = (c) => `<div class="card term" data-id="${c.id}">${picHtml(c)}<div class="row between"><b>${mx(c.front)}</b>${c.needs_check ? '<span class="pill warn">À vérifier</span>' : ""}${c.flagged ? '<span class="pill warn">Signalée</span>' : ""}</div><p>${mx(c.back)}</p>${c.source_quote ? `<p class="quote">${esc(c.source_quote)}</p>` : ""}<div class="pagebox"></div><div class="tools">${c.image_path ? `<button class="mini" data-img="${c.id}">Voir la page</button>` : ""}<button class="mini" data-edit="${c.id}">Modifier</button><button class="mini" data-flag="${c.id}">${c.flagged ? "Retirer le signalement" : "Signaler"}</button><button class="mini" data-del="${c.id}">Supprimer</button></div></div>`;
     list.innerHTML = cards.map(drawCard).join("");
+    list.onchange = async (e) => {
+      const inp = e.target.closest("[data-pic-in]"); if (!inp || !inp.files[0]) return; const cid = inp.dataset.picIn, c = cards.find(x => x.id === cid); if (!c) return;
+      toast("Envoi de l'image…"); try { c.picture = await uploadCardPic(inp.files[0], id, cid); list.querySelector(`[data-id="${cid}"]`).outerHTML = drawCard(c); toast("Image ajoutée à la carte."); } catch (er) { fail(er, "Image non ajoutée"); }
+    };
     list.onclick = async (e) => {
+      const pd = e.target.closest("[data-picdel]"); if (pd) { const c = cards.find(x => x.id === pd.dataset.picdel); const r = await sb.from("cards").update({ picture: null }).eq("id", c.id); if (r.error) return fail(r.error, "Image non retirée"); c.picture = null; const m = state.cards.find(x => x.id === c.id); if (m) m.picture = null; list.querySelector(`[data-id="${c.id}"]`).outerHTML = drawCard(c); return toast("Image retirée."); }
       const b = e.target.closest("button"); if (!b) return;
       const cid = b.dataset.edit || b.dataset.flag || b.dataset.save || b.dataset.cancel || b.dataset.del || b.dataset.delyes || b.dataset.img; const c = cards.find(x => x.id === cid); if (!c) return;
       const box = list.querySelector(`[data-id="${cid}"]`);
@@ -1004,7 +1009,7 @@
         const { error } = await sb.from("cards").update({ flagged: !c.flagged }).eq("id", cid); if (error) return fail(error, "Signalement impossible");
         c.flagged = !c.flagged; box.outerHTML = drawCard(c); toast(c.flagged ? "Carte signalée. Tu peux la corriger avec Modifier." : "Signalement retiré.");
       } else if (b.dataset.edit) {
-        box.innerHTML = `<div class="stack"><div class="field"><label for="f${cid}">Question</label><input id="f${cid}" type="text" value="${esc(c.front)}"></div><div class="field"><label for="b${cid}">Réponse</label><textarea id="b${cid}" style="min-height:100px">${esc(c.back)}</textarea></div><div class="row"><button class="btn sm" data-save="${cid}">Enregistrer</button><button class="btn sm ghost" data-cancel="${cid}">Annuler</button></div></div>`;
+        box.innerHTML = `<div class="stack"><div class="field"><label for="f${cid}">Question</label><input id="f${cid}" type="text" value="${esc(c.front)}"></div><div class="field"><label for="b${cid}">Réponse</label><textarea id="b${cid}" style="min-height:100px">${esc(c.back)}</textarea></div><div class="field"><span class="label">Image (schéma, photo, carte…)</span><div class="row" style="flex-wrap:wrap"><label class="btn sm ghost" for="p${cid}">${c.picture ? "Changer l'image" : "Ajouter une image"}</label><input id="p${cid}" type="file" accept="image/*" hidden data-pic-in="${cid}">${c.picture ? `<button class="btn sm ghost" data-picdel="${cid}">Retirer l'image</button>` : ""}</div></div><div class="row"><button class="btn sm" data-save="${cid}">Enregistrer</button><button class="btn sm ghost" data-cancel="${cid}">Annuler</button></div></div>`;
       } else if (b.dataset.cancel) { box.outerHTML = drawCard(c);
       } else if (b.dataset.save) {
         const front = $("f" + cid).value.trim(), back = $("b" + cid).value.trim(); if (!front || !back) return toast("La question et la réponse ne peuvent pas être vides.");
@@ -1475,7 +1480,7 @@
         <div class="counters"><span class="counter no" aria-label="Cartes à revoir">${S.again.size}</span><span class="counter yes" aria-label="Cartes réussies">${S.known}</span></div>
         <div class="flipwrap" id="wrap"><button class="flip${S.flipped ? " back" : ""}" id="flip" aria-label="Retourner la carte">
           <div class="face"><header>${training ? "Entraînement" : S.again.has(c.id) ? "On la revoit" : "Question"}</header><div class="txt">${mx(c.front)}</div><footer>Touche la carte pour voir la réponse</footer></div>
-          <div class="face b"><header>Réponse</header><div class="txt">${mx(c.back)}</div><div id="mnemo">${mnemoHtml(c)}</div><div id="extra" class="extra">${backExtra(c)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
+          <div class="face b"><header>Réponse</header>${picHtml(c)}<div class="txt">${mx(c.back)}</div><div id="mnemo">${mnemoHtml(c)}</div><div id="extra" class="extra">${backExtra(c)}</div><footer>${c.source_quote ? "Dans ton cours : « " + esc(c.source_quote) + " »" : ""}</footer></div>
         </button></div>
         ${typed() ? `<div class="field typedbox"><label for="mine">Ta réponse, avant de retourner la carte</label><textarea id="mine" style="min-height:70px" placeholder="Écris ce que tu répondrais">${esc(S.mine)}</textarea></div>` : ""}
         <div class="answers"><button class="btn bad" id="no" aria-label="Faux, pas compris">${I.x}Faux</button><button class="btn good" id="yes">${I.check}Juste</button></div>
@@ -1518,6 +1523,19 @@
     render();
   }
   document.addEventListener("keydown", e => { if (screenSession.key && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) screenSession.key(e); });
+  // Images ajoutées par l'élève sur ses cartes (stockage « cours », dossier de l'élève). Liens signés gardés 50 min.
+  const picUrls = {};
+  async function picUrl(path) { const c = picUrls[path]; if (c && c.t > Date.now()) return c.u; const { data, error } = await sb.storage.from("cours").createSignedUrl(path, 3600); if (error || !data) return null; picUrls[path] = { u: data.signedUrl, t: Date.now() + 3000000 }; return data.signedUrl; }
+  function fillPics(root) { (root || document).querySelectorAll("img[data-pic]:not([src])").forEach(async im => { const u = await picUrl(im.dataset.pic); if (u) im.src = u; else im.remove(); }); }
+  const picHtml = (c) => c && c.picture ? `<img class="cardpic" data-pic="${esc(c.picture)}" alt="Image de la carte">` : "";
+  async function uploadCardPic(file, chapterId, cardId) {
+    let bmp; try { bmp = await createImageBitmap(file); } catch (e) { if (!window.heic2any) await new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "vendor/heic2any.min.js"; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); }); const o = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(o) ? o[0] : o); }
+    const k = Math.min(1, 1000 / Math.max(bmp.width, bmp.height)), cv = document.createElement("canvas"); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    const blob = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.82)), path = state.user.id + "/" + chapterId + "/carte-" + cardId + "-" + Date.now() + ".jpg";
+    const up = await sb.storage.from("cours").upload(path, blob, { contentType: "image/jpeg", upsert: true }); if (up.error) throw up.error;
+    const r = await sb.from("cards").update({ picture: path, edited_by_user: true }).eq("id", cardId); if (r.error) throw r.error;
+    const m = state.cards.find(x => x.id === cardId); if (m) m.picture = path; return path;
+  }
   async function showPage(path, box) {
     if (!box) return; if (box.innerHTML) { box.innerHTML = ""; return; }
     box.innerHTML = '<p class="muted">Chargement de la page…</p>';
@@ -2978,14 +2996,16 @@
   function screenSynth(id) {
     toolGate(id, "fiche", "Fiche de synthèse", "Une fiche très dense qui tient sur une page A4 : l'essentiel, les définitions, les formules, les pièges et des astuces pour retenir. Prête à imprimer.", (f, ch, regen) => {
       const s = state.subjects.find(x => x.id === ch.subject_id) || { name: "", color: "#4b39c8" };
-      const box = (t, inner, cls) => inner ? `<section class="${cls || ""}"><h2>${t}</h2>${inner}</section>` : "";
+      const box = (t, inner, cls, ic) => inner ? `<section class="${cls || ""}"><h2>${ic ? `<span class="sic">${ic}</span>` : ""}${t}</h2>${inner}</section>` : "";
+      const nb = (f.essentiel || []).length, nd = (f.definitions || []).length, nf = (f.formules || []).length, done = mastery(cardsOf(id));
       app.innerHTML = `<div class="row between noprint"><a class="iconbtn" href="#chapitre-${id}" aria-label="Retour au chapitre">${I.back}</a><button class="btn sm" id="print">${I.print}Imprimer ou enregistrer en PDF</button></div>
-        <div class="a4wrap"><article class="a4 synth" style="--c:${esc(s.color)}"><header><span>${esc(s.name)}</span><h1>${esc(ch.name)}</h1><span>Merge.</span></header>
-          ${box("L'essentiel", (f.essentiel || []).length ? `<ul>${li(f.essentiel)}</ul>` : "", "wide")}
-          ${box("Définitions", (f.definitions || []).length ? `<dl>${f.definitions.map(d => `<div><dt>${mx(d.terme)}</dt><dd>${mx(d.definition)}</dd></div>`).join("")}</dl>` : "", "wide")}
-          ${box("Formules et lois", (f.formules || []).length ? `<dl class="formules">${f.formules.map(d => `<div><dt>${mx(d.nom)}</dt><dd>${mx(d.formule)}</dd></div>`).join("")}</dl>` : "")}
-          ${box("Pièges à éviter", (f.pieges || []).length ? `<ul>${li(f.pieges)}</ul>` : "", "warn")}
-          ${box("Pour retenir", (f.mnemos || []).length ? `<ul>${li(f.mnemos)}</ul>` : "")}
+        <div class="a4wrap"><article class="a4 synth" style="--c:${esc(s.color)}"><header class="sband"><div><span class="ssub">${esc(s.name)}</span><h1>${esc(ch.name)}</h1></div><div class="sbadges"><span>${nb} idées clés</span><span>${nd} définitions</span>${nf ? `<span>${nf} formules</span>` : ""}<span>Maîtrise ${done} %</span></div><span class="slogo">Merge<b>.</b></span></header>
+          ${box("L'essentiel", nb ? `<ol class="kp">${f.essentiel.map(x => `<li>${mx(x)}</li>`).join("")}</ol>` : "", "wide key", I.bolt)}
+          ${box("Définitions", nd ? `<div class="defs">${f.definitions.map(d => `<div class="def"><b>${mx(d.terme)}</b><span>${mx(d.definition)}</span></div>`).join("")}</div>` : "", "wide", I.book)}
+          ${box("Formules et lois", nf ? `<div class="fgrid">${f.formules.map(d => `<div class="fcard"><span>${mx(d.nom)}</span><b>${mx(d.formule)}</b></div>`).join("")}</div>` : "", "wide formbox", I.spark)}
+          ${box("Pièges à éviter", (f.pieges || []).length ? `<ul>${li(f.pieges)}</ul>` : "", "warn", I.trap)}
+          ${box("Pour retenir", (f.mnemos || []).length ? `<div class="postits">${f.mnemos.map(x => `<p class="postit">${mx(x)}</p>`).join("")}</div>` : "", "memo", I.bulb)}
+          <footer class="sfoot"><span>Relis cette fiche demain, puis dans 3 jours, puis dans une semaine.</span><span class="boxes">${["J+1", "J+3", "J+7", "J+14"].map(x => `<i>${x}</i>`).join("")}</span></footer>
         </article></div>${regenHtml}`;
       $("print").onclick = () => { fitA4(app.querySelector(".synth")); window.print(); }; wireRegen(regen);
     });
