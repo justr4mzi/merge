@@ -838,3 +838,5 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0;hei
 .synth .boxes{display:flex;gap:6px}.synth .boxes i{font-style:normal;border:1.5px solid var(--muted);border-radius:6px;padding:1px 6px;font-weight:800}
 @media (max-width:600px){.synth{grid-template-columns:minmax(0,1fr)}}
 @media print{.synth{grid-template-columns:repeat(2,minmax(0,1fr))}.synth .postit{box-shadow:none}}
+/* Barre du bas sur téléphone : moins de vide sous les icônes (la zone de la barre d'accueil iPhone suffit) */
+@media (max-width:899px){.tabs{padding-bottom:max(4px,calc(env(safe-area-inset-bottom,0px) - 14px))}.tabs a{min-height:54px;margin:3px 0}}
