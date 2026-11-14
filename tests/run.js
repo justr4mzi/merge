@@ -545,6 +545,33 @@ async function petitEcran(browser) {
   ok(!p2.errors.length, "compte vide : aucune erreur JavaScript", p2.errors.slice(0, 3).join(" | ")); await p2.context().close();
 }
 
+async function voixMerge(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#reglages", 300);
+  ok(await page.locator('[data-ve="merge"][aria-pressed="true"]').count() === 1, "voix : Laomedeia choisie par défaut");
+  await page.click("#vtry"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => window.__fake.voix === 1), "voix : la voix Merge est demandée au serveur");
+  await page.click("#vtry"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => window.__fake.voix === 1), "voix : si elle est indisponible, l'appareil prend le relais sans redemander");
+  await page.click('[data-ve="appareil"]'); await page.waitForTimeout(100);
+  ok(await page.evaluate(() => localStorage.getItem("merge.vengine") === "appareil" && window.__mergeSync.synced("merge.vengine")), "voix : choix gardé et synchronisé");
+  await go(page, "#ecouter-c1", 400); ok(await page.locator("#play").count() === 1, "voix : écran Écouter");
+  ok(!page.errors.length, "voix : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
+async function retourFlottant(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#chapitre-c1", 500);
+  await page.evaluate(() => scrollTo(0, 1500)); await page.waitForTimeout(150);
+  ok(!(await page.evaluate(() => document.querySelector(".floatback").classList.contains("on"))), "retour flottant : caché en descendant");
+  await page.evaluate(() => scrollTo(0, 1200)); await page.waitForTimeout(150);
+  ok(await page.evaluate(() => document.querySelector(".floatback").classList.contains("on")), "retour flottant : apparaît en remontant");
+  await page.click(".floatback"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => /^#(matiere|dossier)-/.test(location.hash)), "retour flottant : ramène à la page d'avant");
+  ok(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarWidth === "none"), "barre de défilement masquée");
+  ok(!page.errors.length, "retour flottant : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -553,7 +580,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

@@ -141,7 +141,7 @@
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
   // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|vengine|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
@@ -177,6 +177,17 @@
   // Toutes les 2 minutes quand l'appli est ouverte : récupère ce qui a changé sur l'autre appareil.
   setInterval(() => { if (document.visibilityState === "visible" && state.user && state.profile && !state.offline && Date.now() - kvAt > 110000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier)?$/.test(location.hash)) route(); }); }, 120000);
   window.addEventListener("online", () => { kvFlush(); });
+  // Bouton retour flottant : quand on remonte dans une page longue, un petit bouton translucide apparaît en haut à gauche.
+  const fback = document.createElement("button"); fback.className = "floatback"; fback.type = "button"; fback.setAttribute("aria-label", "Retour"); fback.innerHTML = I.back; document.body.appendChild(fback);
+  let fbY = scrollY, fbT = null;
+  const fbTarget = () => { const a = app.querySelector('a.iconbtn[href^="#"][aria-label^="Retour"], a.iconbtn[href^="#"][aria-label="Fermer"], a.iconbtn[href^="#"][aria-label^="Retour au"], button.iconbtn[aria-label^="Retour"]'); return a; };
+  const fbHide = () => fback.classList.remove("on");
+  addEventListener("scroll", () => {
+    const y = scrollY, up = y < fbY - 4, down = y > fbY + 4; if (up || down) fbY = y;
+    if (y < 240 || down || !fbTarget()) fbHide(); else if (up) { fback.classList.add("on"); clearTimeout(fbT); fbT = setTimeout(fbHide, 3500); }
+  }, { passive: true });
+  fback.onclick = () => { const a = fbTarget(); fbHide(); if (a) a.click(); };
+  addEventListener("hashchange", fbHide);
   // Temps d'écran (tableau de bord /admin) : secondes passées appli ouverte et visible, envoyées par paquets d'une minute.
   const usage = { acc: 0, last: Date.now() };
   const usagePlace = () => { const ua = navigator.userAgent || ""; const dev = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? (/Mobile/.test(ua) ? "Téléphone Android" : "Tablette Android") : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "PC Windows" : /Linux/.test(ua) ? "PC Linux" : "Appareil"; const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Navigateur"; let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { /* rien */ } return [dev, br + (isStandalone() ? " (appli)" : ""), tz].filter(Boolean).join(" · "); };
@@ -1527,7 +1538,8 @@
         <div class="field"><span class="label">Taille du texte</span>${chips("s", [["small", "Petit"], ["normal", "Normal"], ["large", "Grand"]], p.text_size)}</div></div>
       <div class="card pad stack"><h2>Révision</h2>
         <div class="field"><span class="label">Sons et vibrations</span>${chips("snd", [["1", "Activés"], ["0", "Coupés"]], p.sounds === false ? "0" : "1")}</div>
-        ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de lecture</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.7" max="1.3" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
+        <div class="field"><span class="label">Voix qui lit tes cartes</span><div class="chips"><button class="chip" data-ve="merge" aria-pressed="${neuralWanted()}">Voix Merge (Laomedeia)</button><button class="chip" data-ve="appareil" aria-pressed="${!neuralWanted()}">Voix de mon appareil</button></div><div class="row"><button class="btn sm ghost" id="vtry">Écouter un exemple</button></div><p class="note">La voix Merge est plus naturelle. Sans réseau, c'est la voix de ton appareil qui prend le relais.</p></div>
+        ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de l'appareil</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.7" max="1.3" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
         <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
         <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
@@ -1551,6 +1563,10 @@
       $("voice").onchange = () => { safeSet("merge.voice", $("voice").value); speakText("Voici la voix qui lira tes cartes.", "fr-FR"); };
       $("vrate").onchange = () => safeSet("merge.rate", $("vrate").value);
       $("vtest").onclick = () => speakText("La mitose donne deux cellules filles génétiquement identiques.", "fr-FR");
+    }
+    {
+      app.querySelectorAll("[data-ve]").forEach(b => b.onclick = () => { safeSet("merge.vengine", b.dataset.ve); app.querySelectorAll("[data-ve]").forEach(x => x.setAttribute("aria-pressed", x === b)); speakText("Voici la voix qui lira tes cartes.", "fr-FR"); });
+      if ($("vtry")) $("vtry").onclick = () => speakText("La mitose donne deux cellules filles génétiquement identiques à la cellule mère.", "fr-FR");
     }
     $("pushon").onclick = async () => {
       const msg = $("pushmsg");
@@ -2163,7 +2179,7 @@
     const ch = state.chapters.find(c => c.id === id); if (!ch) { location.hash = "#accueil"; return; }
     tabs.hidden = true; app.innerHTML = `<p class="muted">Chargement…</p>`;
     const back = "#chapitre-" + id, head = `<div class="row"><a class="iconbtn" href="${back}" aria-label="Fermer">${I.x}</a><div class="grow" style="text-align:center;font-weight:800">Écouter</div><span style="width:44px"></span></div>`;
-    if (!("speechSynthesis" in window)) { app.innerHTML = head + `<div class="card done"><p class="muted">Ton navigateur ne sait pas lire à voix haute.</p><a class="btn" href="${back}">Retour</a></div>`; return; }
+    if (!("speechSynthesis" in window) && !neuralWanted()) { app.innerHTML = head + `<div class="card done"><p class="muted">Ton navigateur ne sait pas lire à voix haute.</p><a class="btn" href="${back}">Retour</a></div>`; return; }
     const [cards, sum, src] = await Promise.all([chapterCards(id), sb.from("summaries").select("markdown").eq("chapter_id", id).maybeSingle(), sb.from("sources").select("extracted_text").eq("chapter_id", id)]);
     const clean = s => String(s || "").replace(/[#*_>`]/g, "").replace(/\s+/g, " ").trim();
     const parts = { resume: sum.data ? String(sum.data.markdown).split(/\n+/).map(clean).filter(Boolean) : [], cartes: cards.flatMap(c => [clean(c.front), clean(c.back)]), cours: (src.data || []).map(x => x.extracted_text || "").join("\n").replace(/\[\[PAGE\]\]/g, "\n").split(/(?<=[.!?])\s+|\n+/).map(clean).filter(x => x.length > 2) };
@@ -2174,9 +2190,7 @@
       const list = parts[L.what]; if (L.i >= list.length) { L.playing = false; L.i = 0; return draw(); }
       if (L.sleepAt && Date.now() > L.sleepAt) { L.playing = false; L.sleepAt = 0; L.sleep = 0; return draw(); }
       safeSet("merge.ecoute." + id, L.what + ":" + L.i);
-      const u = utter(list[L.i], lang, L.rate);
-      u.onend = () => { if (!L.playing) return; L.i++; speak(); }; u.onerror = () => { L.playing = false; draw(); };
-      speechSynthesis.cancel(); speechSynthesis.speak(u); draw();
+      speakText(list[L.i], lang, () => { if (!L.playing) return; L.i++; speak(); }, L.rate); draw();
     }
     function draw() {
       const list = parts[L.what];
@@ -2186,12 +2200,12 @@
           <div class="row" style="justify-content:center"><button class="btn ghost sm" id="prevp">Précédent</button><button class="btn" id="play">${L.playing ? "Pause" : "Lire"}</button><button class="btn ghost sm" id="nextp">Suivant</button></div></div>
         <div class="field"><span class="label">Vitesse</span><div class="chips">${[0.75, 1, 1.25, 1.5].map(r => `<button class="chip" data-r="${r}" aria-pressed="${L.rate === r}">${String(r).replace(".", ",")}x</button>`).join("")}</div></div>
         <div class="field"><span class="label">Arrêt automatique</span><div class="chips">${[[0, "Jamais"], [15, "15 min"], [30, "30 min"]].map(t => `<button class="chip" data-sl="${t[0]}" aria-pressed="${L.sleep === t[0]}">${t[1]}</button>`).join("")}</div></div>
-        <p class="note">La lecture utilise la voix de ton appareil et reprend là où tu t'es arrêté. Elle peut s'arrêter si l'écran se verrouille.</p>`;
+        <p class="note">${neuralWanted() ? "Lecture avec la voix Merge (la voix de ton appareil prend le relais hors ligne)." : "Lecture avec la voix de ton appareil."} Elle reprend là où tu t'es arrêté.</p>`;
       app.querySelectorAll("[data-sl]").forEach(b => b.onclick = () => { L.sleep = +b.dataset.sl; L.sleepAt = L.sleep ? Date.now() + L.sleep * 60000 : 0; draw(); });
-      $("play").onclick = () => { L.playing = !L.playing; if (L.playing) speak(); else { speechSynthesis.cancel(); draw(); } };
+      $("play").onclick = () => { L.playing = !L.playing; if (L.playing) speak(); else { stopSpeak(); draw(); } };
       $("prevp").onclick = () => { L.i = Math.max(0, L.i - 1); L.playing ? speak() : draw(); };
       $("nextp").onclick = () => { L.i = Math.min(Math.max(0, list.length - 1), L.i + 1); L.playing ? speak() : draw(); };
-      app.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { L.what = b.dataset.w; L.i = 0; L.playing = false; speechSynthesis.cancel(); draw(); });
+      app.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { L.what = b.dataset.w; L.i = 0; L.playing = false; stopSpeak(); draw(); });
       app.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { L.rate = +b.dataset.r; L.playing ? speak() : draw(); });
     }
     draw();
@@ -2254,13 +2268,43 @@
   function utter(t, lang, rate) { const u = new SpeechSynthesisUtterance(t); u.lang = lang || "fr-FR"; const v = pickVoice(u.lang); if (v) { u.voice = v; u.lang = v.lang; } u.rate = (rate || 1) * voiceRate(); return u; }
   if ("speechSynthesis" in window) { try { speechSynthesis.getVoices(); } catch (e) { /* voix chargées plus tard */ } }
   // Les longues phrases sont lues par morceaux : certaines voix en ligne se coupent après une quinzaine de secondes.
-  function speakText(t, lang, onend) {
+  // Lecture à voix haute. Voix Merge (Laomedeia, fonction `voix`, chaque phrase gardée sur le serveur) si elle est disponible,
+  // sinon voix de l'appareil : hors ligne, API pas encore activée, ou quota gratuit du mois atteint.
+  const spk = { el: null, token: 0, down: 0 };
+  const neuralWanted = () => safeGet("merge.vengine") !== "appareil";
+  const spkUrls = new Map();
+  async function neuralUrl(text, lang) {
+    const k = (lang || "fr") + "|" + text; if (spkUrls.has(k)) return spkUrls.get(k);
+    const { data, error } = await sb.functions.invoke("voix", { body: { text, lang: (lang || "fr").slice(0, 2) } });
+    if (error || !data || !(data.url || data.audio)) { spk.down = Date.now(); throw new Error("voix"); }
+    const url = data.url || ("data:audio/mpeg;base64," + data.audio); spkUrls.set(k, url); return url;
+  }
+  function stopSpeak() { spk.token++; try { if ("speechSynthesis" in window) speechSynthesis.cancel(); } catch (e) { /* rien */ } if (spk.el) { spk.el.pause(); spk.el.onended = null; } }
+  function speakTextDevice(t, lang, onend, rate) {
     if (!("speechSynthesis" in window)) { if (onend) onend(); return; }
-    t = /[$\\]/.test(String(t)) ? texPlain(t).replace(/\(([^()]*)\)\/\(([^()]*)\)/g, "$1 sur $2") : String(t);
     const bits = String(t).match(/[^.!?;:\n]+[.!?;:]*\s*/g) || [String(t)], chunks = []; let cur = "";
     bits.forEach(b => { if ((cur + b).length > 180 && cur.trim()) { chunks.push(cur); cur = ""; } cur += b; }); if (cur.trim()) chunks.push(cur);
     speechSynthesis.cancel(); let k = 0, over = false; const end = () => { if (!over) { over = true; if (onend) onend(); } };
-    const next = () => { if (over) return; if (k >= chunks.length) return end(); const u = utter(chunks[k++], lang); u.onend = next; u.onerror = end; speechSynthesis.speak(u); };
+    const next = () => { if (over) return; if (k >= chunks.length) return end(); const u = utter(chunks[k++], lang, rate); u.onend = next; u.onerror = end; speechSynthesis.speak(u); };
+    next();
+  }
+  function speakText(t, lang, onend, rate) {
+    stopSpeak(); const my = spk.token;
+    t = /[$\\]/.test(String(t)) ? texPlain(t).replace(/\(([^()]*)\)\/\(([^()]*)\)/g, "$1 sur $2") : String(t);
+    const useNeural = neuralWanted() && state.user && !state.offline && navigator.onLine !== false && Date.now() - spk.down > 600000;
+    if (!useNeural) return speakTextDevice(t, lang, onend, rate);
+    const bits = t.match(/[^.!?;:\n]+[.!?;:]*\s*/g) || [t], chunks = []; let cur = "";
+    bits.forEach(b => { if ((cur + b).length > 900 && cur.trim()) { chunks.push(cur.trim()); cur = ""; } cur += b; }); if (cur.trim()) chunks.push(cur.trim());
+    let k = 0, over = false; const end = () => { if (!over && my === spk.token) { over = true; if (onend) onend(); } };
+    const fallback = () => { if (my !== spk.token) return; speakTextDevice(chunks.slice(k).join(" "), lang, end, rate); };
+    const next = async () => {
+      if (my !== spk.token) return; if (k >= chunks.length) return end();
+      let url; try { url = await neuralUrl(chunks[k], lang); } catch (e) { return fallback(); }
+      if (my !== spk.token) return; k++;
+      if (k < chunks.length) neuralUrl(chunks[k], lang).catch(() => {});
+      const a = spk.el || (spk.el = new Audio()); a.src = url; a.playbackRate = rate || voiceRate(); a.onended = next; a.onerror = () => { k--; fallback(); };
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => { k--; fallback(); });
+    };
     next();
   }
   const chLang = ch => (!ch.lang || ch.lang.startsWith("fr")) ? "fr-FR" : ch.lang;
@@ -2531,7 +2575,7 @@
       const stop = () => { if (!on) return; on = false; secs = Math.max(1, Math.round((Date.now() - t0) / 1000)); try { rec.stop(); } catch (e) { /* déjà arrêté */ } if ($("mic")) { $("mic").innerHTML = I.mic + "Recommencer ma réponse"; $("mic").classList.remove("rec"); } if ($("trt")) { $("trt").value = final.trim(); $("trf").hidden = false; $("done").hidden = false; } };
       if (Rec) $("mic").onclick = () => {
         if (on) return stop();
-        if ("speechSynthesis" in window) speechSynthesis.cancel();
+        stopSpeak();
         try {
           rec = new Rec(); rec.lang = chLang(ch); rec.continuous = true; rec.interimResults = true; final = "";
           rec.onresult = (ev) => { let interim = ""; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) final += ev.results[k][0].transcript + " "; else interim += ev.results[k][0].transcript; } if ($("tr")) $("tr").innerHTML = esc(final) + `<i>${mx(interim)}</i>`; };
@@ -2680,7 +2724,7 @@
       else speakText(c.back, lang, () => { if (!live()) return; B.timer = setTimeout(() => { if (!live()) return; B.i = (B.i + 1) % B.list.length; B.phase = "q"; if (B.i === 0) { pause(); return draw(); } step(); }, 1200); });
     }
     function play() { B.playing = true; try { B.audio = B.audio || silentAudio(); B.audio.play().catch(() => {}); } catch (e) { /* pas d'audio de fond */ } step(); }
-    function pause() { B.playing = false; B.token++; clearTimeout(B.timer); speechSynthesis.cancel(); if (B.audio) B.audio.pause(); meta(); }
+    function pause() { B.playing = false; B.token++; clearTimeout(B.timer); stopSpeak(); if (B.audio) B.audio.pause(); meta(); }
     function move(d) { const was = B.playing; pause(); B.i = (B.i + d + B.list.length) % B.list.length; B.phase = "q"; was ? play() : draw(); }
     function draw() {
       if (!location.hash.startsWith("#bus-")) return; const c = B.list[B.i];
@@ -2954,7 +2998,7 @@
     drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
     screenSession.key = null;
     if (busStop) busStop();
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
+    stopSpeak();
     if (h === "matieres") screenSubjects();
     else if (h === "erreurs") screenMistakes(null);
     else if (h.startsWith("erreurs-")) screenMistakes(arg);

@@ -37,9 +37,10 @@ Deno.serve(async (req) => {
       users.push(...data.users);
       if (data.users.length < 200) break;
     }
-    const [prof, st] = await Promise.all([
+    const [prof, st, tts] = await Promise.all([
       admin.from("profiles").select("user_id,display_name,classe,created_at,last_seen_at,last_seen_place"),
       admin.rpc("admin_user_stats", { p_day: day, p_week: iso(wk), p_month: iso(mo) }),
+      admin.from("tts_usage").select("chars,files").eq("month", day.slice(0, 7)).maybeSingle(),
     ]);
     if (st.error) throw st.error;
     const P: Record<string, Any> = {}; (prof.data ?? []).forEach((p: Any) => (P[p.user_id] = p));
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
         screen: t, ai: a, cards: n(r.cards), chapters: n(r.chapters),
       };
     }).sort((x: Any, y: Any) => String(y.last_seen_at ?? "").localeCompare(String(x.last_seen_at ?? "")));
-    return json({ users: out, generated_at: new Date().toISOString() });
+    return json({ users: out, voix: { chars: Number(tts.data?.chars ?? 0), files: Number(tts.data?.files ?? 0), limit: Number(Deno.env.get("TTS_MONTHLY_FREE") ?? "950000") }, generated_at: new Date().toISOString() });
   } catch (e) {
     console.error(e);
     return json({ error: "erreur", detail: String((e as Error).message).slice(0, 300) }, 500);

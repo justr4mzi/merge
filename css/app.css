@@ -801,3 +801,12 @@ label.btn{display:inline-flex;align-items:center;cursor:pointer}
 /* Petits écrans (320 px) : les onglets défilent au lieu de déborder */
 .seg{overflow-x:auto;scrollbar-width:none;gap:16px}.seg::-webkit-scrollbar{display:none}.seg button{flex:none;white-space:nowrap}
 @media (max-width:360px){.seg{gap:12px}}
+/* Pas de barre de défilement visible (le défilement marche toujours : doigt, molette, pavé tactile) */
+html,body,*{scrollbar-width:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0;height:0;display:none}
+/* Bouton retour flottant : apparaît quand on remonte dans une longue page */
+.floatback{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:color-mix(in srgb,var(--card) 55%,transparent);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 18px rgba(0,0,0,.18);opacity:0;transform:translateY(-8px) scale(.92);pointer-events:none;transition:opacity .22s ease,transform .22s ease}
+.floatback.on{opacity:.85;transform:none;pointer-events:auto}
+.floatback:hover{opacity:1}
+@media (min-width:900px){body.nav .floatback{left:272px}}
+@media (prefers-reduced-motion:reduce){.floatback{transition:none}}
