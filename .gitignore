@@ -1,2 +1,7 @@
 tests/captures/
 node_modules/
+
+# Fichiers locaux
+.DS_Store
+Thumbs.db
+*.log

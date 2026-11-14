@@ -6,34 +6,34 @@ The interface is in French. It works on phones (installable as a PWA) and on des
 
 ## Features
 
-- **Onboarding**: name, class, subjects, then the next exam date for each subject picked on a month-view calendar, with a "no exam, free revision" switch.
-- **Import**: PDF, photos (printed or handwritten, HEIC included), PowerPoint (`.pptx`, `.ppsx`, legacy `.ppt`), LibreOffice (`.odp`, `.odt`), Word (`.docx`), `.rtf`, `.txt`, `.md`, pasted text, or the phone camera. Any number of files, up to 400 pages per import. Everything is converted in the browser: text-only PDF pages and office documents are extracted locally (slide text, speaker notes, footnotes), and scanned pages, photos and pictures embedded in slides or documents are transcribed by the AI. Legacy `.ppt` yields text only; `.doc`, Keynote and Pages files must be exported to PDF first.
-- **Server-side import**: the browser reads the files and uploads only the pages that need the model; the `studio` edge function then runs the import as a job (`import_jobs` table) that advances step by step, so it continues when the app is closed. A push notification announces the result. The app shows a progress bar with stages and a time estimate, resumes interrupted jobs and picks up finished ones at startup.
-- **Study modes hub**: every mode has a one-line description, an info sheet explaining how it works and what it costs in model calls, and a star to pin it as a favourite. "Free request" lets the student ask for anything (a plan, trick questions, a story) built only from the lesson.
-- **Planning and motivation**: day-by-day revision plan up to each exam (least mastered chapters first), push reminder the day before an exam, levels and points, earned-badge pop-ups, one streak freeze per week, weekly review, "resume where you stopped".
-- **Study comfort**: quick search (Ctrl+K, magnifier on phones), Pomodoro timer shown while studying, optional "type my answer before flipping" mode, "too easy" and "review soon" ratings, personal note on a card, highlights in the summary, per-chapter statistics, image occlusion on lesson pages, background music, install guide.
-- **Voice**: read-aloud picks the most natural installed voice; voice and speed can be changed in Settings.
-- **Subjects per class**: the onboarding suggests the subjects of the chosen class (STI2D, STMG, ST2S, STL, general tracks), lets the student add their own, and suggests names already created by students of the same class (`shared_subject_names` returns names only). 24 preset colours plus a free colour picker.
-- **Organisation**: subjects (one colour each), folders inside a subject (for example "Theme 1: Genetics"), chapters inside folders. A folder has four tabs: Summaries, Flashcards, Quizzes, Tests.
-- **Summary**: the purpose and key notions of the chapter, with "shorten" and "more detail" buttons. Editable by hand.
-- **Flashcards**: 10 to 100 cards per import. Each card keeps the sentence of the lesson that justifies it. A card marked wrong goes back into the session queue until it is answered right. A quiz is offered halfway through. At 100 % mastery the chapter test unlocks.
-- **AI study modes** (generated once per chapter, then cached): quiz (multiple choice or written), full test, spot-the-mistakes, commonly confused notions with a comparison table, guided exercises with two hints and a worked solution, interactive mind map (pure SVG: zoom, pan, collapsible branches), cloze test, one-page A4 revision sheet.
-- **AI feedback modes** (one call per use): blurting (recall everything, then see what was right, forgotten or wrong), Feynman check, AI teacher chat limited to the lesson with "make it concrete" analogies, oral questioning with speech recognition, "why?" explanations in the mistakes notebook, a mnemonic when a card is missed twice.
-- **Modes without AI**: boss fight, 60-second flash round with combo multipliers, hands-free audio player (question, pause, answer; Media Session controls), match, true or false, learn, mock exam, printable A4 card sheets (double-sided or fold-over).
-- **Progress**: daily streak, daily goal, 14-day chart, quiz marks, mistakes notebook, focus timer, badges.
-- **Duo**: two people can share their study statistics with an invitation code. Lessons, summaries and cards always stay private.
-- **Settings**: light, dark or system theme, text size, sounds, reminders, archives, data deletion.
+- **Onboarding**: name, class, subjects (suggested for the chosen class, plus names already used by students of the same class), then the next exam date for each subject, with a "no exam, free revision" switch.
+- **Import**: PDF, photos (printed or handwritten, HEIC included), PowerPoint (`.pptx`, `.ppsx`, legacy `.ppt`), LibreOffice (`.odp`, `.odt`), Word (`.docx`), `.rtf`, `.txt`, `.md`, pasted text or the phone camera, up to 400 pages per import. Text is extracted in the browser; scanned pages and pictures are transcribed by the AI. The `studio` Edge Function runs the import as a server-side job, so it continues when the app is closed, and a push notification announces the result. A chapter can be named automatically from the imported lesson.
+- **Organisation**: subjects (one colour each), folders inside a subject, chapters inside folders. Add and settings buttons sit in the top-right corner of each subject and folder. A folder opens on its Chapters tab, then Summaries, Flashcards, Quizzes and Tests.
+- **Summary and flashcards**: a summary of the chapter's purpose and key notions, and 10 to 100 cards per import, each keeping the sentence of the lesson that justifies it. Spaced repetition with FSRS, an undo button for a mistaken answer, and a chapter test that unlocks at 100 % mastery.
+- **AI study modes** (generated once per chapter, then cached): quiz, full test, spot-the-mistakes, commonly confused notions, guided exercises, interactive mind map, cloze test (with believable wrong options), one-page A4 revision sheet, written test. Every mode can be regenerated at the end.
+- **AI feedback modes**: blurting, Feynman check, AI teacher limited to the lesson, oral questioning with speech recognition ("Khôlle"), "why?" explanations, mnemonics.
+- **Modes without AI**: boss fight, 60-second flash round, hands-free audio, match, true or false (with lookalike traps), learn, mock exam, printable card sheets. Printing works in the installed iPhone app too (the sheet is turned into a PDF and shared).
+- **Reminders**: daily reminder only if the student has not studied yet that day, a "your streak ends tonight" reminder at 9 pm, exam reminders (one week, three days, the day before, the morning of the exam). Synced settings: reminders on or off, quiet weekends, quiet school holidays (French zones A, B, C).
+- **Motivation**: levels, points, badges, daily streak with one freeze per week, a weekly chart that stays readable on light days, and a **shop**: coins earned by studying (1 per right answer, 10 per mastered chapter, a bonus per level) buy themes, animated backgrounds, mascot outfits, flashcard styles, streak flame colours, titles and surprise chests. Each new level gives coins, a free item and a chest every five levels.
+- **Real gifts (optional)**: a list of real-life rewards (in `GIFTS`, `js/app.js`) shown only to accounts enabled in the admin page. Claiming one shows a voucher to screenshot and send, and the request appears in the admin page until it is marked as given.
+- **Study comfort**: quick search, adjustable Pomodoro or free timer, background music with artwork, read-aloud, highlights, personal notes, statistics, image occlusion.
+- **Duo**: two students share their study statistics with an invitation code, a copy button or a share link that opens the app with the code filled in. Lessons and cards stay private.
+- **Admin page** (`/admin`, password protected): students, screen time, AI usage, and real gift access and requests.
 
 ## How it works
 
 Merge is a static site (plain HTML, CSS and JavaScript, no build step, no framework) that talks to a Supabase project.
 
 ```
-Browser (static site)
+Browser (static site, installable PWA)
   ├─ Supabase Auth        Google sign-in
   ├─ Supabase Postgres    data, protected by Row Level Security
-  └─ Supabase Edge Function "ai"
-        └─ Gemini on Google Vertex AI
+  └─ Supabase Edge Functions
+        ├─ ai        prompts and calls to Gemini on Google Vertex AI
+        ├─ studio    server-side imports and free requests
+        ├─ remind    push reminders (called every 15 minutes by pg_cron)
+        ├─ voix      natural read-aloud voice
+        └─ admin     data for the admin page
 ```
 
 - **Code layout**: all application code is one IIFE in `js/app.js`. Each screen is a `screenXxx` function and `route()` picks the screen from the URL hash.
@@ -46,32 +46,43 @@ Browser (static site)
 
 ```
 index.html                  entry page
+admin/index.html            admin page (password checked by the admin Edge Function)
+privacy.html                privacy page
 css/app.css                 design tokens (light and dark), components, print styles
-js/config.js                app name, Supabase URL and publishable key, limits, contact link
-js/app.js                   the whole app: screens, routing, import, study modes
+js/config.js                app name, Supabase URL and publishable key, VAPID public key, music list, contact link
+js/app.js                   the whole app: screens, routing, import, study modes, shop
 vendor/                     third-party libraries, bundled (no CDN needed)
-icons/                      app icons
+icons/, images/, audio/     app icons, music artwork, background music
 manifest.webmanifest        PWA manifest
-sw.js                       service worker (caches the app shell, push reminders)
-supabase/functions/ai/      source of the deployed Edge Function
-supabase/migrations/        SQL migrations added since v6 (earlier ones live in the Supabase project)
+sw.js                       service worker (app shell cache, push notifications)
+supabase/functions/         source of the deployed Edge Functions (ai, studio, remind, voix, admin)
+supabase/migrations/        SQL migrations added since v6 (earlier tables live in the Supabase project)
 supabase/optional/          SQL that is ready but not applied
 tests/                      Playwright suite and an in-memory fake Supabase client
-NOTICE.md                   third-party licences
+tools/                      scripts used to cut the background music into tracks
+DECISIONS.md                log of every product and technical decision, in French
+NOTICE.md                   third-party licences and image credits
 ```
 
 ## Configuration
 
-`js/config.js` holds only public values: the Supabase project URL, its publishable key, the VAPID public key and the "contact the creator" link (`CONTACT_CREATEUR`). No secret belongs in this repository.
+`js/config.js` holds only public values. No secret belongs in this repository.
 
 The Supabase project needs:
 
-1. **The migrations** in `supabase/migrations/` applied (SQL editor or `supabase db push`). Until `20261113040000_v6_dossiers_cache_erreurs.sql` is applied the app falls back to local storage for the cache, the mistakes notebook, mnemonics and the free-revision flag.
-2. **Google sign-in** enabled (Authentication, Providers), and the site address listed in Authentication, URL Configuration (Site URL and Redirect URLs).
-3. **An Edge Function secret** named `GCP_SERVICE_ACCOUNT_JSON`, containing the JSON key of a Google Cloud service account allowed to call Vertex AI.
-4. Optional secrets: `GEMINI_MODEL` (default `gemini-3.8-flash`), `GEMINI_LOCATION` (default `global`), `AI_DAILY_QUOTA` (default `40`).
+1. **The migrations** in `supabase/migrations/`, applied in order (SQL editor or `supabase db push`).
+2. **Google sign-in** enabled (Authentication, Providers), and the site address in Authentication, URL Configuration.
+3. **Edge Function secrets**: `GCP_SERVICE_ACCOUNT_JSON` (JSON key of a Google Cloud service account allowed to call Vertex AI). Optional: `GEMINI_MODEL`, `GEMINI_LOCATION`, `AI_DAILY_QUOTA` (default 40 calls per user and day), `TTS_VOICE`, `TTS_MONTHLY_FREE`.
+4. **A `public.app_secrets` table** (name, value; readable by the service role only) with: `cron` (a random string sent by pg_cron in the `x-cron-secret` header), `vapid_public` and `vapid_private` (Web Push keys; the public one is also in `js/config.js`), and `admin_pw_sha256` (SHA-256 hex digest of the admin password).
+5. **A pg_cron job** that calls the `remind` function every 15 minutes with the `x-cron-secret` header.
 
-Deploy the function with `supabase functions deploy ai --project-ref <ref>`.
+Deploy the functions with `supabase functions deploy <name> --project-ref <ref>`; `ai` keeps JWT verification, the others check their own secret or password.
+
+### Making it your own
+
+- Change the name, colours and links in `js/config.js` and `css/app.css`.
+- Replace the real gifts in `GIFTS` (`js/app.js`) and the allowed list in the `gift_claims` check constraint, or leave them: nobody sees them until an account is enabled in `/admin`.
+- The music and its artwork are listed in `js/config.js`; replace them with tracks and images you are allowed to use (see `NOTICE.md`).
 
 ## Deployment
 
@@ -100,11 +111,11 @@ node -c js/app.js
 node tests/run.js
 ```
 
-`tests/run.js` needs Playwright with Chromium. It serves the repository on a local port, replaces `vendor/supabase.js` with `tests/fake-supabase.js` (in-memory tables and a simulated AI), then checks every screen at 390 px and 1280 px in light and dark themes for horizontal overflow, 44 px minimum button height and JavaScript errors. It also runs the main flows: onboarding, folders, import, a card session up to 100 %, quiz and test, each study mode, the quota-reached path and a database without the v6 migration. Set `SHOTS=<dir>` to choose where screenshots are written.
+`tests/run.js` needs Playwright with Chromium. It serves the repository on a local port, replaces `vendor/supabase.js` with `tests/fake-supabase.js` (in-memory tables and a simulated AI), then checks every screen at 390 px and 1280 px in light and dark themes for horizontal overflow, 44 px minimum button height and JavaScript errors. It also runs the main flows: onboarding, folders, import, a card session up to 100 %, quizzes and tests, each study mode, reminders logic, shop and gifts, Duo links, printing as PDF and the quota-reached path. Set `SHOTS=<dir>` to choose where screenshots are written.
 
 ## Status
 
-Not verified against live services yet: Google sign-in, real Gemini calls, real PDF and HEIC imports, speech recognition and lock-screen audio on iOS. Not built: a natural AI voice, chapter sharing.
+Live in production. Checked by the automated suite only (not on a real device): speech recognition on iOS, printing from the installed iPhone app, and real push notifications for the new reminders.
 
 ## Licence
 
