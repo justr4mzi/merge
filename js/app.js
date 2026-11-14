@@ -107,6 +107,7 @@
     up: svg('<path d="M12 16V5M7 10l5-5 5 5M5 19h14"/>'),
     cal: svg('<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10.5h16M8.5 4v3.5M15.5 4v3.5"/>'),
     chart: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16v-3M12 16V8M15.5 16v-5"/>'),
+    copy: svg('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/>'), share: svg('<path d="M12 15V4M8 8l4-4 4 4"/><path d="M6 12v6a2 2 0 002 2h8a2 2 0 002-2v-6"/>'),
     duo: svg('<circle cx="9" cy="8" r="3.6"/><circle cx="16.5" cy="8.6" r="2.9"/><path d="M3.5 20a5.5 5.5 0 0111 0M14.5 15.3A4.6 4.6 0 0120.5 20"/>'),
     ask: svg('<path d="M5 5h14v10H10l-5 4z"/><path d="M10 8.500a2 2 0 113 1.700c-.6.4-1 .8-1 1.300M12 13.200v.1"/>'),
     subj: svg('<rect x="3.2" y="5.5" width="3.8" height="14.5" rx="1.1"/><rect x="9.2" y="4" width="3.8" height="16" rx="1.1"/><rect x="15.2" y="7.3" width="3.4" height="13" rx="1.1" transform="rotate(-12 15.2 7.3)"/><path d="M3.2 9.5H7M9.2 8H13"/>'),
@@ -141,7 +142,7 @@
   function safeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // Ces clés sont gardées sur l'appareil ET dans le compte (table user_kv) : on retrouve la même chose sur téléphone et sur PC.
   // Restent sur l'appareil seulement : kvts (horodatages), file (révisions en attente d'envoi), cache.* et gen.* (copies de la base), erreurs.* (copie de secours de la table mistakes). Le thème est dans le profil.
-  const SYNC = /^merge\.(fav|typed|resume|pomomute|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|vengine|redresse|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
+  const SYNC = /^merge\.(fav|typed|resume|pomomute|pomocfg|badges|level|voice|rate|lofivol|lofi|cmore|noinstall|tuto|note\..+|hl\..+|occl\..+|hist\..+|time\..+|libre\..+|boss\..+|mnemo\..+|rewards|edt|vengine|redresse|methode\..+|bac\..+|ecoute\..+|flash\..+|jobseen\..+)$/;
   let kvTs = {}, kvQueue = {}, kvTimer = null, kvOff = false, kvAt = 0;
   try { kvTs = JSON.parse(localStorage.getItem("merge.kvts") || "{}") || {}; } catch (e) { kvTs = {}; }
   const kvSaveTs = () => { try { localStorage.setItem("merge.kvts", JSON.stringify(kvTs)); } catch (e) { /* rien */ } };
@@ -613,6 +614,7 @@
     const box = document.getElementById("musicbox"); if (!box) return;
     const sel = music.i >= 0 ? music.i : Math.max(0, Math.min(LOFI.length - 1, parseInt(safeGet("merge.lofi"), 10) || 0)), t = music.i === sel ? curTrack() : null, n = music.i === sel ? nextTrack() : null;
     box.innerHTML = `<div class="chips" role="group" aria-label="Ambiance">${LOFI.map((p, i) => `<button class="chip" data-pl="${i}" aria-pressed="${i === sel}">${esc(p.nom)}</button>`).join("")}</div>
+      ${(() => { const im = LOFI[sel].images || [], k = music.order.length && music.i === sel ? music.order[music.pos] : 0; return im.length ? `<div class="np-art${music.on ? " on" : ""}" aria-hidden="true"><img src="images/lofi/${esc(im[k % im.length])}.jpg" alt="" decoding="async"></div>` : ""; })()}
       <div class="nowplay card pad stack"><span class="small muted">${music.on ? "En lecture" : t ? "En pause" : esc(LOFI[sel].nom) + " · " + plural(LOFI[sel].tracks.length, "morceau", "morceaux")}</span>
         <b class="np-t">${t ? esc(t.t) : "Un morceau au hasard"}</b><span class="muted np-a">${t ? esc(t.a || LOFI[sel].nom) : "Toujours depuis le début du morceau"}</span>
         <div class="np-bar"><i id="mprog" style="width:${t && music.el && music.el.duration ? (music.el.currentTime / music.el.duration * 100).toFixed(1) : 0}%"></i></div>
@@ -753,30 +755,67 @@
   }
   document.addEventListener("keydown", e => { if ((e.key === "k" || e.key === "K") && (e.ctrlKey || e.metaKey) && state.profile && state.profile.onboarded_at) { e.preventDefault(); quickSearch(); } });
   // Pomodoro : 25 minutes de travail, 5 de pause, affiché dans une pastille pendant que tu révises.
-  const pomo = { on: false, phase: "work", left: 1500, int: null, wasMusic: false };
+  // Pomodoro réglable (durées de travail et de pause) ou minuteur libre. Réglages synchronisés (merge.pomocfg).
+  // Le décompte part de l'heure de fin (endAt) : il reste juste même si l'iPhone met l'appli en pause en arrière-plan.
+  const POMO_DEF = { mode: "pomo", work: 25, brk: 5, timer: 20 };
+  const pomoCfg = () => { const c = Object.assign({}, POMO_DEF, jget("merge.pomocfg", {})); c.mode = c.mode === "timer" ? "timer" : "pomo"; c.work = Math.min(90, Math.max(5, +c.work || 25)); c.brk = Math.min(30, Math.max(1, +c.brk || 5)); c.timer = Math.min(180, Math.max(1, +c.timer || 20)); return c; };
+  const pomoFull = () => { const c = pomoCfg(); return (c.mode === "timer" ? c.timer : pomo.phase === "pause" ? c.brk : c.work) * 60; };
+  const pomo = { on: false, phase: "work", left: 1500, int: null, wasMusic: false, endAt: 0 };
+  pomo.left = pomoFull();
   function pomoPaint() {
-    let chip = document.getElementById("pomochip"); const show = pomo.on || pomo.left !== 1500 || pomo.phase !== "work";
+    const c = pomoCfg(), full = pomoFull();
+    let chip = document.getElementById("pomochip"); const show = pomo.on || pomo.left !== full || pomo.phase !== "work";
     if (!chip && show) { chip = document.createElement("button"); chip.id = "pomochip"; chip.className = "pomochip"; chip.setAttribute("data-pomo", ""); document.body.appendChild(chip); }
     document.body.classList.toggle("pomo", show);
-    if (chip) { chip.hidden = !show; chip.classList.toggle("pause", pomo.phase === "pause"); chip.innerHTML = I.clock + "<span>" + (pomo.phase === "work" ? "Travail " : "Pause ") + fmtT(pomo.left) + (pomo.on ? "" : " (arrêté)") + "</span>"; }
-    const c = document.getElementById("pclock"); if (c) { c.textContent = fmtT(pomo.left); document.getElementById("pphase").textContent = pomo.phase === "work" ? "Travail : 25 minutes sans distraction." : "Pause : 5 minutes. Lève-toi, bois un verre d'eau."; document.getElementById("pgo").textContent = pomo.on ? "Mettre en pause" : "Démarrer"; }
+    const label = c.mode === "timer" ? "Minuteur " : pomo.phase === "work" ? "Travail " : "Pause ";
+    if (chip) { chip.hidden = !show; chip.classList.toggle("pause", pomo.phase === "pause"); chip.innerHTML = I.clock + "<span>" + label + fmtT(pomo.left) + (pomo.on ? "" : " (arrêté)") + "</span>"; }
+    const k = document.getElementById("pclock");
+    if (k) {
+      k.textContent = fmtT(pomo.left);
+      document.getElementById("pphase").textContent = c.mode === "timer" ? `Minuteur de ${c.timer} minute${c.timer > 1 ? "s" : ""}.` : pomo.phase === "work" ? `Travail : ${c.work} minutes sans distraction.` : `Pause : ${c.brk} minute${c.brk > 1 ? "s" : ""}. Lève-toi, bois un verre d'eau.`;
+      document.getElementById("pgo").textContent = pomo.on ? "Mettre en pause" : pomo.left < full ? "Reprendre" : "Démarrer";
+      document.querySelectorAll("#pomoset button").forEach(b => { b.disabled = pomo.on; });
+    }
   }
+  function pomoStop() { clearInterval(pomo.int); pomo.int = null; pomo.on = false; }
   function pomoTick() {
-    if (--pomo.left <= 0) {
-      const toBreak = pomo.phase === "work"; pomo.phase = toBreak ? "pause" : "work"; pomo.left = (toBreak ? 5 : 25) * 60;
-      toast(toBreak ? "Pause de 5 minutes. Tu l'as méritée." : "C'est reparti pour 25 minutes."); impNotify("Merge.", toBreak ? "Pause de 5 minutes." : "La pause est finie : 25 minutes de travail.");
-      if (jget("merge.pomomute", true)) { if (toBreak && music.on) { pomo.wasMusic = true; musicStop(); } else if (!toBreak && pomo.wasMusic) { pomo.wasMusic = false; musicPlay(music.i); } }
+    pomo.left = Math.max(0, Math.ceil((pomo.endAt - Date.now()) / 1000));
+    if (pomo.left <= 0) {
+      const c = pomoCfg();
+      if (c.mode === "timer") { pomoStop(); pomo.left = pomoFull(); toast("Minuteur terminé."); impNotify("Merge.", `Ton minuteur de ${c.timer} minute${c.timer > 1 ? "s" : ""} est terminé.`); }
+      else {
+        const toBreak = pomo.phase === "work"; pomo.phase = toBreak ? "pause" : "work"; pomo.left = pomoFull(); pomo.endAt = Date.now() + pomo.left * 1000;
+        toast(toBreak ? `Pause de ${c.brk} minute${c.brk > 1 ? "s" : ""}. Tu l'as méritée.` : `C'est reparti pour ${c.work} minutes.`); impNotify("Merge.", toBreak ? `Pause de ${c.brk} minute${c.brk > 1 ? "s" : ""}.` : `La pause est finie : ${c.work} minutes de travail.`);
+        if (jget("merge.pomomute", true)) { if (toBreak && music.on) { pomo.wasMusic = true; musicStop(); } else if (!toBreak && pomo.wasMusic) { pomo.wasMusic = false; musicPlay(music.i); } }
+      }
     }
     pomoPaint();
   }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && pomo.on) pomoTick(); });
   function pomoSheet() {
-    sheet(`<div class="row"><span class="mico big">${I.clock}</span><h1>Pomodoro</h1></div><div class="big pclock" id="pclock">${fmtT(pomo.left)}</div><p class="muted" id="pphase"></p>
+    const c = pomoCfg();
+    const step = (id, label, v, unit) => `<div class="pstep"><span>${label}</span><button class="iconbtn" data-ps="${id}" data-d="-1" aria-label="${label} : moins">${I.minus}</button><b id="pv-${id}">${v} ${unit}</b><button class="iconbtn" data-ps="${id}" data-d="1" aria-label="${label} : plus">${I.plus}</button></div>`;
+    const presets = c.mode === "timer" ? [[5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [45, "45 min"], [60, "1 h"]].map(p => `<button class="chip" data-pt="${p[0]}" aria-pressed="${c.timer === p[0]}">${p[1]}</button>`).join("")
+      : [[25, 5, "25 / 5"], [50, 10, "50 / 10"], [15, 3, "15 / 3"], [45, 15, "45 / 15"]].map(p => `<button class="chip" data-pp="${p[0]}-${p[1]}" aria-pressed="${c.work === p[0] && c.brk === p[1]}">${p[2]}</button>`).join("");
+    sheet(`<div class="row"><span class="mico big">${I.clock}</span><h1>${c.mode === "timer" ? "Minuteur" : "Pomodoro"}</h1></div>
+      <div class="seg" role="tablist" aria-label="Type de minuteur"><button role="tab" data-pmode="pomo" aria-selected="${c.mode === "pomo"}">Pomodoro</button><button role="tab" data-pmode="timer" aria-selected="${c.mode === "timer"}">Minuteur</button></div>
+      <div class="big pclock" id="pclock">${fmtT(pomo.left)}</div><p class="muted" id="pphase"></p>
       <div class="row"><button class="btn grow" id="pgo">Démarrer</button><button class="btn ghost" id="prs">Remettre à zéro</button></div>
-      <button class="switch" id="pmute" role="switch" aria-checked="${jget("merge.pomomute", true)}"><i></i>Couper la musique pendant la pause</button>
-      <p class="note">25 minutes de travail, 5 de pause, et ça recommence. Le minuteur reste affiché pendant que tu révises.</p><button class="btn ghost" data-close>Fermer</button>`, el => {
-      el.querySelector("#pgo").onclick = () => { if (pomo.on) { clearInterval(pomo.int); pomo.int = null; pomo.on = false; } else { pomo.on = true; pomo.int = setInterval(pomoTick, 1000); try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* facultatif */ } } pomoPaint(); };
-      el.querySelector("#prs").onclick = () => { clearInterval(pomo.int); pomo.int = null; pomo.on = false; pomo.phase = "work"; pomo.left = 1500; pomoPaint(); };
-      el.querySelector("#pmute").onclick = (e) => { const b = e.currentTarget, v = b.getAttribute("aria-checked") !== "true"; b.setAttribute("aria-checked", v); jset("merge.pomomute", v); };
+      <div class="stack" id="pomoset">${c.mode === "timer" ? step("timer", "Durée", c.timer, "min") : step("work", "Travail", c.work, "min") + step("brk", "Pause", c.brk, "min")}<div class="chips">${presets}</div></div>
+      ${c.mode === "pomo" ? `<button class="switch" id="pmute" role="switch" aria-checked="${jget("merge.pomomute", true)}"><i></i>Couper la musique pendant la pause</button>` : ""}
+      <p class="note">${c.mode === "timer" ? "Choisis une durée : Merge te prévient quand c'est fini. Le minuteur reste affiché pendant que tu révises." : `${c.work} minutes de travail, ${c.brk} de pause, et ça recommence. Le minuteur reste affiché pendant que tu révises.`} Les durées se règlent quand le minuteur est arrêté.</p><button class="btn ghost" data-close>Fermer</button>`, el => {
+      const save = patch => { jset("merge.pomocfg", Object.assign(pomoCfg(), patch)); if (!pomo.on) { pomo.phase = "work"; pomo.left = pomoFull(); } pomoSheet(); };
+      el.querySelector("#pgo").onclick = () => {
+        if (pomo.on) { pomo.left = Math.max(1, Math.ceil((pomo.endAt - Date.now()) / 1000)); pomoStop(); }
+        else { pomo.on = true; pomo.endAt = Date.now() + pomo.left * 1000; pomo.int = setInterval(pomoTick, 1000); try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) { /* facultatif */ } }
+        pomoPaint();
+      };
+      el.querySelector("#prs").onclick = () => { pomoStop(); pomo.phase = "work"; pomo.left = pomoFull(); pomoPaint(); };
+      el.querySelectorAll("[data-pmode]").forEach(b => b.onclick = () => { if (b.dataset.pmode === pomoCfg().mode) return; pomoStop(); save({ mode: b.dataset.pmode }); });
+      el.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => { const k = b.dataset.ps, cur = pomoCfg()[k], d = +b.dataset.d, inc = k === "brk" ? 1 : k === "timer" && (cur < 10 || (cur === 10 && d < 0)) ? 1 : 5; save({ [k]: cur + d * inc }); });
+      el.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => save({ timer: +b.dataset.pt }));
+      el.querySelectorAll("[data-pp]").forEach(b => b.onclick = () => { const [w, p] = b.dataset.pp.split("-").map(Number); save({ work: w, brk: p }); });
+      const m = el.querySelector("#pmute"); if (m) m.onclick = (e) => { const b = e.currentTarget, v = b.getAttribute("aria-checked") !== "true"; b.setAttribute("aria-checked", v); jset("merge.pomomute", v); };
       pomoPaint();
     });
   }
@@ -798,7 +837,7 @@
     const next = state.subjects.filter(s => s.exam_date && daysUntil(s.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date))[0];
     const ready = state.chapters.filter(c => cardsOf(c.id).length).slice(-4).reverse();
     const lv = xpInfo();
-    const week = lastDays(7, state.sessions), wmax = Math.max(300, ...week.map(x => Math.max(x.seconds, x.cards_reviewed * 20)));
+    const week = lastDays(7, state.sessions);
     const ups = state.subjects.filter(x => x.exam_date && daysUntil(x.exam_date) >= 0).sort((a, b) => a.exam_date.localeCompare(b.exam_date));
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div><span class="grow"></span><span class="homemusic"><button class="iconbtn flat" data-qs aria-label="Recherche rapide">${I.search}</button><button class="iconbtn flat" data-pomo aria-label="Pomodoro">${I.clock}</button>${musicBtn()}</span>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak" title="${plural(st, "jour", "jours")} d'affilée">${plural(st, "jour", "jours")}<span class="stl">&nbsp;d'affilée</span></span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
@@ -808,7 +847,7 @@
       <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
         ${due ? '<a class="btn" href="#cartes-jour">Réviser maintenant</a>' : ""}${state.cards.length > 3 ? `<a class="btn ghost mixbtn" href="#melange">Révision mélangée<span class="small">${state.subjects.some(x => x.exam_date && daysUntil(x.exam_date) >= 0) ? "priorité aux contrôles proches" : "toutes tes matières"}</span></a>` : ""}${due ? "" : `<p class="small muted">${state.cards.length ? "Tu es à jour. Reviens plus tard ou ouvre un chapitre pour t'entraîner." : "Ajoute un chapitre et importe ton cours pour créer tes premières cartes."}</p>`}</div>
-        <div class="card pad week"><div class="row between"><h2>Ta semaine</h2><span class="small muted">${Math.round(week.reduce((x, y) => x + y.seconds, 0) / 60)} min · ${plural(week.reduce((x, y) => x + y.cards_reviewed, 0), "carte", "cartes")}</span></div><div class="wbars">${week.map(x => `<div><i class="${x.seconds || x.cards_reviewed ? "" : "zero"}${x.day === localDay() ? " now" : ""}" style="height:${Math.max(6, Math.round(Math.max(x.seconds, x.cards_reviewed * 20) / wmax * 100))}%"></i><span>${"DLMMJVS"[new Date(x.day + "T00:00:00").getDay()]}</span></div>`).join("")}</div></div>
+        ${weekHtml(week, p)}
         <div class="card pad stack upnext"><div class="row between"><h2>Prochains contrôles</h2><a class="linkbtn" href="#calendrier">Calendrier</a></div>${ups.length ? ups.slice(0, 3).map(x => `<a class="exam" href="#matiere-${x.id}" style="--c:${esc(x.color)}"><span class="jx">${daysUntil(x.exam_date) === 0 ? "Auj." : "J-" + daysUntil(x.exam_date)}</span><span class="grow"><b>${esc(x.name)}</b><span class="small muted">${esc(fmtDate(x.exam_date))}</span></span></a>`).join("") : '<p class="muted small">Aucun contrôle prévu. Place une date dans le calendrier pour avoir un plan de révision.</p>'}</div></div>
       <div class="card stats">${[[I.bolt, st, st > 1 ? "jours d'affilée" : "jour d'affilée", ""], [I.check, state.cards.filter(isMastered).length + " / " + state.cards.length, "cartes maîtrisées", ""], [I.cal, next ? (daysUntil(next.exam_date) === 0 ? "Auj." : "J-" + daysUntil(next.exam_date)) : "Libre", next ? esc(next.name) : "aucun contrôle prévu", ""], [I.spark, homeQuota ? homeQuota.calls : "…", "appels IA aujourd'hui", "hq"]].map((x, i) => `<div class="stat s${i + 1}"><span class="sico">${x[0]}</span><div><b${x[3] ? ` id="${x[3]}"` : ""}>${x[1]}</b><span>${x[2]}</span></div></div>`).join("")}</div>
       ${planTodayHtml()}${installHtml()}
@@ -898,7 +937,7 @@
   }
 
   // ---------- dossier (sous-catégorie) : onglets Résumés, Flashcards, Quiz, Contrôles ----------
-  let groupTab = "resumes";
+  let groupTab = "chapitres"; // onglet ouvert en arrivant dans un dossier : la liste des chapitres
   async function screenGroup(id) {
     const g = state.groups.find(x => x.id === id); if (!g) { location.hash = "#matieres"; return; }
     tabs.hidden = true;
@@ -906,12 +945,13 @@
     const chs = state.chapters.filter(c => c.group_id === id), sums = new Set();
     if (chs.length && !state.offline) { try { const r = await sb.from("summaries").select("chapter_id").in("chapter_id", chs.map(c => c.id)); (r.data || []).forEach(x => sums.add(x.chapter_id)); } catch (e) { /* liste sans résumés */ } }
     if (location.hash !== here) return;
-    const TABS_G = [["resumes", "Résumés"], ["cartes", "Flashcards"], ["quiz", "Quiz"], ["controles", "Contrôles"]];
+    const TABS_G = [["chapitres", "Chapitres"], ["resumes", "Résumés"], ["cartes", "Flashcards"], ["quiz", "Quiz"], ["controles", "Contrôles"]];
     const row = (href, icon, title, sub, c, locked) => `<div class="card rowlink${locked ? " locked" : ""}">${locked ? `<div class="main">${icon}<span><b>${esc(title)}</b><span class="small muted">${sub}</span></span></div>` : `<a class="main" href="${href}">${icon}<span><b>${esc(title)}</b><span class="small muted">${sub}</span></span></a>`}<a class="mini" href="#chapitre-${c.id}" aria-label="Ouvrir le chapitre ${esc(c.name)}">Chapitre</a></div>`;
     function list() {
       if (!chs.length) return '<p class="muted">Ce dossier est vide. Ajoute ton premier chapitre juste en dessous.</p>';
       return chs.map((c, i) => {
         const cs = cardsOf(c.id), m = mastery(cs), n = i + 1;
+        if (groupTab === "chapitres") return chapterRow(c, okColor(g.color) ? g.color : s.color);
         if (groupTab === "resumes") return sums.has(c.id) ? row("#resume-" + c.id, I.sum, "Résumé · " + c.name, "Chapitre " + n, c) : row("#import-" + c.id, I.up, "Résumé · " + c.name, "Importe le cours pour créer le résumé", c);
         if (groupTab === "cartes") return cs.length ? row("#cartes-" + c.id, I.cards, c.name, `${plural(cs.length, "carte", "cartes")} · ${m} % de maîtrise<span class="bar"><i style="width:${m}%"></i></span>`, c) : row("#import-" + c.id, I.up, c.name, "Importe le cours pour créer les cartes", c);
         if (groupTab === "quiz") return cs.length >= 4 ? row("#quiz-" + c.id, I.quiz, "Quiz · " + c.name, "QCM ou réponse rédigée", c) : row("", I.quiz, "Quiz · " + c.name, "Il faut au moins 4 cartes", c, true);
@@ -926,12 +966,13 @@
         <div class="seg" role="tablist" aria-label="Contenu du dossier">${TABS_G.map(t => `<button role="tab" data-gt="${t[0]}" aria-selected="${groupTab === t[0]}">${t[1]}</button>`).join("")}</div>
         <div class="stack" role="tabpanel">${list()}</div>
         ${chapterField("Nouveau chapitre dans ce dossier", "Ex. Chapitre 1 : La mitose")}
-        <div class="card pad stack"><h2>Réglages du dossier</h2>
+        <details class="card fold gset"${safeGet("merge.gset") === "1" ? " open" : ""}><summary><span class="row">${I.gear}<b>Réglages du dossier</b></span>${I.back}</summary><div class="pad stack">
           ${loose.length ? `<div class="field"><label for="mv">Ranger un chapitre existant ici</label><div class="row"><select id="mv">${loose.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn sm" id="mvgo">Ranger</button></div></div>` : ""}
           <div class="field"><label for="gn">Nom du dossier</label><div class="row"><input id="gn" type="text" maxlength="80" value="${esc(g.name)}"><button class="btn sm" id="gren">Renommer</button></div></div>
           <div class="field"><span class="label">Couleur du dossier</span><div id="gcol">${colorPick(okColor(g.color) ? g.color : s.color)}</div></div>
-          <button class="btn sm ghost" id="gdel" style="align-self:flex-start">Supprimer le dossier</button><p class="note">Supprimer le dossier ne supprime pas ses chapitres : ils reviennent dans la matière.</p></div>`;
+          <button class="btn sm ghost" id="gdel" style="align-self:flex-start">Supprimer le dossier</button><p class="note">Supprimer le dossier ne supprime pas ses chapitres : ils reviennent dans la matière.</p></div></details>`;
       app.querySelectorAll("[data-gt]").forEach(b => b.onclick = () => { groupTab = b.dataset.gt; draw(); });
+      app.querySelector(".gset").ontoggle = e => safeSet("merge.gset", e.target.open ? "1" : "0");
       wireChapterField(g.subject_id, id);
       if ($("mvgo")) $("mvgo").onclick = async () => { const r = await sb.from("chapters").update({ group_id: id }).eq("id", $("mv").value); if (r.error) return fail(r.error, "Chapitre non rangé"); await loadAll(); screenGroup(id); };
       wireColor($("gcol"), async c => { const r = await sb.from("groups").update({ color: c }).eq("id", id); if (r.error) return fail(r.error, "Couleur non enregistrée"); g.color = c; toast("Couleur du dossier enregistrée."); });
@@ -2157,6 +2198,25 @@
   }
 
   // ---------- progrès ----------
+  // « Ta semaine » sur l'accueil : une colonne par jour sur un fond toujours visible, hauteur rapportée à l'objectif du jour
+  // (au moins 26 % dès qu'on a révisé, pour qu'un petit jour reste bien visible), nombre de cartes au-dessus, coche si objectif atteint.
+  function weekHtml(week, p) {
+    const byMin = p.daily_goal_kind === "minutes", goal = Math.max(1, +p.daily_goal_value || (byMin ? 15 : 20));
+    const val = x => byMin ? x.seconds / 60 : x.cards_reviewed, today = localDay();
+    const peak = Math.max(goal, ...week.map(val)), active = week.filter(x => x.seconds || x.cards_reviewed).length;
+    const cards = week.reduce((a, x) => a + x.cards_reviewed, 0), mins = Math.round(week.reduce((a, x) => a + x.seconds, 0) / 60);
+    const msg = active === 0 ? "Ta semaine commence ici : une petite session suffit pour lancer la série." : active === 1 ? "Un bon début. Vise 3 jours cette semaine, même courts." : active < 4 ? `${active} jours actifs. Encore ${4 - active} et tu tiens un vrai rythme.` : active < 7 ? `${active} jours sur 7, belle régularité.` : "7 jours sur 7, semaine parfaite.";
+    const cols = week.map(x => {
+      const v = val(x), on = !!(x.seconds || x.cards_reviewed), hit = v >= goal, isT = x.day === today, d = new Date(x.day + "T00:00:00");
+      const h = on ? Math.max(26, Math.round(v / peak * 100)) : 0;
+      return `<div class="wcol${isT ? " now" : ""}${hit ? " hit" : ""}" title="${esc(d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))} : ${plural(x.cards_reviewed, "carte", "cartes")}, ${Math.round(x.seconds / 60)} min">
+        <span class="wv">${on ? (hit ? I.check : "") + (x.cards_reviewed ? x.cards_reviewed : Math.round(x.seconds / 60) + " min") : ""}</span>
+        <div class="wtrack"><i style="height:${h}%"></i>${on ? "" : "<b></b>"}</div><span class="wd">${isT ? "Auj." : "DLMMJVS"[d.getDay()]}</span></div>`;
+    }).join("");
+    return `<div class="card pad week"><div class="row between"><h2>Ta semaine</h2><span class="small muted">${plural(active, "jour actif", "jours actifs")} · ${plural(cards, "carte", "cartes")} · ${mins} min</span></div>
+      <div class="wbars" role="img" aria-label="${esc(`Cette semaine : ${plural(active, "jour actif", "jours actifs")}, ${plural(cards, "carte", "cartes")}, ${mins} minutes`)}">${cols}</div>
+      <p class="small muted wmsg">${msg} <span class="wgoal">Objectif : ${goal} ${byMin ? "min" : "cartes"} par jour.</span></p></div>`;
+  }
   function lastDays(n, sessions) { const out = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = localDay(d); out.push(Object.assign({ day: k, label: d.getDate(), seconds: 0, cards_reviewed: 0 }, sessions.find(s => s.day === k) || {})); } return out; }
   function screenProgress() {
     drawTabs("progres");
@@ -2176,19 +2236,44 @@
     });
   }
 
+  // Copier un texte, même là où l'API presse-papiers est refusée (ancien Safari, page non sécurisée).
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+      const ta = document.createElement("textarea"); ta.value = t; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;left:-9999px;top:0"; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length);
+      let ok = false; try { ok = document.execCommand("copy"); } catch (e2) { ok = false; } ta.remove(); return ok;
+    }
+  }
+  const duoLink = code => location.origin + location.pathname + "#duo-" + encodeURIComponent(code);
   // ---------- duo (partage de statistiques à deux) ----------
   async function screenDuo() {
     drawTabs("duo"); app.innerHTML = `<h1>Duo</h1><p class="muted">Chargement…</p>`;
     const { data: partners, error } = await sb.rpc("share_partners");
     if (error) return fail(error, "Partage non chargé");
     const p = (partners || [])[0];
+    if (p && safeGet("merge.duoin")) { safeSet("merge.duoin", ""); toast("Tu es déjà en duo : arrête ce partage pour en rejoindre un autre."); }
     if (!p) {
+      const pending = safeGet("merge.duoin") || "";
       app.innerHTML = `<h1>Duo</h1>
+        ${pending ? `<div class="card pad stack duoin"><h2>Invitation reçue</h2><p class="muted">Quelqu'un t'invite à réviser en duo. Rejoins-le pour voir vos statistiques côte à côte.</p><button class="btn" id="acceptLink">Rejoindre le duo</button><button class="btn ghost" id="dropLink">Pas maintenant</button></div>` : ""}
         <div class="card pad stack"><h2>Révisez à deux</h2><p class="muted">Invite une personne : vous verrez chacun les statistiques de l'autre (temps de révision, cartes révisées, série de jours, maîtrise, moyenne des quiz). Vos cours, résumés et cartes restent privés. Chacun peut arrêter le partage quand il veut.</p>
           <button class="btn" id="invite">Créer une invitation</button><p class="note" id="code" role="status"></p></div>
-        <div class="card pad stack"><h2>J'ai reçu un code</h2><div class="field"><label for="incode">Code d'invitation</label><input id="incode" type="text" autocomplete="off"></div><button class="btn ghost" id="accept">Rejoindre</button></div>`;
-      $("invite").onclick = async () => { const r = await sb.rpc("create_share_invite"); if (r.error) return fail(r.error, "Invitation non créée"); $("code").innerHTML = `Envoie ce code à la personne : <b style="user-select:all">${esc(r.data)}</b>. Elle le colle dans son onglet Duo.`; };
-      $("accept").onclick = async () => { const c = $("incode").value.trim(); if (!c) return toast("Colle le code reçu."); const r = await sb.rpc("accept_share_invite", { code: c }); if (r.error) return toast("Ce code n'est pas valide ou a déjà servi."); screenDuo(); };
+        <div class="card pad stack"><h2>J'ai reçu un code</h2><div class="field"><label for="incode">Code d'invitation</label><input id="incode" type="text" autocomplete="off" value="${esc(pending)}"></div><button class="btn ghost" id="accept">Rejoindre</button></div>`;
+      $("invite").onclick = async () => {
+        const r = await sb.rpc("create_share_invite"); if (r.error) return fail(r.error, "Invitation non créée");
+        const code = String(r.data), link = duoLink(code);
+        $("code").outerHTML = `<div class="duocode stack" id="code" role="status"><span class="small muted">Ton code d'invitation</span><b class="dcode">${esc(code)}</b>
+          <div class="row wrap"><button class="btn grow" id="dshare">${I.share}Partager le lien</button><button class="btn ghost grow" id="dcopy">${I.copy}Copier le code</button></div>
+          <p class="note">La personne touche le lien : Merge s'ouvre avec le code déjà rempli. Elle peut aussi coller le code dans son onglet Duo.</p></div>`;
+        $("dcopy").onclick = async () => toast(await copyText(code) ? "Code copié." : "Copie impossible : sélectionne le code à la main.");
+        $("dshare").onclick = async () => {
+          const text = `Révise avec moi sur Merge : touche ce lien pour rejoindre mon duo (code ${code}).`;
+          if (navigator.share) { try { await navigator.share({ title: "Merge. en duo", text, url: link }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+          toast(await copyText(link) ? "Lien copié : colle-le dans un message." : "Copie impossible.");
+        };
+      };
+      const join = async c => { if (!c) return toast("Colle le code reçu."); const r = await sb.rpc("accept_share_invite", { code: c }); if (r.error) return toast("Ce code n'est pas valide ou a déjà servi."); safeSet("merge.duoin", ""); toast("C'est parti, vous révisez en duo."); screenDuo(); };
+      $("accept").onclick = () => join($("incode").value.trim());
+      if ($("acceptLink")) { $("acceptLink").onclick = () => join(pending); $("dropLink").onclick = () => { safeSet("merge.duoin", ""); screenDuo(); }; }
       return;
     }
     const since = new Date(); since.setDate(since.getDate() - 120);
@@ -3225,8 +3310,11 @@
     app.classList.remove("enter"); void app.offsetWidth; app.classList.add("enter"); clearTimeout(enterT); enterT = setTimeout(() => app.classList.remove("enter"), 700);
     document.body.classList.remove("nav");
     if (location.hash.startsWith("#partage-")) return screenShared(location.hash.slice(9));
+    // Lien d'invitation Duo (#duo-CODE) : on garde le code, même s'il faut d'abord se connecter, puis on ouvre l'onglet Duo.
+    if (/^#duo-./.test(location.hash)) { const c = decodeURIComponent(location.hash.slice(5)).trim().slice(0, 64); if (c) safeSet("merge.duoin", c); history.replaceState(null, "", location.pathname + location.search + "#duo"); }
     if (!state.user) return screenLogin();
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
+    if (safeGet("merge.duoin") && location.hash !== "#duo") { location.hash = "#duo"; return; }
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);
     document.body.classList.add("nav"); closeSheet();
     drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "corbeille" ? "reglages" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");

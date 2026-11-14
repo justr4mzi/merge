@@ -70,7 +70,10 @@ async function flows(browser) {
   await page.click("#addG"); await page.fill("#gname", "Thème 1 : Génétique"); await page.click("#gsave"); await page.waitForTimeout(300);
   ok(await page.locator(".folder").count() === 1, "matière : dossier créé avec le bouton +");
   await page.click(".folder"); await page.waitForTimeout(250);
-  ok(await page.locator('[role="tab"]').count() === 4, "dossier : 4 onglets");
+  ok(await page.locator('[role="tab"]').count() === 5 && await page.locator('[role="tab"][aria-selected="true"]').textContent() === "Chapitres", "dossier : 5 onglets, « Chapitres » ouvert en premier");
+  ok(!(await page.locator(".gset").evaluate(e => e.open)) && !(await page.locator("#gn").isVisible()), "dossier : réglages repliés dans un menu");
+  await page.click(".gset summary"); await page.waitForTimeout(100); ok(await page.locator("#gn").isVisible() && await page.locator("#gcol").isVisible(), "dossier : réglages visibles une fois le menu ouvert");
+  await page.click(".gset summary");
   await page.fill("#cname", "Chapitre 1 : La mitose"); await page.click("#addCh"); await page.waitForTimeout(400);
   const ch = (await page.evaluate(() => location.hash)).replace("#chapitre-", "");
   await go(page, "#import-" + ch); await page.click('[data-tab="text"]');
@@ -429,7 +432,7 @@ async function chapitre(browser) {
   await page.click("#tools summary"); await page.click("#tColor"); await page.waitForTimeout(100); await page.click('#ccol [data-col="#e0529c"]'); await page.waitForTimeout(200);
   ok(await page.evaluate(() => window.__fake.DB.chapters.find(c => c.id === "c1").color === "#e0529c"), "chapitre : couleur enregistrée");
   let sm = await small(page); ok(!sm.length, "chapitre : boutons de 44 px minimum", sm.join(" | "));
-  await go(page, "#dossier-g1", 400); await page.click('#gcol [data-col="#0ea5a4"]'); await page.waitForTimeout(200);
+  await go(page, "#dossier-g1", 400); if (!(await page.locator(".gset").evaluate(e => e.open))) await page.click(".gset summary"); await page.click('#gcol [data-col="#0ea5a4"]'); await page.waitForTimeout(200);
   ok(await page.evaluate(() => window.__fake.DB.groups.find(g => g.id === "g1").color === "#0ea5a4"), "dossier : couleur enregistrée");
   ok(!page.errors.length, "chapitre : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
@@ -874,6 +877,73 @@ async function iphoneAppli(browser) {
   ok(!page.errors.length, "iPhone : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function semaine(browser) {
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "semaine " + w;
+    // Une seule journée, avec peu de cartes : le graphique doit rester lisible et joli.
+    await page.evaluate(() => { localStorage.setItem("fake.sessions", JSON.stringify([{ ago: 1, seconds: 240, cards_reviewed: 6 }])); location.reload(); });
+    await page.waitForSelector("#app > *"); await go(page, "#accueil", 600);
+    const r = await page.evaluate(() => { const cols = [...document.querySelectorAll(".wcol")], act = cols.filter(c => c.querySelector(".wtrack i").getBoundingClientRect().height > 0);
+      const a = act[0], t = a && a.querySelector(".wtrack").getBoundingClientRect(), i = a && a.querySelector(".wtrack i").getBoundingClientRect();
+      return { n: cols.length, act: act.length, ratio: a ? i.height / t.height : 0, label: a ? a.querySelector(".wv").textContent.trim() : "", trackW: t ? t.width : 0, empties: cols.filter(c => c.querySelector(".wtrack b")).length, today: !!document.querySelector(".wcol.now .wd") && document.querySelector(".wcol.now .wd").textContent, msg: (document.querySelector(".wmsg") || {}).textContent || "" }; });
+    ok(r.n === 7 && r.act === 1 && r.empties === 6, tag + " : 7 jours, 1 actif, les autres marqués d'un point", JSON.stringify(r));
+    ok(r.ratio >= 0.25 && r.label === "6" && r.trackW >= 20, tag + " : un petit jour reste bien visible (au moins un quart de la hauteur) avec son nombre de cartes", JSON.stringify(r));
+    ok(r.today === "Auj." && /bon début/.test(r.msg), tag + " : aujourd'hui repéré et message d'encouragement", JSON.stringify(r));
+    const o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    await page.locator(".week").screenshot({ path: path.join(SHOTS, "semaine-" + w + ".png") });
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
+async function duoLien(browser) {
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "duo " + w;
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: BASE });
+    await go(page, "#duo", 500); await page.click("#invite"); await page.waitForTimeout(300);
+    ok((await page.locator(".dcode").textContent()) === "abc123" && await page.locator("#dcopy").isVisible() && await page.locator("#dshare").isVisible(), tag + " : code affiché avec Copier et Partager");
+    await page.click("#dcopy"); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => navigator.clipboard.readText()) === "abc123", tag + " : « Copier le code » copie le code");
+    await page.evaluate(() => { delete navigator.share; }); await page.click("#dshare"); await page.waitForTimeout(200);
+    const link = await page.evaluate(() => navigator.clipboard.readText());
+    ok(/#duo-abc123$/.test(link) && link.startsWith(BASE), tag + " : sans menu de partage, le lien est copié", link);
+    let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+    let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    if (w === 390) await page.screenshot({ path: path.join(SHOTS, "duo-code-390.png") });
+    // La personne invitée touche le lien.
+    await page.evaluate(() => { location.hash = "#duo-xyz789"; }); await page.waitForTimeout(600);
+    ok(await page.evaluate(() => location.hash) === "#duo" && await page.inputValue("#incode") === "xyz789" && await page.locator(".duoin").isVisible(), tag + " : le lien ouvre le Duo avec le code déjà rempli");
+    await page.click("#acceptLink"); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => !localStorage.getItem("merge.duoin")), tag + " : invitation acceptée, code oublié");
+    // Lien ouvert avant d'aller ailleurs : on revient sur le Duo.
+    await page.evaluate(() => localStorage.setItem("merge.duoin", "qqq111")); await go(page, "#accueil", 500);
+    ok(await page.evaluate(() => location.hash) === "#duo" && await page.inputValue("#incode") === "qqq111", tag + " : code gardé jusqu'à l'onglet Duo");
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
+async function pomodoroReglable(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" }), tag = "pomodoro";
+  await go(page, "#accueil", 400); await page.click("button[data-pomo] >> nth=0"); await page.waitForTimeout(250);
+  ok((await page.textContent("#pclock")).trim() === "25:00" && await page.locator('[data-pmode="pomo"][aria-selected="true"]').count() === 1, tag + " : 25 minutes par défaut");
+  await page.click('[data-ps="work"][data-d="1"]'); await page.waitForTimeout(100); await page.click('[data-ps="brk"][data-d="1"]'); await page.waitForTimeout(100);
+  ok((await page.textContent("#pclock")).trim() === "30:00" && (await page.textContent("#pv-brk")).includes("6"), tag + " : travail et pause réglables");
+  await page.click('[data-pp="50-10"]'); await page.waitForTimeout(100); ok((await page.textContent("#pclock")).trim() === "50:00", tag + " : préréglage 50 / 10");
+  await page.click('[data-pmode="timer"]'); await page.waitForTimeout(150);
+  ok((await page.textContent("#pclock")).trim() === "20:00" && (await page.textContent(".sheet h1")).includes("Minuteur"), tag + " : mode minuteur, 20 minutes par défaut");
+  await page.click('[data-pt="5"]'); await page.waitForTimeout(100); await page.click('[data-ps="timer"][data-d="-1"]'); await page.waitForTimeout(100);
+  ok((await page.textContent("#pclock")).trim() === "04:00", tag + " : minuteur réglable à la minute près", await page.textContent("#pclock"));
+  const sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+  const o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+  await page.screenshot({ path: path.join(SHOTS, "minuteur-390.png") });
+  await page.click("#pgo"); await page.waitForTimeout(200);
+  ok(await page.locator('[data-ps="timer"]').first().isDisabled(), tag + " : durées bloquées pendant le décompte");
+  // Le décompte suit l'heure réelle : on avance l'horloge de 3 minutes.
+  await page.evaluate(() => { const real = Date.now, off = 180000; Date.now = () => real() + off; }); await page.waitForTimeout(1200);
+  const left = (await page.textContent("#pclock")).trim(); ok(left === "01:00" || left === "00:59", tag + " : décompte juste même si l'appli a été mise en pause", left);
+  ok(await page.evaluate(() => JSON.parse(localStorage.getItem("merge.pomocfg")).mode === "timer"), tag + " : réglages gardés (synchronisés)");
+  ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -882,7 +952,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte, leurres, iphoneAppli };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte, leurres, iphoneAppli, semaine, duoLien, pomodoroReglable };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

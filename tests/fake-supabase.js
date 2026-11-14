@@ -154,6 +154,8 @@
     DB.summaries.push(defaults("summaries", { chapter_id: "c1", markdown: "## À quoi sert ce chapitre\nComprendre comment une cellule se divise.\n\n## Notions clés\n- **Mitose** : deux cellules filles identiques\n- **Méiose** : quatre cellules haploïdes" }));
     if (!legacy) DB.mistakes.push(defaults("mistakes", { chapter_id: "c1", question: "Que donne la méiose ?", expected: "Quatre cellules haploïdes", given: "Deux cellules identiques", mode: "quiz", times: 2 }));
   }
+  // fake.sessions : jours de révision imposés par un test, ex. [{"ago":1,"seconds":240,"cards_reviewed":6}] (ago = jours avant aujourd'hui).
+  try { const ss = JSON.parse(opt("sessions") || "null"); if (ss) DB.study_sessions = ss.map(x => { const d = new Date(); d.setDate(d.getDate() - (x.ago || 0)); return { user_id: UID, day: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"), seconds: x.seconds || 0, cards_reviewed: x.cards_reviewed || 0, chapters_touched: [] }; }); } catch (e) { /* option facultative */ }
 
   const client = {
     from: t => new Q(t),
