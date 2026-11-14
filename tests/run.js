@@ -533,6 +533,18 @@ async function partage(browser) {
   ok(!page.errors.length, "partage : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function petitEcran(browser) {
+  // Petit téléphone (320 px), thème clair, toutes les pages ; puis compte vide.
+  const page = await open(browser, { w: 320, h: 640, theme: "light" });
+  for (const r of ROUTES) { await go(page, "#" + r, 260); const o = await overflow(page); ok(o.sw <= o.iw, "320 " + r + " : pas de débordement", JSON.stringify(o)); }
+  ok(!page.errors.length, "320 : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  const p2 = await open(browser, { w: 390, h: 844, theme: "dark", seed: "vide" });
+  await p2.click("#next"); await p2.fill("#prenom", "Zoé"); for (let k = 0; k < 4; k++) { await p2.click("#next"); await p2.waitForTimeout(150); }
+  await p2.waitForTimeout(600); if (await p2.locator("#ts").count()) await p2.click("#ts"); await p2.waitForTimeout(300);
+  for (const r of ["accueil", "matieres", "calendrier", "progres", "recompenses", "edt", "recherche", "melange", "reglages"]) { await go(p2, "#" + r, 260); const o = await overflow(p2); ok(o.sw <= o.iw, "compte vide " + r + " : pas de débordement", JSON.stringify(o)); }
+  ok(!p2.errors.length, "compte vide : aucune erreur JavaScript", p2.errors.slice(0, 3).join(" | ")); await p2.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -541,7 +553,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

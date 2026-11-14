@@ -798,3 +798,6 @@ body[data-bg="vagues"]::after{background:repeating-radial-gradient(circle at 50%
 .edtslot{min-height:52px;text-align:left;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:10px;background:color-mix(in srgb,var(--c) 10%,var(--card));color:var(--fg);font:inherit;padding:8px 10px;display:flex;flex-direction:column;cursor:pointer}
 .edtslot span{font-size:.8em;color:var(--muted)}
 label.btn{display:inline-flex;align-items:center;cursor:pointer}
+/* Petits écrans (320 px) : les onglets défilent au lieu de déborder */
+.seg{overflow-x:auto;scrollbar-width:none;gap:16px}.seg::-webkit-scrollbar{display:none}.seg button{flex:none;white-space:nowrap}
+@media (max-width:360px){.seg{gap:12px}}
