@@ -29,7 +29,7 @@ Musique servie par le site ; synchronisation `user_kv` (favoris, notes, surligna
 22. Corbeille 30 jours (matières, chapitres, cartes). **En attente** : le script `supabase/optional/v16_corbeille.sql` doit être validé dans Supabase (la confirmation n'a pas eu de réponse cette nuit). Aujourd'hui, une matière ou un chapitre supprimé est seulement masqué (rien n'est perdu).
 
 ### Solidité
-29. Optimiser `js/app.js` (plus de 200 Ko) : découpage en modules chargés à la demande ou autre, démarrage plus rapide sur téléphone, AUCUN bug, tous les tests repassent.
+29. Optimiser `js/app.js` : **en partie** (bibliothèques PDF et Office chargées seulement à l'import, 420 Ko de moins au démarrage). Le découpage de `app.js` en modules n'est pas fait : trop risqué sans test sur un vrai téléphone, à faire en journée.
 30. Chasse aux bugs sur tout le site, téléphone et PC : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
 
 A faire aussi : 

@@ -130,6 +130,10 @@
   };
 
   // ---------- utilitaires ----------
+  // Bibliothèques lourdes (PDF, fichiers Office) chargées seulement quand on en a besoin : démarrage plus rapide sur téléphone.
+  const libP = {};
+  function needLib(src, test) { if (test()) return Promise.resolve(); return libP[src] || (libP[src] = new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = src; sc.onload = ok; sc.onerror = () => { delete libP[src]; ko(new Error("Chargement impossible. Vérifie ta connexion.")); }; document.head.appendChild(sc); })); }
+  const needPdf = () => needLib("vendor/pdf.min.js", () => !!window.pdfjsLib), needZip = () => needLib("vendor/jszip.min.js", () => !!window.JSZip);
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
   let toastT;
   function toast(m) { toastEl.textContent = m; toastEl.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (toastEl.hidden = true), 3200); }
@@ -1218,7 +1222,7 @@
     }
     // PDF lu page par page : texte seul = lu ici gratuitement ; scan, photo, schéma ou tableau = envoyé à l'IA.
     async function readPdf(file, segs, budget) {
-      const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+      await needPdf(); const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
       const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
       for (let i = 1; i <= doc.numPages; i++) {
         if (budget.pages >= C.PAGES_MAX_PAR_IMPORT) { budget.cut = true; break; }
@@ -1255,7 +1259,7 @@
     const num = n => parseInt((n.match(/(\d+)\.xml/) || [0, 0])[1], 10);
     // PowerPoint .pptx : texte de chaque diapositive, notes de l'orateur, images de la diapositive.
     async function readPptx(file, segs, budget) {
-      const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+      const zip = await (await needZip(), window.JSZip).loadAsync(await file.arrayBuffer());
       const names = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a, b) => num(a) - num(b));
       const rels = {}, uses = {};
       for (const n of names) {
@@ -1277,7 +1281,7 @@
     }
     // Word .docx : texte du document, notes de bas de page, images.
     async function readDocx(file, segs, budget) {
-      const zip = await window.JSZip.loadAsync(await file.arrayBuffer()), doc = zip.files["word/document.xml"];
+      const zip = await (await needZip(), window.JSZip).loadAsync(await file.arrayBuffer()), doc = zip.files["word/document.xml"];
       if (!doc) throw new Error("« " + file.name + " » n'est pas un document Word lisible.");
       let t = ooText(await doc.async("string"), "w");
       for (const extra of ["word/footnotes.xml", "word/endnotes.xml"]) if (zip.files[extra]) { const x = ooText(await zip.files[extra].async("string"), "w"); if (x) t += "\n\n" + x; }
@@ -1286,7 +1290,7 @@
     }
     // LibreOffice / OpenDocument : .odp (diaporama), .odt (texte).
     async function readOdf(file, segs, budget) {
-      const zip = await window.JSZip.loadAsync(await file.arrayBuffer()), c = zip.files["content.xml"];
+      const zip = await (await needZip(), window.JSZip).loadAsync(await file.arrayBuffer()), c = zip.files["content.xml"];
       if (!c) throw new Error("« " + file.name + " » n'est pas un document LibreOffice lisible.");
       const xml = await c.async("string"), pages = xml.split(/<draw:page[ >]/);
       if (pages.length > 1) pages.slice(1).forEach(pg => { const t = odText("<" + pg); if (t) segs.push({ text: t }); });
@@ -1711,7 +1715,7 @@
       const msg = $("edtmsg"); msg.className = "note"; msg.textContent = "Lecture de ton emploi du temps…";
       try {
         let cv = document.createElement("canvas");
-        if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)) { const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; const doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise, pg = await doc.getPage(1), vp = pg.getViewport({ scale: 2 }); cv.width = vp.width; cv.height = vp.height; await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise; }
+        if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)) { await needPdf(); const lib = window.pdfjsLib; lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; const doc = await lib.getDocument({ data: await f.arrayBuffer() }).promise, pg = await doc.getPage(1), vp = pg.getViewport({ scale: 2 }); cv.width = vp.width; cv.height = vp.height; await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise; }
         else { let bmp; try { bmp = await createImageBitmap(f); } catch (er) { if (!window.heic2any) await new Promise((ok, ko) => { const sc = document.createElement("script"); sc.src = "vendor/heic2any.min.js"; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); }); const o = await window.heic2any({ blob: f, toType: "image/jpeg", quality: 0.85 }); bmp = await createImageBitmap(Array.isArray(o) ? o[0] : o); } const kk = Math.min(1, 1800 / Math.max(bmp.width, bmp.height)); cv.width = Math.round(bmp.width * kk); cv.height = Math.round(bmp.height * kk); cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height); }
         msg.textContent = "L'IA lit ton emploi du temps…";
         const r = await ai({ action: "edt", images: [{ mime: "image/jpeg", data: cv.toDataURL("image/jpeg", 0.85).split(",")[1] }], matieres: state.subjects.map(x => x.name) });
