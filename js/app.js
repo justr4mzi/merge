@@ -109,7 +109,7 @@
     chart: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16v-3M12 16V8M15.5 16v-5"/>'),
     duo: svg('<circle cx="9" cy="8" r="3.6"/><circle cx="16.5" cy="8.6" r="2.9"/><path d="M3.5 20a5.5 5.5 0 0111 0M14.5 15.3A4.6 4.6 0 0120.5 20"/>'),
     ask: svg('<path d="M5 5h14v10H10l-5 4z"/><path d="M10 8.500a2 2 0 113 1.700c-.6.4-1 .8-1 1.300M12 13.200v.1"/>'),
-    subj: svg('<path d="M4 4.5h7V20H4zM13 4.5h7V20h-7z"/>'),
+    subj: svg('<rect x="4" y="5.5" width="4.4" height="14.5" rx="1.2"/><rect x="9.6" y="4" width="4.4" height="16" rx="1.2"/><rect x="14.4" y="6.2" width="4.2" height="13.6" rx="1.2" transform="rotate(-15 16.5 13)"/><path d="M4 9.5h4.4M9.6 8h4.4"/>'),
     check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'), minus: svg('<path d="M5 12h14"/>'),
     mail: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/>'),
     folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
