@@ -434,6 +434,15 @@ async function chapitre(browser) {
   ok(!page.errors.length, "chapitre : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function tempsEcran(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await page.evaluate(() => new Promise(r => setTimeout(r, 16000)));
+  await page.evaluate(() => window.__mergeUsage());
+  const u = await page.evaluate(() => window.__fake.usage || []);
+  ok(u.length === 1 && u[0].p_seconds >= 5 && /·/.test(u[0].p_place), "temps d'écran : envoyé avec l'appareil", JSON.stringify(u));
+  ok(!page.errors.length, "temps d'écran : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -442,7 +451,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

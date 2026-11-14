@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Merge. Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+:root{--bg:#14151c;--card:#22242e;--line:#343744;--fg:#f4f5f8;--muted:#a9afc2;--accent:#9483ff;--btn:#4b39c8;--soft:#2a2654;--ok:#2bbf8a;--red:#ff8589;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 500px at 80% -10%,#2a2654 0,transparent 60%),var(--bg);color:var(--fg);font-family:"Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 60px}
+.logo{font-weight:800;font-size:1.7em;letter-spacing:-.02em}.logo b{color:var(--accent)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.tag{font-size:.8em;font-weight:800;color:var(--accent);background:var(--soft);border-radius:99px;padding:4px 10px;margin-left:8px;vertical-align:middle}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.login{max-width:380px;margin:12vh auto 0;display:flex;flex-direction:column;gap:14px}
+label{font-weight:700;font-size:.9em;color:var(--muted)}
+input{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:#191a22;color:var(--fg);font:inherit;padding:0 14px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.btn{min-height:44px;border:0;border-radius:99px;background:var(--btn);color:#fff;font:inherit;font-weight:800;padding:0 20px;cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+.btn:hover{filter:brightness(1.1)}
+.err{color:var(--red);font-weight:700;min-height:1.2em;margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi b{display:block;font-size:1.7em;font-weight:800}.kpi span{color:var(--muted);font-size:.9em;font-weight:700}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.bar input{max-width:320px}
+.muted{color:var(--muted)}.small{font-size:.85em}
+table{width:100%;border-collapse:collapse}
+th{font-size:.78em;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th button{all:unset;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:4px}
+th button[aria-sort]{color:var(--accent)}
+td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:hover td{background:#262836}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.who b{display:block}.who span{color:var(--muted);font-size:.85em;word-break:break-all}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--line);margin-right:6px}.dot.on{background:var(--ok)}
+.list{display:none}
+@media (max-width:860px){.tablewrap{display:none}.list{display:flex;flex-direction:column;gap:10px}
+  .u{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}.u .who{grid-column:1/-1}.u div span{display:block;color:var(--muted);font-size:.78em;font-weight:700;text-transform:uppercase;letter-spacing:.03em}}
+</style>
+</head>
+<body>
+<div class="wrap" id="root"></div>
+<script src="../js/config.js"></script>
+<script>
+(function () {
+  const C = window.CONFIG, root = document.getElementById("root"), KEY = "merge.adminpw";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const dur = s => { s = Math.round(s || 0); if (s < 60) return s ? s + " s" : "0"; const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? h + " h " + String(m).padStart(2, "0") : m + " min"; };
+  const ago = d => { if (!d) return "jamais"; const t = (Date.now() - Date.parse(d)) / 1000; if (t < 120) return "à l'instant"; if (t < 3600) return "il y a " + Math.round(t / 60) + " min"; if (t < 86400) return "il y a " + Math.round(t / 3600) + " h"; if (t < 86400 * 30) return "il y a " + Math.round(t / 86400) + " j"; return new Date(d).toLocaleDateString("fr-FR"); };
+  const full = d => d ? new Date(d).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) : "";
+  let pw = ""; try { pw = sessionStorage.getItem(KEY) || ""; } catch (e) { pw = ""; }
+  let data = null, q = "", sort = ["last", -1];
+  async function load() {
+    const r = await fetch(C.SUPABASE_URL + "/functions/v1/admin", { method: "POST", headers: { "x-admin-password": pw, "Content-Type": "application/json", apikey: C.SUPABASE_PUBLISHABLE_KEY }, body: "{}" });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { try { sessionStorage.removeItem(KEY); } catch (e) { /* rien */ } throw new Error("Mot de passe incorrect."); }
+    if (!r.ok) throw new Error(j.detail || "Chargement impossible.");
+    return j;
+  }
+  function login(msg) {
+    root.innerHTML = `<form class="card login" id="lf"><div class="logo">Merge<b>.</b><span class="tag">Admin</span></div><div><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" autofocus></div><p class="err" id="er">${esc(msg || "")}</p><button class="btn">Entrer</button></form>`;
+    document.getElementById("lf").onsubmit = async e => { e.preventDefault(); pw = document.getElementById("pw").value; document.getElementById("er").textContent = "Vérification…"; try { data = await load(); try { sessionStorage.setItem(KEY, pw); } catch (er) { /* rien */ } draw(); } catch (er) { document.getElementById("er").textContent = er.message; } };
+  }
+  const COLS = [["name", "Élève", u => (u.name || u.email || "").toLowerCase()], ["last", "Dernière connexion", u => u.last_seen_at || ""], ["d", "Aujourd'hui", u => u.screen.d], ["w", "Semaine", u => u.screen.w], ["m", "Mois", u => u.screen.m], ["all", "À vie", u => u.screen.all], ["ai", "Requêtes IA", u => u.ai.all], ["cards", "Cartes", u => u.cards]];
+  function draw() {
+    const us = data.users, now = Date.now(), active = us.filter(u => u.last_seen_at && now - Date.parse(u.last_seen_at) < 86400000).length;
+    const tot = k => us.reduce((a, u) => a + u.screen[k], 0), aiAll = us.reduce((a, u) => a + u.ai.all, 0), aiDay = us.reduce((a, u) => a + u.ai.d, 0);
+    const col = COLS.find(c => c[0] === sort[0]);
+    const rows = us.filter(u => !q || (u.name + " " + u.email + " " + u.classe).toLowerCase().includes(q)).sort((a, b) => { const x = col[2](a), y = col[2](b); return (x > y ? 1 : x < y ? -1 : 0) * sort[1]; });
+    const live = u => u.last_seen_at && now - Date.parse(u.last_seen_at) < 180000;
+    root.innerHTML = `<div class="top"><div class="logo">Merge<b>.</b><span class="tag">Admin</span></div><div class="bar" style="margin:0"><button class="btn ghost" id="rf">Actualiser</button><button class="btn ghost" id="lo">Se déconnecter</button></div></div>
+      <div class="kpis"><div class="card kpi"><b>${us.length}</b><span>élèves inscrits</span></div><div class="card kpi"><b>${active}</b><span>actifs sur 24 h</span></div><div class="card kpi"><b>${dur(tot("d"))}</b><span>temps d'écran aujourd'hui</span></div><div class="card kpi"><b>${dur(tot("all"))}</b><span>temps d'écran total</span></div><div class="card kpi"><b>${aiAll}</b><span>requêtes IA au total (${aiDay} aujourd'hui)</span></div></div>
+      <div class="bar"><input id="q" type="search" placeholder="Chercher un nom, un mail, une classe" value="${esc(q)}" aria-label="Chercher"><span class="small muted">Mis à jour ${esc(full(data.generated_at))}</span></div>
+      <div class="card tablewrap" style="padding:0;overflow-x:auto"><table><thead><tr>${COLS.map(c => `<th><button data-s="${c[0]}"${sort[0] === c[0] ? ` aria-sort="${sort[1] > 0 ? "ascending" : "descending"}"` : ""}>${c[1]}${sort[0] === c[0] ? (sort[1] > 0 ? " ↑" : " ↓") : ""}</button></th>`).join("")}</tr></thead><tbody>
+      ${rows.map(u => `<tr><td class="who"><b><span class="dot${live(u) ? " on" : ""}"></span>${esc(u.name || "(sans nom)")}</b><span>${esc(u.email)}</span><span>${esc(u.classe)}</span></td><td><span title="${esc(full(u.last_seen_at))}">${esc(ago(u.last_seen_at))}</span><div class="small muted">${esc(u.last_seen_place || "lieu inconnu")}</div></td><td class="n">${dur(u.screen.d)}</td><td class="n">${dur(u.screen.w)}</td><td class="n">${dur(u.screen.m)}</td><td class="n">${dur(u.screen.all)}</td><td class="n">${u.ai.all}${u.ai.d ? ` <span class="small muted">(${u.ai.d} auj.)</span>` : ""}</td><td class="n">${u.cards}<div class="small muted">${u.chapters} chap.</div></td></tr>`).join("") || `<tr><td colspan="8" class="muted">Aucun élève.</td></tr>`}</tbody></table></div>
+      <div class="list">${rows.map(u => `<div class="card u"><div class="who"><b><span class="dot${live(u) ? " on" : ""}"></span>${esc(u.name || "(sans nom)")}</b><span>${esc(u.email)}${u.classe ? " · " + esc(u.classe) : ""}</span></div><div><span>Dernière connexion</span>${esc(ago(u.last_seen_at))}<div class="small muted">${esc(u.last_seen_place || "lieu inconnu")}</div></div><div><span>Requêtes IA</span>${u.ai.all}${u.ai.d ? " (" + u.ai.d + " auj.)" : ""}</div><div><span>Aujourd'hui</span>${dur(u.screen.d)}</div><div><span>Semaine</span>${dur(u.screen.w)}</div><div><span>Mois</span>${dur(u.screen.m)}</div><div><span>À vie</span>${dur(u.screen.all)}</div></div>`).join("")}</div>
+      <p class="small muted">Temps d'écran : compté quand l'appli est ouverte et visible, envoyé chaque minute. Lieu : appareil, navigateur et fuseau horaire (pas de géolocalisation). Point vert : actif dans les 3 dernières minutes.</p>`;
+    document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const k = b.dataset.s; sort = sort[0] === k ? [k, -sort[1]] : [k, k === "name" ? 1 : -1]; draw(); });
+    const qi = document.getElementById("q"); qi.oninput = () => { q = qi.value.trim().toLowerCase(); const pos = qi.selectionStart; draw(); const n = document.getElementById("q"); n.focus(); n.setSelectionRange(pos, pos); };
+    document.getElementById("rf").onclick = async () => { try { data = await load(); draw(); } catch (e) { login(e.message); } };
+    document.getElementById("lo").onclick = () => { try { sessionStorage.removeItem(KEY); } catch (e) { /* rien */ } pw = ""; login(); };
+  }
+  if (pw) load().then(d => { data = d; draw(); }).catch(e => login(e.message)); else login();
+})();
+</script>
+</body>
+</html>

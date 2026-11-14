@@ -164,6 +164,14 @@
   // Toutes les 2 minutes quand l'appli est ouverte : récupère ce qui a changé sur l'autre appareil.
   setInterval(() => { if (document.visibilityState === "visible" && state.user && state.profile && !state.offline && Date.now() - kvAt > 110000) kvPull().then(ch => { if (ch && /^#?(accueil|matieres|progres|calendrier)?$/.test(location.hash)) route(); }); }, 120000);
   window.addEventListener("online", () => { kvFlush(); });
+  // Temps d'écran (tableau de bord /admin) : secondes passées appli ouverte et visible, envoyées par paquets d'une minute.
+  const usage = { acc: 0, last: Date.now() };
+  const usagePlace = () => { const ua = navigator.userAgent || ""; const dev = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? (/Mobile/.test(ua) ? "Téléphone Android" : "Tablette Android") : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "PC Windows" : /Linux/.test(ua) ? "PC Linux" : "Appareil"; const br = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Navigateur"; let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { /* rien */ } return [dev, br + (isStandalone() ? " (appli)" : ""), tz].filter(Boolean).join(" · "); };
+  function usageTick() { const now = Date.now(); if (document.visibilityState === "visible" && state.user) usage.acc += Math.min(60, Math.max(0, (now - usage.last) / 1000)); usage.last = now; }
+  function usageFlush() { usageTick(); const s = Math.round(usage.acc); if (!state.user || s < 5 || state.offline) return; usage.acc -= s; Promise.resolve(sb.rpc("track_usage", { p_day: localDay(), p_seconds: Math.min(120, s), p_place: usagePlace() })).catch(() => { usage.acc += s; }); }
+  setInterval(usageTick, 15000); setInterval(usageFlush, 60000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") usageFlush(); else usage.last = Date.now(); });
+  window.__mergeUsage = usageFlush;
   window.__mergeSync = { pull: kvPull, flush: kvFlush, set: (k, v) => safeSet(k, v), synced: k => SYNC.test(k) };
   function applyLook(p) {
     const r = document.documentElement;

@@ -151,7 +151,7 @@
 
   const client = {
     from: t => new Q(t),
-    rpc: async (name) => name === "shared_subject_names" ? { data: [{ name: "Chinois", uses: 2 }], error: null } : name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
+    rpc: async (name, args) => name === "track_usage" ? ((window.__fake.usage = window.__fake.usage || []).push(args), { data: null, error: null }) : name === "shared_subject_names" ? { data: [{ name: "Chinois", uses: 2 }], error: null } : name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
     functions: { invoke: (name, o) => name === "studio" ? studio(o.body) : aiCall(o.body) },
     storage: { from: () => ({ list: async () => ({ data: [], error: null }), upload: async () => ({ error: null }), createSignedUrl: async () => ({ data: null, error: { message: "indisponible" } }) }) },
     auth: {
