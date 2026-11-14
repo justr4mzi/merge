@@ -72,11 +72,19 @@
     if (fr) fr.querySelector("input").oninput = (e) => { const v = e.target.value; if (!okColor(v)) return; all().forEach(x => x.setAttribute("aria-pressed", x === fr)); fr.style.setProperty("--c", v); onPick(v); };
   }
   const PEPS = ["Un peu chaque jour vaut mieux que tout la veille.", "Dix minutes maintenant, c'est ça de moins avant le contrôle.", "Ce que tu révises aujourd'hui, tu le sais encore dans un mois.", "Une carte après l'autre : c'est comme ça que ça rentre.", "Ton toi du contrôle te dira merci.", "Se tromper sur une carte, c'est déjà apprendre.", "Régulier bat intense. Toujours."];
-  function confetti() {
+  // Animations de réussite : 5 styles tirés au hasard (pluie de confettis, explosion, feu d'artifice, étoiles, serpentins).
+  function confetti(kind) {
     if (window.matchMedia && matchMedia("(prefers-reduced-motion:reduce)").matches) return;
-    const box = document.createElement("div"); box.className = "confetti"; box.setAttribute("aria-hidden", "true");
-    for (let i = 0; i < 36; i++) { const b = document.createElement("i"); b.style.cssText = "left:" + (Math.random() * 100) + "%;background:" + COULEURS[i % COULEURS.length] + ";animation-delay:" + (Math.random() * 0.5).toFixed(2) + "s;animation-duration:" + (1.6 + Math.random() * 1.2).toFixed(2) + "s;transform:rotate(" + Math.round(Math.random() * 360) + "deg)"; box.appendChild(b); }
-    document.body.appendChild(box); setTimeout(() => box.remove(), 3600);
+    const K = ["pluie", "explosion", "feux", "etoiles", "serpentins"], k = K.includes(kind) ? kind : K[Math.floor(Math.random() * K.length)];
+    const box = document.createElement("div"); box.className = "confetti c-" + k; box.setAttribute("aria-hidden", "true");
+    const r = (a, b) => a + Math.random() * (b - a), col = i => COULEURS[i % COULEURS.length];
+    const add = (css) => { const el = document.createElement("i"); el.style.cssText = css; box.appendChild(el); };
+    if (k === "pluie") for (let i = 0; i < 40; i++) add(`left:${r(0, 100)}%;background:${col(i)};animation-delay:${r(0, .5).toFixed(2)}s;animation-duration:${r(1.6, 2.8).toFixed(2)}s;transform:rotate(${Math.round(r(0, 360))}deg)`);
+    if (k === "explosion") for (let i = 0; i < 48; i++) { const t = r(0, Math.PI * 2), d = r(120, 320); add(`left:50%;top:45%;background:${col(i)};--dx:${Math.cos(t) * d}px;--dy:${Math.sin(t) * d - 80}px;animation-delay:${r(0, .12).toFixed(2)}s`); }
+    if (k === "feux") for (let f = 0; f < 3; f++) { const x = r(20, 80), y = r(18, 45), c = f * 5; for (let i = 0; i < 22; i++) { const t = i / 22 * Math.PI * 2, d = r(60, 120); add(`left:${x}%;top:${y}%;background:${col(c + (i % 3))};--dx:${Math.cos(t) * d}px;--dy:${Math.sin(t) * d}px;animation-delay:${(f * .35).toFixed(2)}s`); } }
+    if (k === "etoiles") for (let i = 0; i < 26; i++) add(`left:${r(5, 95)}%;--c:${col(i)};animation-delay:${r(0, .8).toFixed(2)}s;animation-duration:${r(1.6, 2.6).toFixed(2)}s;--s:${r(.7, 1.4).toFixed(2)}`);
+    if (k === "serpentins") for (let i = 0; i < 18; i++) add(`left:${r(0, 100)}%;background:${col(i)};animation-delay:${r(0, .6).toFixed(2)}s;animation-duration:${r(2, 3).toFixed(2)}s`);
+    document.body.appendChild(box); setTimeout(() => box.remove(), 3800);
   }
   // SVT en vert, physique en bleu, puis une couleur par matière courante.
   const COULEUR_PAR_NOM = { "svt": "#18ae79", "physique-chimie": "#3b82f6", "physique": "#3b82f6", "chimie": "#0ea5a4", "maths": "#f08c3a", "mathématiques": "#f08c3a", "français": "#e0529c", "philosophie": "#8b5cf6", "histoire-géo": "#a16207", "anglais": "#0ea5a4", "espagnol": "#e5484d", "ses": "#8b5cf6", "nsi": "#e0529c" };
@@ -1369,7 +1377,7 @@
     function render() {
       if (!S.queue.length) {
         const secsDone = Math.min(3600, Math.round((Date.now() - S.start) / 1000)); finish(); screenSession.key = null; safeSet("merge.resume", "null");
-        recordHist([...S.allCh], secsDone, single ? scope : null); setTimeout(celebrate, 600);
+        recordHist([...S.allCh], secsDone, single ? scope : null); setTimeout(celebrate, 600); if (S.total >= 3 && S.known / S.total >= 0.8) setTimeout(() => confetti(), 250);
         const m = single ? mastery(cardsOf(scope)) : null;
         app.innerHTML = `<div class="row"><a class="iconbtn" href="${backHref}" aria-label="Fermer">${I.x}</a></div><div class="card done"><h1>Bon travail !</h1><p class="muted">${plural(S.total, "carte réussie", "cartes réussies")}. ${S.again.size ? plural(S.again.size, "carte est revenue", "cartes sont revenues") + " pendant la session jusqu'à ce que tu la réussisses." : "Aucune erreur."}</p>
           ${m != null ? `<div style="width:100%"><div class="row between small muted" style="margin-bottom:6px"><span>Maîtrise du chapitre</span><b>${m} %</b></div><div class="bar"><i style="width:${m}%"></i></div></div>${m >= 100 ? `<p class="fb ok">Contrôle débloqué !</p><a class="btn" href="#controle-${scope}">Passer le contrôle</a><a class="btn ghost" href="#boss-${scope}">Affronter le boss</a>` : ""}` : ""}
@@ -1848,6 +1856,7 @@
       if (kind === "blanc") clearInterval(timerInt);
       screenSession.key = null;
       const first = S.asked.slice(0, S.total), good = kind === "apprendre" ? S.total - S.missed.length : first.filter(a => a.ok).length, note = Math.round(good / S.total * 20 * 2) / 2;
+      if (note >= 15) setTimeout(() => confetti(), 300);
       let extra = "";
       if (kind === "quiz") { const qz = await sb.from("quizzes").insert({ chapter_id: id, questions: first }).select("id").single(); if (!qz.error) await sb.from("quiz_results").insert({ quiz_id: qz.data.id, score: note }); }
       if (kind === "controle") {
@@ -2319,6 +2328,7 @@
     function end() {
       const win = B.hp <= 0; if (win) safeSet("merge.boss." + id, "1");
       app.innerHTML = toolHead(id, T) + `<div class="card done">${bossSvg(win ? "dead" : "")}<h1>${win ? "Boss vaincu !" : "Le boss a gagné"}</h1><p class="muted">${win ? "Tu as terminé « " + esc(ch.name) + " » avec " + plural(B.shields, "bouclier restant", "boucliers restants") + "." : "Il lui restait " + B.hp + " PV. Révise tes cartes et reviens le défier."}</p><p class="small muted">${B.hits} bonnes réponses sur ${B.n}.</p><button class="btn" id="again">${win ? "Rejouer" : "Retenter le combat"}</button><a class="btn ghost" href="#${win ? "chapitre" : "cartes"}-${id}">${win ? "Retour au chapitre" : "Réviser les cartes"}</a></div>`;
+      if (win) confetti(Math.random() < 0.5 ? "feux" : "explosion");
       $("again").onclick = () => screenBoss(id);
     }
     app.innerHTML = toolHead(id, T) + `<div class="card done">${bossSvg()}<h1>Le boss de « ${mx(ch.name)} »</h1><p class="muted">Il a 100 PV. Chaque bonne réponse lui inflige 12 dégâts, 18 à partir de 3 bonnes réponses d'affilée. Chaque erreur te coûte un de tes 3 boucliers.</p><button class="btn" id="fight">Combattre</button></div>`;
@@ -2500,7 +2510,7 @@
         }
         draw();
       }
-      function end() { app.innerHTML = toolHead(id, "Texte à trous") + `<div class="card done"><h1>${good === total ? "Bon travail !" : "C'est fini"}</h1><div class="big">${good} / ${total}</div><p class="muted">mots bien placés.</p><button class="btn" id="again">Recommencer</button><a class="btn ghost" href="#chapitre-${id}">Retour au chapitre</a></div>${regenHtml}`; $("again").onclick = () => { i = 0; good = 0; total = 0; show(); }; wireRegen(regen); }
+      function end() { if (total && good === total) confetti("etoiles"); app.innerHTML = toolHead(id, "Texte à trous") + `<div class="card done"><h1>${good === total ? "Bon travail !" : "C'est fini"}</h1><div class="big">${good} / ${total}</div><p class="muted">mots bien placés.</p><button class="btn" id="again">Recommencer</button><a class="btn ghost" href="#chapitre-${id}">Retour au chapitre</a></div>${regenHtml}`; $("again").onclick = () => { i = 0; good = 0; total = 0; show(); }; wireRegen(regen); }
       show();
     });
   }
