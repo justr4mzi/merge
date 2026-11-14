@@ -452,6 +452,18 @@ async function melange(browser) {
   ok(!page.errors.length, "révision mélangée : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function recherche(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  const src = await page.evaluate(() => (window.__fake.DB.sources[0] || {}).extracted_text || "");
+  const word = (src.match(/[A-Za-zéè]{7,}/) || ["mitose"])[0];
+  await go(page, "#recherche", 300); await page.fill("#sq", word); await page.click("#sf .btn"); await page.waitForTimeout(500);
+  const t = await txt(page);
+  ok(src ? t.includes("Dans tes cours") : true, "recherche : résultats dans le texte du cours", word);
+  ok(await page.locator("#sr mark").count() >= 1 || !src, "recherche : mot surligné dans l'extrait");
+  let o = await overflow(page); ok(o.sw <= o.iw, "recherche : pas de débordement", JSON.stringify(o));
+  ok(!page.errors.length, "recherche : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -460,7 +472,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

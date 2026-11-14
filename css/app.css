@@ -765,3 +765,4 @@ details.drop:not([open])>summary{margin:0}
 @keyframes rise{0%{transform:translateY(0) scale(var(--s)) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(-105vh) scale(var(--s)) rotate(200deg);opacity:0}}
 .confetti.c-serpentins i{width:5px;height:60px;border-radius:4px;animation:snake 2.4s ease-in forwards}
 @keyframes snake{0%{transform:translateY(-70px) rotate(0)}25%{transform:translateY(25vh) rotate(40deg)}50%{transform:translateY(50vh) rotate(-30deg)}75%{transform:translateY(75vh) rotate(35deg)}100%{transform:translateY(110vh) rotate(-20deg);opacity:.6}}
+.snip mark{background:color-mix(in srgb,var(--accent) 30%,transparent);color:inherit;border-radius:3px;padding:0 2px}

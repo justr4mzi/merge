@@ -656,7 +656,9 @@
           if (lastCh) Object.keys(MODES).forEach(k => { if (norm(MODES[k].n).includes(q)) res.push(row("#" + k + "-" + lastCh.id, I[MODES[k].i], MODES[k].n, "Mode · " + lastCh.name)); });
           state.cards.forEach(c => { if (res.length < 14 && c.front && (norm(c.front).includes(q) || norm(c.back).includes(q))) { const ch = state.chapters.find(x => x.id === c.chapter_id); res.push(row("#chapitre-" + c.chapter_id, I.cards, c.front, "Carte" + (ch ? " · " + ch.name : ""))); } });
         }
+        if (q.length >= 2) res.splice(Math.min(res.length, 13), 0, `<a class="exam" href="#recherche" data-close data-full="1"><span class="mico">${I.search}</span><span class="grow"><b>Chercher « ${esc(inp.value.trim())} » dans le texte de mes cours</b><span class="small muted">Cours importés, résumés et cartes</span></span></a>`);
         out.innerHTML = res.slice(0, 14).join("") || '<p class="muted">Rien trouvé. Essaie un autre mot.</p>';
+        const full = out.querySelector("[data-full]"); if (full) full.onclick = () => { searchPending = inp.value.trim(); if (location.hash === "#recherche") setTimeout(screenSearch, 0); };
       };
       inp.oninput = run; inp.onkeydown = e => { if (e.key === "Enter") { const a = out.querySelector("a"); if (a) { location.hash = a.getAttribute("href"); closeSheet(); } } };
       run(); setTimeout(() => inp.focus(), 40);
@@ -1554,17 +1556,35 @@
   }
 
   // ---------- recherche dans les cartes ----------
+  // Recherche dans les cartes, les résumés et le texte complet des cours importés.
+  let searchPending = "";
   function screenSearch() {
     drawTabs("matieres");
     app.innerHTML = `<div class="row"><a class="iconbtn" href="#matieres" aria-label="Retour">${I.back}</a><h1>Recherche</h1></div>
-      <form id="sf" class="row"><input id="sq" type="text" placeholder="Un mot du cours, une notion…" aria-label="Rechercher dans mes cartes"><button class="btn" type="submit">Chercher</button></form><div class="stack" id="sr"></div>`;
-    $("sf").onsubmit = async (e) => {
-      e.preventDefault(); const q = $("sq").value.replace(/[%,()*\\]/g, " ").trim(); if (q.length < 2) return toast("Écris au moins 2 lettres.");
+      <form id="sf" class="row"><input id="sq" type="search" class="grow" placeholder="Un mot du cours, une notion…" aria-label="Rechercher dans mes cours et mes cartes" value="${esc(searchPending)}"><button class="btn" type="submit">Chercher</button></form><p class="small muted">Cherche dans tes cartes, tes résumés et le texte complet de tes cours.</p><div class="stack" id="sr"></div>`;
+    const snip = (text, q) => { const t = String(text || ""), n = norm(t), k = n.indexOf(norm(q)); if (k < 0) return null; const a = Math.max(0, k - 90), b = Math.min(t.length, k + q.length + 140); const raw = (a ? "…" : "") + t.slice(a, b).replace(/\s+/g, " ") + (b < t.length ? "…" : ""); const re = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig"); return esc(raw).replace(re, "<mark>$1</mark>"); };
+    const count = (text, q) => { const n = norm(text), m = norm(q); let c = 0, i = 0; while ((i = n.indexOf(m, i)) >= 0) { c++; i += m.length; } return c; };
+    async function run(q) {
       $("sr").innerHTML = '<p class="muted">Recherche…</p>';
-      const { data, error } = await sb.from("cards").select("id,front,back,chapter_id").or(`front.ilike.%${q}%,back.ilike.%${q}%`).limit(40);
-      if (error) return fail(error, "Recherche impossible");
-      $("sr").innerHTML = (data || []).length ? data.map(c => { const ch = state.chapters.find(x => x.id === c.chapter_id); return `<a class="card term" style="text-decoration:none" href="#chapitre-${c.chapter_id}"><span class="small muted">${esc(ch ? ch.name : "")}</span><b>${esc(c.front)}</b><p>${esc(c.back)}</p></a>`; }).join("") : '<p class="muted">Aucune carte ne contient ces mots.</p>';
-    };
+      const qq = q.replace(/[%,()*\\]/g, " ").trim();
+      const [cr, sr, tr] = await Promise.all([
+        sb.from("cards").select("id,front,back,chapter_id").or(`front.ilike.%${qq}%,back.ilike.%${qq}%`).limit(40),
+        sb.from("summaries").select("chapter_id,markdown").ilike("markdown", `%${qq}%`).limit(20),
+        sb.from("sources").select("chapter_id,filename,extracted_text").ilike("extracted_text", `%${qq}%`).limit(20)
+      ]);
+      if (cr.error && sr.error && tr.error) return fail(cr.error, "Recherche impossible");
+      const chName = id => { const ch = state.chapters.find(x => x.id === id); return ch ? ch.name : ""; }, mine = id => state.chapters.some(x => x.id === id);
+      const course = (tr.data || []).filter(x => mine(x.chapter_id)).map(x => ({ x, s: snip(x.extracted_text, qq), n: count(x.extracted_text, qq) })).filter(o => o.s);
+      const sums = (sr.data || []).filter(x => mine(x.chapter_id)).map(x => ({ x, s: snip(x.markdown, qq) })).filter(o => o.s);
+      const cards = (cr.data || []).filter(c => mine(c.chapter_id));
+      const sec = (t, n, body) => n ? `<h2>${t} <span class="small muted">(${n})</span></h2>${body}` : "";
+      $("sr").innerHTML = (sec("Dans tes cours", course.length, course.map(o => `<a class="card term" style="text-decoration:none" href="#resume-${o.x.chapter_id}"><span class="small muted">${esc(chName(o.x.chapter_id))} · ${esc(o.x.filename || "Cours")} · ${plural(o.n, "fois", "fois")}</span><p class="snip">${o.s}</p></a>`).join(""))
+        + sec("Dans tes résumés", sums.length, sums.map(o => `<a class="card term" style="text-decoration:none" href="#resume-${o.x.chapter_id}"><span class="small muted">${esc(chName(o.x.chapter_id))}</span><p class="snip">${o.s}</p></a>`).join(""))
+        + sec("Dans tes cartes", cards.length, cards.map(c => `<a class="card term" style="text-decoration:none" href="#chapitre-${c.chapter_id}"><span class="small muted">${esc(chName(c.chapter_id))}</span><b>${mx(c.front)}</b><p>${mx(c.back)}</p></a>`).join("")))
+        || '<p class="muted">Rien trouvé dans tes cours, tes résumés ni tes cartes. Essaie un autre mot.</p>';
+    }
+    $("sf").onsubmit = (e) => { e.preventDefault(); const q = $("sq").value.trim(); if (q.length < 2) return toast("Écris au moins 2 lettres."); searchPending = q; run(q); };
+    if (searchPending.length >= 2) run(searchPending);
     $("sq").focus();
   }
 

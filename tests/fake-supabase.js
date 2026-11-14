@@ -30,6 +30,7 @@
     eq(k, v) { this.f.push(r => r[k] === v); return this; }
     in(k, a) { this.f.push(r => a.includes(r[k])); return this; }
     gte(k, v) { this.f.push(r => r[k] >= v); return this; }
+    ilike(k, v) { const t = String(v).replace(/^%|%$/g, "").toLowerCase(); this.f.push(r => String(r[k] || "").toLowerCase().includes(t)); return this; }
     or(s) { const m = [...s.matchAll(/(\w+)\.ilike\.%(.*?)%/g)]; this.f.push(r => m.some(x => String(r[x[1]] || "").toLowerCase().includes(x[2].toLowerCase()))); return this; }
     order(k, o) { this.ord = [k, !o || o.ascending !== false]; return this; }
     limit(x) { this.lim = x; return this; }
