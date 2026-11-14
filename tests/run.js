@@ -418,6 +418,22 @@ async function musique(browser) {
   ok(!page.errors.length, "musique : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function chapitre(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "light" });
+  await go(page, "#chapitre-c1", 500);
+  ok(await page.locator("details#tools:not([open])").count() === 1 && await page.locator("details#cardsdrop:not([open])").count() === 1, "chapitre : gestion et cartes repliées par défaut");
+  ok(!(await txt(page)).includes("Fiche à imprimer"), "chapitre : bouton en double retiré");
+  ok(await page.locator('a[href="#blanc-c1"].mmain').count() === 1 && await page.locator('a[href="#difficiles-c1"].mmain').count() === 1, "chapitre : examen blanc et cartes difficiles dans les modes");
+  await page.click("#cardsdrop summary"); await page.waitForTimeout(150);
+  ok(await page.locator("#tMore").isVisible() && await page.locator("#list .term").count() > 0, "chapitre : cartes et « Créer d'autres cartes » dans le menu des cartes");
+  await page.click("#tools summary"); await page.click("#tColor"); await page.waitForTimeout(100); await page.click('#ccol [data-col="#e0529c"]'); await page.waitForTimeout(200);
+  ok(await page.evaluate(() => window.__fake.DB.chapters.find(c => c.id === "c1").color === "#e0529c"), "chapitre : couleur enregistrée");
+  let sm = await small(page); ok(!sm.length, "chapitre : boutons de 44 px minimum", sm.join(" | "));
+  await go(page, "#dossier-g1", 400); await page.click('#gcol [data-col="#0ea5a4"]'); await page.waitForTimeout(200);
+  ok(await page.evaluate(() => window.__fake.DB.groups.find(g => g.id === "g1").color === "#0ea5a4"), "dossier : couleur enregistrée");
+  ok(!page.errors.length, "chapitre : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -426,7 +442,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
