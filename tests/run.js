@@ -351,6 +351,17 @@ async function sync(browser) {
   await A.context().close(); await B.context().close();
 }
 
+async function formules(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#exercices-c1", 500);
+  if (await page.locator("#mk").count()) { await page.click("#mk"); await page.waitForTimeout(500); }
+  await page.waitForTimeout(800);
+  const n = await page.evaluate(() => document.querySelectorAll("#app span.m").length);
+  ok(n >= 1, "formules : KaTeX dans les exercices", String(n));
+  ok(!(await txt(page)).includes("\\frac"), "formules : pas de \\frac brut affiché");
+  ok(!page.errors.length, "formules : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -359,7 +370,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync };
+    const SUITES = { flows, v7, v8, v10, sync, formules };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
