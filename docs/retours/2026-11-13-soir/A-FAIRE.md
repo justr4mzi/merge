@@ -57,7 +57,7 @@ Musique servie par le site ; synchronisation `user_kv` (favoris, notes, surligna
 28. Sauvegarde de la base avant les grosses modifications (export des tables principales), notée dans `DECISIONS.md`.
 29. Optimiser `js/app.js` (plus de 200 Ko) : découpage en modules chargés à la demande ou autre, démarrage plus rapide sur téléphone, AUCUN bug, tous les tests repassent.
 30. Chasse aux bugs sur tout le site, téléphone et PC : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
-
+31. il y a un bug actuellement sur les icônes en bas sur Téléphone, ils sont irrégulières, les icônes de droite sont plus grande que les icônes de gauche.
 
 A faire aussi : 
 rajouter POSsibilite de mettre des couleurs au chapitre et au dossier de chapitre  
