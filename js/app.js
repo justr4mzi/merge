@@ -181,10 +181,10 @@
   const fback = document.createElement("button"); fback.className = "floatback"; fback.type = "button"; fback.setAttribute("aria-label", "Retour"); fback.innerHTML = I.back; document.body.appendChild(fback);
   let fbY = scrollY, fbT = null;
   const fbTarget = () => { const a = app.querySelector('a.iconbtn[href^="#"][aria-label^="Retour"], a.iconbtn[href^="#"][aria-label="Fermer"], a.iconbtn[href^="#"][aria-label^="Retour au"], button.iconbtn[aria-label^="Retour"]'); return a; };
-  const fbHide = () => fback.classList.remove("on");
+  const fbHide = () => { fback.classList.remove("on"); document.documentElement.classList.remove("fbon"); };
   addEventListener("scroll", () => {
     const y = scrollY, up = y < fbY - 4, down = y > fbY + 4; if (up || down) fbY = y;
-    if (y < 240 || down || !fbTarget()) fbHide(); else if (up) { fback.classList.add("on"); clearTimeout(fbT); fbT = setTimeout(fbHide, 3500); }
+    if (y < 240 || down || !fbTarget()) fbHide(); else if (up) { fback.classList.add("on"); document.documentElement.classList.add("fbon"); clearTimeout(fbT); fbT = setTimeout(fbHide, 3500); }
   }, { passive: true });
   fback.onclick = () => { const a = fbTarget(); fbHide(); if (a) a.click(); };
   addEventListener("hashchange", fbHide);

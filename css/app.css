@@ -692,8 +692,12 @@ mark.hl.user{background:color-mix(in srgb,#f5b400 45%,transparent);color:inherit
 input[type=time]{-webkit-appearance:none;appearance:none;display:block;width:100%;max-width:100%;min-width:0;line-height:52px;text-align:left}
 input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
 /* Haut de l'écran sur iPhone : fondu opaque sous la barre d'état, sans flou. */
-body::after{content:"";position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 14px);background:linear-gradient(var(--bg) 0,var(--bg) calc(100% - 14px),transparent);pointer-events:none;z-index:25}
-body.pomo::after{display:none}
+/* Sur html::after (et pas body::after, déjà pris par les fonds animés des récompenses, qui effaçaient ce fondu). */
+html::after{content:"";position:fixed;left:0;right:0;top:0;height:calc(env(safe-area-inset-top,0px) + 14px);background:linear-gradient(var(--bg) 0,var(--bg) calc(100% - 14px),transparent);pointer-events:none;z-index:25;transition:height .22s ease}
+html:has(body.pomo)::after{display:none}
+/* Bouton retour flottant visible : le fondu descend jusque sous le bouton, qui est posé sur un fond uni et non sur le contenu. */
+html.fbon::after{height:calc(env(safe-area-inset-top,0px) + 80px);background:linear-gradient(var(--bg) 0,var(--bg) calc(100% - 22px),transparent)}
+@media (min-width:900px){html.fbon:has(body.nav .tabs)::after{left:256px}}
 /* Calendrier : cases carrées */
 .cal.calx .day{aspect-ratio:1/1;min-height:0}
 @media (min-width:900px){.cal.calx .day{min-height:0;aspect-ratio:1/1;padding:8px}.calwrap{grid-template-columns:minmax(0,1.25fr) minmax(300px,1fr)}}
@@ -810,11 +814,11 @@ label.btn{display:inline-flex;align-items:center;cursor:pointer}
 html,body,*{scrollbar-width:none}
 html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0;height:0;display:none}
 /* Bouton retour flottant : apparaît quand on remonte dans une longue page */
-.floatback{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:color-mix(in srgb,var(--card) 55%,transparent);backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 18px rgba(0,0,0,.18);opacity:0;transform:translateY(-8px) scale(.92);pointer-events:none;transition:opacity .22s ease,transform .22s ease}
-.floatback.on{opacity:.85;transform:none;pointer-events:auto}
+.floatback{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:var(--card);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.16);opacity:0;transform:translateY(-8px) scale(.92);pointer-events:none;transition:opacity .22s ease,transform .22s ease}
+.floatback.on{opacity:1;transform:none;pointer-events:auto}
 .floatback:hover{opacity:1}
 @media (min-width:900px){body.nav .floatback{left:272px}}
-@media (prefers-reduced-motion:reduce){.floatback{transition:none}}
+@media (prefers-reduced-motion:reduce){.floatback,html::after{transition:none}}
 /* Images sur les cartes */
 .cardpic{display:block;max-width:100%;max-height:220px;margin:0 auto 10px;border-radius:12px;object-fit:contain;background:var(--track)}
 .face .cardpic{max-height:38vh}

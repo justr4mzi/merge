@@ -566,6 +566,13 @@ async function retourFlottant(browser) {
   ok(!(await page.evaluate(() => document.querySelector(".floatback").classList.contains("on"))), "retour flottant : caché en descendant");
   await page.evaluate(() => scrollTo(0, 1200)); await page.waitForTimeout(150);
   ok(await page.evaluate(() => document.querySelector(".floatback").classList.contains("on")), "retour flottant : apparaît en remontant");
+  await page.waitForTimeout(300);
+  const fd = await page.evaluate(() => { const b = document.querySelector(".floatback").getBoundingClientRect(), a = getComputedStyle(document.documentElement, "::after"); return { fade: parseFloat(a.height), btn: b.bottom, bg: a.backgroundImage.slice(0, 40), op: getComputedStyle(document.querySelector(".floatback")).backgroundColor }; });
+  ok(fd.fade >= fd.btn + 12 && fd.bg.startsWith("linear-gradient"), "retour flottant : le fondu du haut passe sous le bouton", JSON.stringify(fd));
+  await page.screenshot({ path: path.join(SHOTS, "retour-flottant-390.png") });
+  await page.evaluate(() => { document.body.dataset.bg = "aurore"; }); await page.waitForTimeout(100);
+  ok(await page.evaluate(() => getComputedStyle(document.documentElement, "::after").backgroundImage.startsWith("linear-gradient") && getComputedStyle(document.body, "::after").backgroundImage.includes("radial")), "retour flottant : fondu du haut gardé avec un fond animé");
+  await page.evaluate(() => { document.body.dataset.bg = ""; });
   await page.click(".floatback"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => /^#(matiere|dossier)-/.test(location.hash)), "retour flottant : ramène à la page d'avant");
   ok(await page.evaluate(() => getComputedStyle(document.documentElement).scrollbarWidth === "none"), "barre de défilement masquée");
