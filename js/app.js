@@ -704,7 +704,7 @@
     { id: "blackwhite", n: "Un Black and White", d: "Un repas au Black and White, offert.", price: 2000 },
     { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 2200 },
     { id: "cinema", n: "Une place de cinéma", d: "Le film de ton choix, sur grand écran.", price: 3000 },
-    { id: "balade", n: "Une balade en voiture", d: "Dès que Ramzi a le permis, il t'emmène où tu veux.", price: 3500 },
+    { id: "balade", n: "Une balade en voiture", d: "(Quand j'aurai le permis.) Je t'emmène où tu veux.", price: 3500 },
     { id: "surprise", n: "La surprise", d: "Le plus gros palier. On ne dit rien : c'est une surprise.", price: 5000 },
   ];
   const GIFT_SHELVES = [["Petits plaisirs", 0, 999], ["Cadeaux", 1000, 1999], ["Gros cadeaux", 2000, Infinity]];

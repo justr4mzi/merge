@@ -409,3 +409,4 @@ Liste retenue (sur 20 proposées) : plan de révision automatique, rappel la vei
 - Migration v23 (`supabase/migrations/20261114200000_v23_plus_de_cadeaux.sql`) : remplace seulement la liste des cadeaux acceptés par la base. À coller par Ramzi dans l'éditeur SQL (la fenêtre de confirmation de l'outil ne marche pas chez lui).
 - Migration v23 collée par Ramzi dans l'éditeur SQL, vérifiée : la base accepte bien les 20 cadeaux.
 - Nom corrigé : « Un repas à la Kazdalerie » (le restaurant de Zack Nani, 16 rue Villeroy, Lyon 3e), avec la phrase de Ramzi entre parenthèses : « (Je vais te le chercher, car tu ne peux pas aller à la Guillotière.) ». Identifiant inchangé (`kazdal`), donc rien à changer dans la base.
+- Balade en voiture : description « (Quand j'aurai le permis.) Je t'emmène où tu veux. », à la demande de Ramzi.
