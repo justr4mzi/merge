@@ -908,10 +908,14 @@ html,body,a,button,input,select,textarea,label,summary,[role="button"]{touch-act
 h2 > svg{width:20px;height:20px;vertical-align:-3px;margin-right:6px}
 .giftgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .giftcard{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:20px;color:#fff;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.25)}
-.giftcard.g1{background:linear-gradient(135deg,#f08c3a,#b8451b)}
-.giftcard.g2{background:linear-gradient(135deg,#e0533b,#7d1f12)}
-.giftcard.g3{background:linear-gradient(135deg,#3949c9,#1b1f5e)}
-.giftcard.g4{background:linear-gradient(135deg,#9483ff,#4b39c8 55%,#e0529c)}
+.giftcard.g1{background:linear-gradient(135deg,#f472b6,#be185d)}
+.giftcard.g2{background:linear-gradient(135deg,#8b5a2b,#3f2412)}
+.giftcard.g3{background:linear-gradient(135deg,#f08c3a,#b8451b)}
+.giftcard.g4{background:linear-gradient(135deg,#14b8a6,#0f5f63)}
+.giftcard.g5{background:linear-gradient(135deg,#f5b014,#c2410c)}
+.giftcard.g6{background:linear-gradient(135deg,#e0533b,#7d1f12)}
+.giftcard.g7{background:linear-gradient(135deg,#3949c9,#1b1f5e)}
+.giftcard.g8{background:linear-gradient(135deg,#9483ff,#4b39c8 55%,#e0529c)}
 .giftcard b{font-size:1.15em}
 .giftcard .small{opacity:.9}
 .giftcard .gtier{font-size:.72em;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.85}

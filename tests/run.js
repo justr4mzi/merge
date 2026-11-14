@@ -951,7 +951,7 @@ async function boutique(browser) {
     await page.waitForSelector("#app > *"); await go(page, "#boutique", 600);
     const bal0 = await page.evaluate(() => parseInt(document.querySelector(".coinhero b.big").textContent, 10));
     ok(bal0 >= 5000, tag + " : solde de pièces affiché", String(bal0));
-    ok(await page.locator(".giftcard").count() === 4 && await page.locator('[data-gift="reeses"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 4 cadeaux en vrai, Reese's échangeable, surprise trop chère");
+    ok(await page.locator(".giftcard").count() === 8 && await page.locator('[data-gift="bisou"]:not([disabled])').count() === 1 && await page.locator('[data-gift="tasty"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 8 cadeaux en vrai, les moins chers échangeables, surprise trop chère");
     let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
     let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
     if (w === 390) await page.screenshot({ path: path.join(SHOTS, "boutique-390.png"), fullPage: true });

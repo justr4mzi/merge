@@ -684,7 +684,11 @@
   ];
   // Cadeaux en vrai : les plus gros paliers, volontairement difficiles (1 pièce ≈ 1 bonne réponse).
   const GIFTS = [
+    { id: "bisou", n: "Un gros bisou", d: "Le plus doux des paliers. À réclamer quand tu veux.", price: 500 },
+    { id: "milkyway", n: "Un Milky Way", d: "Une petite pause sucrée bien méritée.", price: 1000 },
     { id: "reeses", n: "Des Reese's", d: "Un paquet de Reese's, rien que pour toi.", price: 1500 },
+    { id: "massage", n: "Un massage", d: "Pour détendre les épaules après les révisions.", price: 2000 },
+    { id: "tasty", n: "Un Tasty Crousty", d: "Un repas Tasty Crousty, offert.", price: 2500 },
     { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 3000 },
     { id: "cinema", n: "Une place de cinéma", d: "Le film de ton choix, sur grand écran.", price: 4500 },
     { id: "surprise", n: "La surprise", d: "Le plus gros palier. On ne dit rien : c'est une surprise.", price: 7000 },

@@ -67,13 +67,13 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
   }
   const COLS = [["name", "Élève", u => (u.name || u.email || "").toLowerCase()], ["last", "Dernière connexion", u => u.last_seen_at || ""], ["d", "Aujourd'hui", u => u.screen.d], ["w", "Semaine", u => u.screen.w], ["m", "Mois", u => u.screen.m], ["all", "À vie", u => u.screen.all], ["ai", "Requêtes IA", u => u.ai.all], ["cards", "Cartes", u => u.cards]];
   // Cadeaux en vrai de la boutique : comptes autorisés et demandes à offrir.
-  const GIFTN = { reeses: "Des Reese's", pizza: "Une pizza au feu de bois", cinema: "Une place de cinéma", surprise: "La surprise" };
+  const GIFTN = { bisou: "Un gros bisou", milkyway: "Un Milky Way", reeses: "Des Reese's", massage: "Un massage", tasty: "Un Tasty Crousty", pizza: "Une pizza au feu de bois", cinema: "Une place de cinéma", surprise: "La surprise" };
   function giftsHtml(us) {
     const g = data.gifts || { ready: false, access: [], claims: [] }, nm = id => { const u = us.find(x => x.id === id); return u ? (u.name || u.email) : "(compte supprimé)"; };
     if (!g.ready) return `<div class="card" style="margin-bottom:16px"><b>Cadeaux en vrai</b><p class="small muted">Les tables des cadeaux ne sont pas encore créées dans la base.</p></div>`;
     const pend = g.claims.filter(c => !c.given_at), done = g.claims.filter(c => c.given_at);
     return `<div class="card gifts" style="margin-bottom:16px;display:flex;flex-direction:column;gap:12px"><b style="font-size:1.15em">Cadeaux en vrai</b>
-      <p class="small muted" style="margin:0">Seuls les comptes activés ici voient les cadeaux (Reese's, pizza, cinéma, surprise) dans leur boutique.</p>
+      <p class="small muted" style="margin:0">Seuls les comptes activés ici voient les cadeaux (gros bisou, Milky Way, Reese's, massage, Tasty Crousty, pizza, cinéma, surprise) dans leur boutique.</p>
       <div class="bar" style="margin:0"><select id="gu" aria-label="Compte à activer" style="min-height:44px;border-radius:12px;background:#191a22;color:var(--fg);border:1px solid var(--line);padding:0 10px;font:inherit;max-width:320px">${us.filter(u => !g.access.includes(u.id)).map(u => `<option value="${esc(u.id)}">${esc(u.name || u.email)}${u.name ? " · " + esc(u.email) : ""}</option>`).join("")}</select><button class="btn" id="gon">Activer les cadeaux</button></div>
       ${g.access.length ? `<div>${g.access.map(id => `<div class="bar" style="margin:0 0 6px"><span class="dot on"></span><b>${esc(nm(id))}</b><button class="btn ghost" data-goff="${esc(id)}">Retirer</button></div>`).join("")}</div>` : `<p class="small muted" style="margin:0">Aucun compte activé.</p>`}
       <b>À offrir (${pend.length})</b>${pend.length ? pend.map(c => `<div class="bar" style="margin:0"><span><b>${esc(GIFTN[c.gift] || c.gift)}</b> pour ${esc(nm(c.user_id))} <span class="small muted">· ${c.price} pièces · demandé ${esc(ago(c.created_at))}</span></span><button class="btn" data-given="${esc(c.id)}">Marquer comme offert</button></div>`).join("") : `<p class="small muted" style="margin:0">Aucune demande en attente.</p>`}
