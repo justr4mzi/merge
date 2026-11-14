@@ -13,14 +13,14 @@ const QUOTA_MSG = "Vous avez atteint votre limite journalière. Contacte le cré
 let failures = 0; const log = [];
 const ok = (cond, name, extra) => { if (!cond) { failures++; log.push("ÉCHEC  " + name + (extra ? "  → " + extra : "")); } else log.push("ok     " + name); };
 
-async function open(browser, { w, h, theme, seed = "plein", legacy, quota, mastered, xp }) {
+async function open(browser, { w, h, theme, seed = "plein", legacy, quota, mastered, xp, trash }) {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, serviceWorkers: "block", colorScheme: theme === "dark" ? "dark" : "light" });
   const page = await ctx.newPage(); page.errors = [];
   page.on("pageerror", e => page.errors.push(String(e)));
   page.on("console", m => { if (m.type() === "error" && !/Failed to load resource|fonts\.g/.test(m.text())) page.errors.push(m.text()); });
   await page.route("**/vendor/supabase.js", r => r.fulfill({ path: path.join(__dirname, "fake-supabase.js"), contentType: "text/javascript" }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-  await page.addInitScript(o => { if (sessionStorage.getItem("init")) return; sessionStorage.setItem("init", "1"); localStorage.clear(); localStorage.setItem("fake.seed", o.seed); localStorage.setItem("fake.theme", o.theme); localStorage.setItem("merge.tuto", "1"); if (o.legacy) localStorage.setItem("fake.legacy", "1"); if (o.quota != null) localStorage.setItem("fake.quota", String(o.quota)); if (o.mastered) localStorage.setItem("fake.mastered", "1"); if (o.xp) localStorage.setItem("fake.xp", String(o.xp)); }, { seed, theme, legacy, quota, mastered, xp });
+  await page.addInitScript(o => { if (sessionStorage.getItem("init")) return; sessionStorage.setItem("init", "1"); localStorage.clear(); localStorage.setItem("fake.seed", o.seed); localStorage.setItem("fake.theme", o.theme); localStorage.setItem("merge.tuto", "1"); if (o.legacy) localStorage.setItem("fake.legacy", "1"); if (o.quota != null) localStorage.setItem("fake.quota", String(o.quota)); if (o.mastered) localStorage.setItem("fake.mastered", "1"); if (o.xp) localStorage.setItem("fake.xp", String(o.xp)); if (o.trash) localStorage.setItem("fake.trash", "1"); }, { seed, theme, legacy, quota, mastered, xp, trash });
   await page.goto(BASE + "/"); await page.waitForSelector("#app > *");
   return page;
 }
@@ -572,6 +572,27 @@ async function retourFlottant(browser) {
   ok(!page.errors.length, "retour flottant : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function corbeille(browser) {
+  let page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#corbeille", 400); ok((await txt(page)).includes("pas encore activée"), "corbeille : sans le script, message clair");
+  await page.context().close();
+  page = await open(browser, { w: 390, h: 844, theme: "light", trash: true });
+  await go(page, "#chapitre-c1", 400); await page.click("#cardsdrop summary"); await page.waitForTimeout(100);
+  const n0 = await page.locator("#list .term").count();
+  await page.click("#list [data-del] >> nth=0"); await page.click("#list [data-delyes]"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => window.__fake.DB.card_trash.length === 1), "corbeille : carte supprimée mise dans la corbeille");
+  await page.click("#tools summary"); await page.click("#tDel"); await page.click("#delyes"); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => !!window.__fake.DB.chapters.find(c => c.id === "c1").deleted_at), "corbeille : chapitre supprimé daté");
+  await go(page, "#corbeille", 1500); const t = await txt(page);
+  ok(t.includes("Chapitres") && t.includes("Cartes") && t.includes("jours"), "corbeille : liste avec jours restants", t.slice(0, 300) + " / " + page.errors.join(" "));
+  await page.click("[data-rc]"); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => { const c = window.__fake.DB.chapters.find(c => c.id === "c1"); return !c.archived && !c.deleted_at; }), "corbeille : chapitre restauré");
+  await page.click("[data-rk]"); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => window.__fake.DB.card_trash.length === 0), "corbeille : carte restaurée");
+  let sm = await small(page); ok(!sm.length, "corbeille : boutons de 44 px minimum", sm.join(" | "));
+  ok(!page.errors.length, "corbeille : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -580,7 +601,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

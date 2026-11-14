@@ -999,7 +999,7 @@
       const box = list.querySelector(`[data-id="${cid}"]`);
       if (b.dataset.img) return showPage(c.image_path, box.querySelector(".pagebox"));
       if (b.dataset.del) { b.outerHTML = `<button class="mini" data-delyes="${cid}" style="color:var(--peach-ink)">Confirmer la suppression</button>`; return; }
-      if (b.dataset.delyes) { const { error } = await sb.from("cards").delete().eq("id", cid); if (error) return fail(error, "Carte non supprimée"); state.cards = state.cards.filter(x => x.id !== cid); cards.splice(cards.indexOf(c), 1); box.remove(); return toast("Carte supprimée."); }
+      if (b.dataset.delyes) { const { error } = await trashCard(Object.assign({ chapter_id: id }, state.cards.find(x => x.id === cid) || {}, c)); if (error) return fail(error, "Carte non supprimée"); state.cards = state.cards.filter(x => x.id !== cid); cards.splice(cards.indexOf(c), 1); box.remove(); return toast("Carte supprimée."); }
       if (b.dataset.flag) {
         const { error } = await sb.from("cards").update({ flagged: !c.flagged }).eq("id", cid); if (error) return fail(error, "Signalement impossible");
         c.flagged = !c.flagged; box.outerHTML = drawCard(c); toast(c.flagged ? "Carte signalée. Tu peux la corriger avec Modifier." : "Signalement retiré.");
@@ -1545,7 +1545,7 @@
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
       <div class="card pad stack"><h2>IA</h2><p class="muted" id="quota">Appels IA aujourd'hui : …</p><p class="note">Tout ce que l'IA prépare (résumés, quiz, fiches, cartes mentales…) est gardé : rouvrir un contenu ne coûte aucun appel.</p><a class="btn sm ghost" href="${esc(C.CONTACT_CREATEUR)}" target="_blank" rel="noopener" style="align-self:flex-start">${I.mail}Contacter le créateur</a></div>
       <div class="card pad stack"><h2>Ce qui est partagé</h2><p class="muted">Tes cours, résumés et cartes restent toujours privés. Le partage de statistiques à deux se règle dans l'onglet Duo.</p><a class="btn sm ghost" href="#duo">Ouvrir Duo</a></div>
-      <div class="card pad stack"><h2>Archives</h2><p class="muted">En fin d'année, range tes anciennes matières. Elles restent consultables et tu peux les restaurer.</p><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" id="archShow">Voir mes archives</button><button class="btn sm ghost" id="archAll">Archiver toutes mes matières</button></div><div id="archBox" class="stack"></div></div>
+      <div class="card pad stack"><h2>Archives</h2><p class="muted">En fin d'année, range tes anciennes matières. Elles restent consultables et tu peux les restaurer.</p><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" id="archShow">Voir mes archives</button><a class="btn sm ghost" href="#corbeille">Corbeille</a><button class="btn sm ghost" id="archAll">Archiver toutes mes matières</button></div><div id="archBox" class="stack"></div></div>
       <div class="card pad stack"><h2>Supprimer mes données</h2><p class="muted">Efface définitivement tes matières, chapitres, cartes, résumés, notes et statistiques. Impossible à annuler.</p><div class="field"><label for="delw">Écris SUPPRIMER pour confirmer</label><input id="delw" type="text" autocomplete="off"></div><button class="btn sm peach" id="delall">Supprimer toutes mes données</button></div>
       <button class="btn ghost" id="logout">Se déconnecter</button>
       <p class="note">${esc(state.user.email || "")}</p>`;
@@ -1582,7 +1582,7 @@
       } catch (e) { msg.className = "err"; msg.textContent = e.message || "Activation impossible."; }
     };
     $("archShow").onclick = async () => {
-      const { data, error } = await sb.from("subjects").select("id,name,school_year").eq("archived", true).eq("user_id", state.user.id); if (error) return fail(error, "Archives non chargées");
+      let { data, error } = await sb.from("subjects").select("*").eq("archived", true).eq("user_id", state.user.id); if (error) return fail(error, "Archives non chargées"); data = (data || []).filter(x => !x.deleted_at);
       $("archBox").innerHTML = (data || []).length ? data.map(a => `<div class="row between"><span>${esc(a.name)}${a.school_year ? " · " + a.school_year + "-" + (a.school_year + 1) : ""}</span><button class="mini" data-rest="${a.id}">Restaurer</button></div>`).join("") : '<p class="muted">Aucune matière archivée.</p>';
       $("archBox").querySelectorAll("[data-rest]").forEach(b => b.onclick = async () => { const r = await sb.from("subjects").update({ archived: false }).eq("id", b.dataset.rest); if (r.error) return fail(r.error, "Restauration impossible"); await loadAll(); toast("Matière restaurée."); $("archShow").click(); });
     };
@@ -1828,6 +1828,37 @@
     }
     draw();
   }
+
+  // ---------- corbeille 30 jours (matières, chapitres, cartes) ----------
+  // Active seulement si le script supabase/optional/v16_corbeille.sql a été lancé ; sinon on garde l'ancien comportement (archivage simple).
+  let trashOk = null;
+  async function trashReady() { if (trashOk != null) return trashOk; try { const r = await sb.from("card_trash").select("id").limit(1); trashOk = !r.error; } catch (e) { trashOk = false; } return trashOk; }
+  const nowIso = () => new Date().toISOString();
+  async function trashRow(table, id) { const patch = { archived: true }; if (await trashReady()) patch.deleted_at = nowIso(); return sb.from(table).update(patch).eq("id", id); }
+  async function trashCard(c) {
+    if (await trashReady()) { const payload = Object.assign({}, c); const r = await sb.from("card_trash").insert({ card_id: c.id, chapter_id: c.chapter_id, payload, deleted_at: nowIso() }); if (r.error) return r; }
+    return sb.from("cards").delete().eq("id", c.id);
+  }
+  async function screenTrash() {
+    drawTabs("reglages"); const head = `<div class="row"><a class="iconbtn" href="#reglages" aria-label="Retour">${I.back}</a><h1>Corbeille</h1></div>`;
+    app.innerHTML = head + '<p class="muted">Chargement…</p>';
+    if (!(await trashReady())) { app.innerHTML = head + `<div class="card pad stack"><p>La corbeille n'est pas encore activée.</p><p class="small muted">En attendant, une matière ou un chapitre supprimé est seulement masqué : rien n'est perdu.</p></div>`; return; }
+    try { await sb.rpc("purge_my_trash"); } catch (e) { /* on videra plus tard */ }
+    const lim = Date.now() - 30 * 86400000, uid = state.user.id, keep = x => x.deleted_at && Date.parse(x.deleted_at) > lim;
+    const [sr, cr, kr] = await Promise.all([sb.from("subjects").select("id,name,color,deleted_at,archived").eq("user_id", uid).eq("archived", true), sb.from("chapters").select("id,name,subject_id,deleted_at,archived").eq("user_id", uid).eq("archived", true), sb.from("card_trash").select("id,card_id,chapter_id,payload,deleted_at").eq("user_id", uid)]);
+    const subs = (sr.data || []).filter(keep), chs = (cr.data || []).filter(keep), cards = (kr.data || []).filter(keep);
+    const left = d => { const n = Math.max(0, 30 - Math.floor((Date.now() - Date.parse(d)) / 86400000)); return n <= 1 ? "supprimé définitivement demain" : "encore " + n + " jours"; };
+    const row = (t, sub, attr) => `<div class="card pad row between"><div class="grow" style="min-width:0"><b>${t}</b><span class="small muted" style="display:block">${sub}</span></div><button class="btn sm ghost" ${attr}>Restaurer</button></div>`;
+    app.innerHTML = head + `<p class="small muted">Ce que tu supprimes reste ici 30 jours, puis disparaît pour de bon.</p>
+      ${subs.length ? `<h2>Matières</h2>${subs.map(x => row(esc(x.name), left(x.deleted_at), `data-rs="${x.id}"`)).join("")}` : ""}
+      ${chs.length ? `<h2>Chapitres</h2>${chs.map(x => row(esc(x.name), left(x.deleted_at), `data-rc="${x.id}"`)).join("")}` : ""}
+      ${cards.length ? `<h2>Cartes</h2>${cards.map(x => row(mx((x.payload || {}).front || ""), left(x.deleted_at), `data-rk="${x.id}"`)).join("")}` : ""}
+      ${subs.length || chs.length || cards.length ? "" : '<div class="card done"><p class="muted">La corbeille est vide.</p></div>'}`;
+    const done = async (msg) => { await loadAll(); toast(msg); screenTrash(); };
+    app.querySelectorAll("[data-rs]").forEach(b => b.onclick = async () => { const r = await sb.from("subjects").update({ archived: false, deleted_at: null }).eq("id", b.dataset.rs); if (r.error) return fail(r.error, "Restauration impossible"); done("Matière restaurée."); });
+    app.querySelectorAll("[data-rc]").forEach(b => b.onclick = async () => { const c = chs.find(x => x.id === b.dataset.rc); const r = await sb.from("chapters").update({ archived: false, deleted_at: null }).eq("id", c.id); if (r.error) return fail(r.error, "Restauration impossible"); const ps = (sr.data || []).find(x => x.id === c.subject_id); if (ps) await sb.from("subjects").update({ archived: false, deleted_at: null }).eq("id", ps.id); done("Chapitre restauré."); });
+    app.querySelectorAll("[data-rk]").forEach(b => b.onclick = async () => { const x = cards.find(y => y.id === b.dataset.rk), p = Object.assign({}, x.payload); delete p.user_id; const r = await sb.from("cards").insert(p); if (r.error) return fail(r.error, "Restauration impossible"); await sb.from("card_trash").delete().eq("id", x.id); done("Carte restaurée."); });
+  }
   // ---------- minuteur de concentration ----------
   let timerInt = null;
   function screenTimer() {
@@ -1914,7 +1945,7 @@
     $("tDel").onclick = () => {
       box.innerHTML = `<div class="stack"><p>Supprimer « ${esc(ch.name)} » et ses cartes de ton appli ?</p><div class="row"><button class="btn sm peach" id="delyes">Oui, supprimer</button><button class="btn sm ghost" id="delno">Annuler</button></div></div>`;
       $("delno").onclick = () => { box.innerHTML = ""; };
-      $("delyes").onclick = async () => { const { error } = await sb.from("chapters").update({ archived: true }).eq("id", id); if (error) return fail(error, "Suppression impossible"); await loadAll(); state.cards = state.cards.filter(c => c.chapter_id !== id); location.hash = "#matiere-" + (s ? s.id : ""); };
+      $("delyes").onclick = async () => { const { error } = await trashRow("chapters", id); if (error) return fail(error, "Suppression impossible"); await loadAll(); state.cards = state.cards.filter(c => c.chapter_id !== id); location.hash = "#matiere-" + (s ? s.id : ""); };
     };
     $("tExport").onclick = () => {
       if (!cards.length) return toast("Aucune carte à exporter.");
@@ -1939,7 +1970,7 @@
     $("sdel").onclick = () => {
       $("sbox").innerHTML = `<div class="stack"><p>Supprimer « ${esc(s.name)} » et ses chapitres de ton appli ?</p><div class="row"><button class="btn sm peach" id="sdy">Oui, supprimer</button><button class="btn sm ghost" id="sdn">Annuler</button></div></div>`;
       $("sdn").onclick = () => { $("sbox").innerHTML = ""; };
-      $("sdy").onclick = async () => { const { error } = await sb.from("subjects").update({ archived: true }).eq("id", s.id); if (error) return fail(error, "Suppression impossible"); await loadAll(); location.hash = "#matieres"; };
+      $("sdy").onclick = async () => { const { error } = await trashRow("subjects", s.id); if (error) return fail(error, "Suppression impossible"); await loadAll(); location.hash = "#matieres"; };
     };
   }
 
@@ -2995,7 +3026,7 @@
     if (!state.profile || !state.profile.onboarded_at) return screenOnboarding();
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);
     document.body.classList.add("nav"); closeSheet();
-    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
+    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "corbeille" ? "reglages" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
     screenSession.key = null;
     if (busStop) busStop();
     stopSpeak();
@@ -3035,6 +3066,7 @@
     else if (h === "melange") screenSession("melange");
     else if (h === "recompenses") screenRewards();
     else if (h === "edt") screenEdt();
+    else if (h === "corbeille") screenTrash();
     else if (h.startsWith("methode-")) screenMethode(arg);
     else if (h.startsWith("bac-")) screenBac(arg);
     else if (h.startsWith("vraifaux-")) screenTrueFalse(arg);

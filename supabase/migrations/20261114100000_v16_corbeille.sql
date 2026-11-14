@@ -1,6 +1,5 @@
--- Corbeille 30 jours (PAS ENCORE APPLIQUÉE : la fenêtre de confirmation Supabase n'a pas eu de réponse le 14 nov. à 3 h).
--- À coller dans l'éditeur SQL de Supabase. Ajoute des colonnes et une table ; la fonction purge_my_trash supprime
--- seulement ce qui est dans la corbeille depuis plus de 30 jours.
+-- v16 (lancée par Ramzi dans l'éditeur SQL le 14 nov. 2026 au matin). Corbeille 30 jours.
+-- La fonction purge_my_trash supprime seulement ce qui est dans la corbeille depuis plus de 30 jours.
 alter table public.subjects add column if not exists deleted_at timestamptz;
 alter table public.chapters add column if not exists deleted_at timestamptz;
 create table if not exists public.card_trash (

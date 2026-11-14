@@ -7,6 +7,7 @@
   const id = p => (p || "id") + "-" + (++n);
   const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [], user_kv: [], chapter_shares: [] };
   const PK = { profiles: ["user_id"], study_sessions: ["user_id", "day"], ai_cache: ["chapter_id", "kind"], summaries: ["chapter_id"], push_subscriptions: ["endpoint"], user_kv: ["user_id", "key"], chapter_shares: ["chapter_id"] };
+  if (opt("trash") === "1") DB.card_trash = [];
   const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes", "import_jobs", "user_kv"];
   const defaults = (t, r) => {
     const base = { user_id: UID, created_at: new Date(Date.now() + n).toISOString() };
@@ -156,7 +157,7 @@
 
   const client = {
     from: t => new Q(t),
-    rpc: async (name, args) => name === "share_chapter" ? (() => { let x = DB.chapter_shares.find(r => r.chapter_id === args.p_chapter); if (!x) { x = { chapter_id: args.p_chapter, user_id: UID, token: "tok" + Math.random().toString(36).slice(2).padEnd(22, "x"), active: true }; DB.chapter_shares.push(x); } else { if (args.p_renew) x.token = "tok" + Math.random().toString(36).slice(2).padEnd(22, "y"); x.active = true; } return { data: x.token, error: null }; })()
+    rpc: async (name, args) => name === "purge_my_trash" ? { data: null, error: null } : name === "share_chapter" ? (() => { let x = DB.chapter_shares.find(r => r.chapter_id === args.p_chapter); if (!x) { x = { chapter_id: args.p_chapter, user_id: UID, token: "tok" + Math.random().toString(36).slice(2).padEnd(22, "x"), active: true }; DB.chapter_shares.push(x); } else { if (args.p_renew) x.token = "tok" + Math.random().toString(36).slice(2).padEnd(22, "y"); x.active = true; } return { data: x.token, error: null }; })()
       : name === "unshare_chapter" ? (DB.chapter_shares.forEach(r => { if (r.chapter_id === args.p_chapter) r.active = false; }), { data: null, error: null })
       : name === "get_shared_chapter" ? (() => { const sh = DB.chapter_shares.find(r => r.token === args.p_token && r.active); if (!sh) return { data: null, error: null }; const c = DB.chapters.find(x => x.id === sh.chapter_id); const sm = DB.summaries.find(x => x.chapter_id === c.id); const content = {}; DB.ai_cache.filter(a => a.chapter_id === c.id).forEach(a => { content[a.kind] = a.content; }); return { data: { name: c.name, subject: "SVT", cards: DB.cards.filter(k => k.chapter_id === c.id).map(k => ({ front: k.front, back: k.back })), summary: sm ? sm.markdown : null, content }, error: null }; })()
       : name === "track_usage" ? ((window.__fake.usage = window.__fake.usage || []).push(args), { data: null, error: null }) : name === "shared_subject_names" ? { data: [{ name: "Chinois", uses: 2 }], error: null } : name === "share_partners" ? { data: [], error: null } : name === "create_share_invite" ? { data: "abc123", error: null } : { data: null, error: null },
