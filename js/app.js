@@ -93,7 +93,7 @@
 
   const svg = (d, extra) => `<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${extra || ""}>${d}</svg>`;
   const I = {
-    back: svg('<path d="M15 6l-6 6 6 6"/>'), search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'), clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 3h5"/>'), star: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.8z"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'), spark: svg('<path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
+    back: svg('<path d="M15 6l-6 6 6 6"/>'), undo: svg('<path d="M9 7L4.5 11.5 9 16"/><path d="M5 11.5h9.5a5 5 0 010 10H12"/>'), search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'), clock: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 3h5"/>'), star: svg('<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.5 9.7l5.9-.8z"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'), spark: svg('<path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>'), x: svg('<path d="M6 6l12 12M18 6L6 18"/>'), plus: svg('<path d="M12 5v14M5 12h14"/>'),
     play: svg('<path d="M8 5.5v13l10.5-6.5z"/>'), pause: svg('<path d="M8.5 5.5v13M15.5 5.5v13"/>'), next: svg('<path d="M6 6v12l8.5-6zM18 6v12"/>'),
     home: svg('<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'),
     gear: svg('<g transform="translate(12 12) scale(.82) translate(-12 -12)" stroke-width="2.6"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>'),
@@ -397,6 +397,19 @@
   // ---------- carnet d'erreurs ----------
   const errKey = () => "merge.erreurs." + (state.user ? state.user.id : "");
   function localMistakes() { try { return JSON.parse(safeGet(errKey()) || "[]"); } catch (e) { return []; } }
+  // Annule une erreur notée par erreur (bouton « Annuler » des cartes) : une fois de moins, ou supprimée si c'était la première.
+  async function unlogMistake(chapterId, q) {
+    const question = String(q).slice(0, 600);
+    try {
+      if (state.offline) throw new Error("hors ligne");
+      const old = await sb.from("mistakes").select("id,times").eq("chapter_id", chapterId).eq("question", question).maybeSingle();
+      if (old.error) throw old.error; if (!old.data) throw new Error("pas en base");
+      if ((old.data.times || 1) > 1) await sb.from("mistakes").update({ times: old.data.times - 1 }).eq("id", old.data.id); else await sb.from("mistakes").delete().eq("id", old.data.id);
+    } catch (e) {
+      const l = localMistakes(), o = l.find(x => x.chapter_id === chapterId && x.question === question); if (!o) return;
+      safeSet(errKey(), JSON.stringify((o.times || 1) > 1 ? (o.times--, l) : l.filter(x => x !== o)));
+    }
+  }
   async function logMistake(chapterId, q, expected, given, mode, cardId) {
     const row = { chapter_id: chapterId, card_id: cardId || null, mode, question: String(q).slice(0, 600), expected: String(expected).slice(0, 2000), given: given ? String(given).slice(0, 1500) : null };
     try {
@@ -831,13 +844,24 @@
   }
 
   function examPill(s) { const j = daysUntil(s.exam_date); return isFree(s) ? '<span class="pill">Révision libre</span>' : j != null && j >= 0 ? `<span class="pill">${j === 0 ? "Contrôle aujourd'hui" : "Contrôle dans " + plural(j, "jour", "jours")}</span>` : '<span class="pill ghostpill">Aucune date</span>'; }
-  function chapterRow(c, color) { const cs = cardsOf(c.id); return `<a class="card subject" style="--c:${esc(okColor(c.color) ? c.color : color)}" href="#chapitre-${c.id}"><div class="row between"><b>${esc(c.name)}</b><span class="pill">${cs.length ? plural(cs.length, "carte", "cartes") : "À importer"}</span></div>${cs.length ? `<div class="row"><div class="bar grow"><i style="width:${mastery(cs)}%"></i></div><span class="small muted">${mastery(cs)} %</span></div>` : ""}</a>`; }
-  async function addChapter(name, subjectId, groupId) {
-    if (!name) { toast("Donne un nom au chapitre."); return; }
-    const row = { name, subject_id: subjectId, cards_target: C.CARTES_PAR_DEFAUT }; if (groupId) row.group_id = groupId;
+  function chapterRow(c, color) { const cs = cardsOf(c.id); return `<a class="card subject" style="--c:${esc(okColor(c.color) ? c.color : color)}" href="#chapitre-${c.id}"><div class="row between"><b>${esc(c.name)}${c.auto_name ? '<span class="small muted" style="display:block;font-weight:600">Le nom viendra de ton cours</span>' : ""}</b><span class="pill">${cs.length ? plural(cs.length, "carte", "cartes") : "À importer"}</span></div>${cs.length ? `<div class="row"><div class="bar grow"><i style="width:${mastery(cs)}%"></i></div><span class="small muted">${mastery(cs)} %</span></div>` : ""}</a>`; }
+  // Champ « Nouveau chapitre » avec la case « Nom choisi automatiquement » (le nom vient du cours importé, voir studio/titre.mjs).
+  const AUTO_NAME = "Nouveau chapitre";
+  const chapterField = (label, ph) => `<div class="field"><label for="cname">${label}</label><div class="row"><input id="cname" type="text" maxlength="80" placeholder="${ph}"><button class="btn" id="addCh" aria-label="Ajouter le chapitre">${I.plus}</button></div>
+      <button type="button" class="switch" role="switch" id="cauto" aria-checked="false"><i></i><span>Nom choisi automatiquement d'après le cours</span></button></div>`;
+  function wireChapterField(subjectId, groupId) {
+    const inp = $("cname"), sw = $("cauto"), ph = inp.placeholder;
+    sw.onclick = () => { const on = sw.getAttribute("aria-checked") !== "true"; sw.setAttribute("aria-checked", on); inp.disabled = on; if (on) inp.value = ""; inp.placeholder = on ? "Le nom viendra de ton cours" : ph; if (!on) inp.focus(); };
+    $("addCh").onclick = () => addChapter(inp.value.trim(), subjectId, groupId, sw.getAttribute("aria-checked") === "true");
+    inp.onkeydown = e => { if (e.key === "Enter") $("addCh").click(); };
+  }
+  async function addChapter(name, subjectId, groupId, auto) {
+    if (!name && !auto) { toast("Donne un nom au chapitre, ou coche « Nom choisi automatiquement »."); return; }
+    const row = { name: auto ? AUTO_NAME : name, subject_id: subjectId, cards_target: C.CARTES_PAR_DEFAUT }; if (groupId) row.group_id = groupId; if (auto) row.auto_name = true;
     const { data, error } = await sb.from("chapters").insert(row).select("id").single();
     if (error) return fail(error, "Chapitre non créé");
-    await loadAll(); location.hash = "#chapitre-" + data.id;
+    // Nom automatique : on va directement à l'import, puisque le nom vient du cours.
+    await loadAll(); location.hash = (auto ? "#import-" : "#chapitre-") + data.id;
   }
 
   function screenSubject(id, openPicker) {
@@ -854,7 +878,7 @@
         ${groups.length ? `<div class="grid">${groups.map(g => { const gc = chs.filter(c => c.group_id === g.id), cs = state.cards.filter(k => gc.some(c => c.id === k.chapter_id)), m = mastery(cs); return `<a class="card folder" style="--c:${esc(okColor(g.color) ? g.color : s.color)}" href="#dossier-${g.id}"><div class="row">${I.folder}<b class="grow">${esc(g.name)}</b></div><div class="row between small"><span>${plural(gc.length, "chapitre", "chapitres")}</span><span>${m} %</span></div><div class="bar"><i style="width:${m}%"></i></div></a>`; }).join("")}</div>` : '<p class="small muted">Range tes chapitres par thème, par exemple « Thème 1 : Génétique ». Touche + pour créer un dossier.</p>'}</div>
       <div class="stack"><div class="row between"><h2>${groups.length ? "Chapitres sans dossier" : "Chapitres"}</h2></div>
       ${loose.length ? loose.map(c => chapterRow(c, s.color)).join("") : `<p class="muted">${chs.length ? "Tous tes chapitres sont rangés dans des dossiers." : "Aucun chapitre pour l'instant."}</p>`}
-      <div class="field"><label for="cname">Nouveau chapitre</label><div class="row"><input id="cname" type="text" maxlength="80" placeholder="Ex. Les ondes mécaniques"><button class="btn" id="addCh" aria-label="Ajouter le chapitre">${I.plus}</button></div></div></div>
+      ${chapterField("Nouveau chapitre", "Ex. Les ondes mécaniques")}</div>
       ${subjectToolsHtml(s, chs)}`;
     wireSubjectTools(s);
     const openExam = () => examPicker($("examBox"), { date: s.exam_date, free: isFree(s) }, async v => { const err = await saveExam(id, v); if (err) return fail(err, "Date non enregistrée"); toast(v.free ? "Révision libre activée." : v.date ? "Date enregistrée." : "Date retirée."); screenSubject(id, true); });
@@ -870,7 +894,7 @@
         await loadAll(); screenSubject(id); toast("Dossier créé.");
       };
     };
-    $("addCh").onclick = () => addChapter($("cname").value.trim(), id, null);
+    wireChapterField(id, null);
   }
 
   // ---------- dossier (sous-catégorie) : onglets Résumés, Flashcards, Quiz, Contrôles ----------
@@ -901,14 +925,14 @@
         <div class="stack" style="--c:${esc(s.color)}"><h1>${esc(g.name)}</h1><div class="row"><div class="bar grow"><i style="width:${m}%;background:var(--c)"></i></div><span class="small muted">${plural(chs.length, "chapitre", "chapitres")} · ${m} %</span></div></div>
         <div class="seg" role="tablist" aria-label="Contenu du dossier">${TABS_G.map(t => `<button role="tab" data-gt="${t[0]}" aria-selected="${groupTab === t[0]}">${t[1]}</button>`).join("")}</div>
         <div class="stack" role="tabpanel">${list()}</div>
-        <div class="field"><label for="cname">Nouveau chapitre dans ce dossier</label><div class="row"><input id="cname" type="text" maxlength="80" placeholder="Ex. Chapitre 1 : La mitose"><button class="btn" id="addCh" aria-label="Ajouter le chapitre">${I.plus}</button></div></div>
+        ${chapterField("Nouveau chapitre dans ce dossier", "Ex. Chapitre 1 : La mitose")}
         <div class="card pad stack"><h2>Réglages du dossier</h2>
           ${loose.length ? `<div class="field"><label for="mv">Ranger un chapitre existant ici</label><div class="row"><select id="mv">${loose.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn sm" id="mvgo">Ranger</button></div></div>` : ""}
           <div class="field"><label for="gn">Nom du dossier</label><div class="row"><input id="gn" type="text" maxlength="80" value="${esc(g.name)}"><button class="btn sm" id="gren">Renommer</button></div></div>
           <div class="field"><span class="label">Couleur du dossier</span><div id="gcol">${colorPick(okColor(g.color) ? g.color : s.color)}</div></div>
           <button class="btn sm ghost" id="gdel" style="align-self:flex-start">Supprimer le dossier</button><p class="note">Supprimer le dossier ne supprime pas ses chapitres : ils reviennent dans la matière.</p></div>`;
       app.querySelectorAll("[data-gt]").forEach(b => b.onclick = () => { groupTab = b.dataset.gt; draw(); });
-      $("addCh").onclick = () => addChapter($("cname").value.trim(), g.subject_id, id);
+      wireChapterField(g.subject_id, id);
       if ($("mvgo")) $("mvgo").onclick = async () => { const r = await sb.from("chapters").update({ group_id: id }).eq("id", $("mv").value); if (r.error) return fail(r.error, "Chapitre non rangé"); await loadAll(); screenGroup(id); };
       wireColor($("gcol"), async c => { const r = await sb.from("groups").update({ color: c }).eq("id", id); if (r.error) return fail(r.error, "Couleur non enregistrée"); g.color = c; toast("Couleur du dossier enregistrée."); });
       $("gren").onclick = async () => { const name = $("gn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const r = await sb.from("groups").update({ name }).eq("id", id); if (r.error) return fail(r.error, "Nom non enregistré"); g.name = name; draw(); toast("Dossier renommé."); };
@@ -1450,7 +1474,25 @@
       }).catch(e => { if (e && e.code === "quota") toast("Limite d'IA atteinte : pas d'astuce pour cette carte aujourd'hui."); });
     }
     const mnemoHtml = c => getMnemo(c) ? `<p class="mnemo"><b>Astuce pour retenir.</b> ${esc(getMnemo(c))}</p>` : "";
+    // Annuler : on garde l'état d'avant chaque réponse (20 au plus) pour pouvoir revenir en arrière si on s'est trompé de bouton.
+    const UNDO_KEYS = ["due_at", "stability", "difficulty", "elapsed_days", "scheduled_days", "reps", "lapses", "state", "last_review", "right_count", "wrong_count", "mastered"];
+    S.undo = [];
+    async function undo() {
+      const u = S.undo.pop(); if (!u) return;
+      const row = state.cards.find(c => c.id === u.cid);
+      if (row) {
+        Object.assign(row, u.prev);
+        const patch = Object.assign({}, u.prev); if (state.legacy) delete patch.mastered;
+        sb.from("cards").update(patch).eq("id", u.cid).then(res => { if (res.error) queueReview(u.cid, patch); }, () => queueReview(u.cid, patch));
+      }
+      S.queue = u.queue; S.known = u.known; S.reviews = Math.max(0, S.reviews - 1); if (!u.again) S.again.delete(u.cid);
+      S.flipped = true; S.mine = "";
+      if (u.mistake) Promise.resolve(u.mistake).then(() => unlogMistake(u.chapter, u.front));
+      toast("Réponse annulée. Choisis la bonne.");
+      render();
+    }
     async function answer(ok, rating) {
+      { const r0 = state.cards.find(c => c.id === S.queue[0]); if (r0) { S.undo.push({ cid: r0.id, chapter: r0.chapter_id, front: r0.front, prev: Object.fromEntries(UNDO_KEYS.map(k => [k, r0[k] === undefined ? null : r0[k]])), queue: S.queue.slice(), known: S.known, again: S.again.has(r0.id), mistake: null }); if (S.undo.length > 20) S.undo.shift(); } }
       const cid = S.queue.shift(), row = state.cards.find(c => c.id === cid); if (!row) return render();
       const now = new Date(), r = fsrs.next(toFsrs(row), now, ok ? (rating || F.Rating.Good) : F.Rating.Again).card;
       const patch = { due_at: r.due.toISOString(), stability: r.stability, difficulty: r.difficulty, elapsed_days: r.elapsed_days, scheduled_days: r.scheduled_days, reps: r.reps, lapses: r.lapses, state: r.state, last_review: now.toISOString(), right_count: (row.right_count || 0) + (ok ? 1 : 0), wrong_count: (row.wrong_count || 0) + (ok ? 0 : 1) };
@@ -1458,7 +1500,7 @@
       Object.assign(row, patch); row.mastered = ok; S.reviews++; S.chapters.add(row.chapter_id); S.allCh.add(row.chapter_id);
       sb.from("cards").update(patch).eq("id", cid).then(res => { if (res.error) queueReview(cid, patch); }, () => queueReview(cid, patch));
       ping(ok);
-      if (ok) S.known++; else { S.again.add(cid); S.queue.push(cid); logMistake(row.chapter_id, row.front, row.back, "", "cartes", cid); if (patch.wrong_count >= 2) askMnemo(row); }
+      if (ok) S.known++; else { S.again.add(cid); S.queue.push(cid); const lm = logMistake(row.chapter_id, row.front, row.back, "", "cartes", cid); if (S.undo.length) S.undo[S.undo.length - 1].mistake = lm; if (patch.wrong_count >= 2) askMnemo(row); }
       S.flipped = false; S.mine = "";
       if (S.queue.length) jset("merge.resume", { hash: location.hash, ch: single ? scope : null, name: single ? "" : "ta session", left: S.queue.length, total: S.total, at: Date.now() }); else safeSet("merge.resume", "null");
       render();
@@ -1480,7 +1522,7 @@
         $("goquiz").onclick = () => { finish(); midQuiz = scope; location.hash = "#quiz-" + scope; }; $("keep").onclick = render; return;
       }
       const c = text[S.queue[0]], pct = Math.round(S.known / S.total * 100);
-      app.innerHTML = `<div class="swrap"><div class="session"><div class="row"><a class="iconbtn" href="${backHref}" id="quit" aria-label="Fermer la session">${I.x}</a><div class="grow" style="text-align:center;font-weight:800;font-variant-numeric:tabular-nums">${pct} % <span class="small muted">· ${S.known} / ${S.total}</span></div><span style="width:44px"></span></div>
+      app.innerHTML = `<div class="swrap"><div class="session"><div class="row"><a class="iconbtn" href="${backHref}" id="quit" aria-label="Fermer la session">${I.x}</a>${S.undo.length ? `<button class="iconbtn" id="undo" aria-label="Annuler ma dernière réponse" title="Annuler ma dernière réponse">${I.undo}</button>` : ""}<div class="grow" style="text-align:center;font-weight:800;font-variant-numeric:tabular-nums">${pct} % <span class="small muted">· ${S.known} / ${S.total}</span></div><span style="width:44px"></span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progression de la session"><i style="width:${pct}%"></i></div>
         <div class="counters"><span class="counter no" aria-label="Cartes à revoir">${S.again.size}</span><span class="counter yes" aria-label="Cartes réussies">${S.known}</span></div>
         <div class="flipwrap" id="wrap"><button class="flip${S.flipped ? " back" : ""}" id="flip" aria-label="Retourner la carte">
@@ -1492,12 +1534,13 @@
         <div class="row rate2"><button class="chip sm grow" id="hard">Juste, mais à revoir bientôt</button><button class="chip sm grow" id="easy">Trop facile</button></div>
         <details class="cmore"${safeGet("merge.cmore") === "1" ? " open" : ""}><summary>Plus d'options</summary><div class="row" style="justify-content:center;flex-wrap:wrap"><button class="switch" id="typedsw" role="switch" aria-checked="${typed()}"><i></i>Écrire ma réponse</button><button class="linkbtn" id="huh">Je ne comprends pas</button><button class="linkbtn" id="editc">Modifier la carte</button><button class="linkbtn" id="noteb">${noteOf(c) ? "Modifier ma note" : "Ajouter une note"}</button><button class="linkbtn" data-pomo>Pomodoro</button>${"speechSynthesis" in window ? '<button class="linkbtn" id="say">Lire à voix haute</button>' : ""}${c.image_path && !state.offline ? '<button class="linkbtn" id="see">Voir la page du cours</button>' : ""}</div></details><div id="pageimg"></div></div>
         <aside class="sside"><div class="card pad stack"><div class="ring" style="--p:${pct}"><b>${pct} %</b></div><div class="srow"><span>Réussies</span><b class="g">${S.known}</b></div><div class="srow"><span>À revoir</span><b class="r">${S.again.size}</b></div><div class="srow"><span>Restantes</span><b>${S.queue.length}</b></div></div>
-          <div class="card pad stack"><h2>Raccourcis clavier</h2><div class="srow"><span>Retourner la carte</span><kbd>Espace</kbd></div><div class="srow"><span>Juste</span><kbd>→</kbd></div><div class="srow"><span>Faux</span><kbd>←</kbd></div><div class="srow"><span>Trop facile</span><kbd>↑</kbd></div><div class="srow"><span>À revoir bientôt</span><kbd>↓</kbd></div></div>
+          <div class="card pad stack"><h2>Raccourcis clavier</h2><div class="srow"><span>Retourner la carte</span><kbd>Espace</kbd></div><div class="srow"><span>Juste</span><kbd>→</kbd></div><div class="srow"><span>Faux</span><kbd>←</kbd></div><div class="srow"><span>Annuler ma réponse</span><kbd>Ctrl Z</kbd></div><div class="srow"><span>Trop facile</span><kbd>↑</kbd></div><div class="srow"><span>À revoir bientôt</span><kbd>↓</kbd></div></div>
           <p class="note">Une carte ratée revient jusqu'à ce que tu la réussisses.</p></aside></div>`;
       if ($("see")) $("see").onclick = () => showPage(c.image_path, $("pageimg"));
       if ($("say")) $("say").onclick = () => speakText(S.flipped ? c.back : c.front, "fr-FR");
       $("flip").onclick = () => { if ($("mine")) S.mine = $("mine").value; S.flipped = !S.flipped; $("flip").classList.toggle("back", S.flipped); $("extra").innerHTML = backExtra(c); };
       $("no").onclick = () => answer(false); $("yes").onclick = () => answer(true);
+      if ($("undo")) $("undo").onclick = undo;
       $("editc").onclick = () => sheet(`<h1>Modifier la carte</h1><div class="field"><label for="ef">Question</label><textarea id="ef" style="min-height:80px" maxlength="500">${esc(c.front)}</textarea></div><div class="field"><label for="eb">Réponse</label><textarea id="eb" style="min-height:110px" maxlength="2000">${esc(c.back)}</textarea></div><p class="note" id="emsg"></p><div class="row"><button class="btn grow" id="eok">Enregistrer</button><button class="btn ghost" data-close>Annuler</button></div>`, el => { el.querySelector("#eok").onclick = async () => {
         const front = el.querySelector("#ef").value.trim(), back = el.querySelector("#eb").value.trim(); if (!front || !back) return toast("La question et la réponse ne peuvent pas être vides.");
         el.querySelector("#eok").disabled = true; const { error } = await sb.from("cards").update({ front, back, edited_by_user: true, needs_check: false, flagged: false }).eq("id", c.id);
@@ -1524,6 +1567,7 @@
       if (e.key === "ArrowLeft") answer(false);
       if (e.key === "ArrowUp") { e.preventDefault(); answer(true, F.Rating.Easy); }
       if (e.key === "ArrowDown") { e.preventDefault(); answer(true, F.Rating.Hard); }
+      if ((e.key === "z" || e.key === "Z") && (e.ctrlKey || e.metaKey) || e.key === "Backspace" && !/INPUT|TEXTAREA/.test((e.target || {}).tagName || "")) { e.preventDefault(); undo(); }
     };
     render();
   }
@@ -2025,7 +2069,7 @@
     };
     $("tRename").onclick = () => {
       box.innerHTML = `<div class="stack"><div class="field"><label for="rn">Nom du chapitre</label><input id="rn" type="text" maxlength="80" value="${esc(ch.name)}"></div><button class="btn sm" id="rnsave">Renommer</button></div>`;
-      $("rnsave").onclick = async () => { const name = $("rn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const { error } = await sb.from("chapters").update({ name }).eq("id", id); if (error) return fail(error, "Nom non enregistré"); ch.name = name; screenChapter(id); };
+      $("rnsave").onclick = async () => { const name = $("rn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const { error } = await sb.from("chapters").update({ name, auto_name: false }).eq("id", id); if (error) return fail(error, "Nom non enregistré"); ch.name = name; ch.auto_name = false; screenChapter(id); };
     };
     $("tDel").onclick = () => {
       box.innerHTML = `<div class="stack"><p>Supprimer « ${esc(ch.name)} » et ses cartes de ton appli ?</p><div class="row"><button class="btn sm peach" id="delyes">Oui, supprimer</button><button class="btn sm ghost" id="delno">Annuler</button></div></div>`;

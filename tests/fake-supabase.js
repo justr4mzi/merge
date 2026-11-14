@@ -134,7 +134,7 @@
       const old = DB.summaries.find(x => x.chapter_id === job.chapter_id), sum = "## À quoi sert ce chapitre\nComprendre comment une cellule se divise.\n\n## Notions clés\n- **Mitose** : deux cellules filles identiques";
       if (!old) DB.summaries.push(defaults("summaries", { chapter_id: job.chapter_id, markdown: sum })); else if (!old.edited_by_user) old.markdown += "\n\n## Complément : " + job.label + "\n\n" + sum;
       cards.forEach((c, i) => DB.cards.push(defaults("cards", { chapter_id: job.chapter_id, front: c[0], back: c[1], source_quote: "La mitose est une division cellulaire.", needs_check: i === 1 })));
-      const ch = DB.chapters.find(x => x.id === job.chapter_id); if (ch) ch.status = "ready";
+      const ch = DB.chapters.find(x => x.id === job.chapter_id); if (ch) { ch.status = "ready"; if (ch.auto_name === true) { ch.name = "La mitose et la méiose"; ch.auto_name = false; } } // titre proposé par la fausse IA (comme studio/titre.mjs)
       Object.assign(job, { status: "done", stage: "end", progress: 100, message: "Prêt", result: { cards: cards.length, bad: 1, notes: [] }, updated_at: now() });
     })();
     return { data: { job_id: job.id }, error: null };

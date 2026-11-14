@@ -383,13 +383,13 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 h1{font-size:1.75em;letter-spacing:-.02em}
 h2{font-size:1.1em;letter-spacing:-.01em}
 input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{background:var(--card2);border-color:transparent;transition:border-color .15s,box-shadow .15s,background-color .15s}
-input[type=text]:hover,input[type=number]:hover,select:hover,textarea:hover{border-color:var(--line)}
+@media (hover:hover) and (pointer:fine){input[type=text]:hover,input[type=number]:hover,select:hover,textarea:hover{border-color:var(--line)}}
 input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,input[type=time]:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--glow);background:var(--card)}
 .iconbtn{border:1px solid var(--line);box-shadow:none}
-.iconbtn:hover{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+@media (hover:hover) and (pointer:fine){.iconbtn:hover{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}}
 .btn.ghost{border:1px solid var(--line);box-shadow:none}
 .mini{background:var(--card2)}
-.mini:hover,.linkbtn:hover{color:var(--accent-ink);background:var(--accent-soft)}
+@media (hover:hover) and (pointer:fine){.mini:hover,.linkbtn:hover{color:var(--accent-ink);background:var(--accent-soft)}}
 .linkbtn{border-radius:10px;padding:0 8px}
 .pill{background:var(--accent-soft)}
 
@@ -401,12 +401,12 @@ input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,input[typ
 .app.enter>*{animation:rise .36s cubic-bezier(.2,.7,.2,1) both}
 .app.enter>*:nth-child(2){animation-delay:.04s}.app.enter>*:nth-child(3){animation-delay:.08s}.app.enter>*:nth-child(4){animation-delay:.12s}.app.enter>*:nth-child(n+5){animation-delay:.16s}
 .btn,.chip,.iconbtn,.mini,.linkbtn,.tabs a,.tilebtn,.mbtn,.mtile,.exam,.cal .day,a.card,.card.subject,.card.term{transition:transform .14s ease,background-color .16s ease,box-shadow .16s ease,border-color .16s ease,color .16s ease,filter .16s ease}
-.btn:not(:disabled):hover{filter:brightness(1.1);box-shadow:0 8px 22px var(--glow);transform:translateY(-1px)}
-.btn.ghost:not(:disabled):hover{filter:none;box-shadow:none;background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+@media (hover:hover) and (pointer:fine){.btn:not(:disabled):hover{filter:brightness(1.1);box-shadow:0 8px 22px var(--glow);transform:translateY(-1px)}}
+@media (hover:hover) and (pointer:fine){.btn.ghost:not(:disabled):hover{filter:none;box-shadow:none;background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}}
 .btn:not(:disabled):active,.chip:active,.iconbtn:active,.mini:active,.tilebtn:active,.mbtn:active{transform:scale(.96)}
-.chip:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
-a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--c,var(--accent)) 60%,var(--line));box-shadow:0 12px 28px rgba(0,0,0,.18)}
-.card.term:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+@media (hover:hover) and (pointer:fine){.chip:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}}
+@media (hover:hover) and (pointer:fine){a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--c,var(--accent)) 60%,var(--line));box-shadow:0 12px 28px rgba(0,0,0,.18)}}
+@media (hover:hover) and (pointer:fine){.card.term:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
 .bar i{transition:width .5s cubic-bezier(.2,.7,.2,1)}
 .subject{border-left:4px solid var(--c,transparent)}
 .done{animation:pop .4s cubic-bezier(.2,1.3,.4,1) both}
@@ -414,7 +414,7 @@ a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:c
 /* navigation */
 .tabs{background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);z-index:20}
 .tabs a{border-radius:14px;margin:4px 2px}
-.tabs a:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){.tabs a:hover{color:var(--fg)}}
 .tabs a[aria-current="page"]{color:var(--accent-ink)}
 .tabs a[aria-current="page"] svg{filter:drop-shadow(0 0 8px var(--glow))}
 .sidefoot{display:none}
@@ -435,15 +435,15 @@ a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:c
 .wbars i.now{box-shadow:0 0 0 3px var(--glow)}
 .wbars span{font-size:.72em;font-weight:800;color:var(--muted)}
 .exam{display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;text-decoration:none;min-height:60px}
-.exam:hover{background:var(--card2)}
+@media (hover:hover) and (pointer:fine){.exam:hover{background:var(--card2)}}
 .card.exam{padding:12px 14px}
-.card.exam:hover{background:var(--card)}
+@media (hover:hover) and (pointer:fine){.card.exam:hover{background:var(--card)}}
 .exam .grow b,.exam .grow span{display:block}
 .exam .grow b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jx{flex:none;min-width:56px;height:44px;padding:0 10px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--c,var(--accent)) 22%,var(--card));color:var(--fg);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 55%,transparent)}
 .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:6px}
 .stat{display:flex;align-items:center;gap:12px;padding:14px;min-width:0;border-radius:12px}
-.stat:hover{background:var(--card2)}
+@media (hover:hover) and (pointer:fine){.stat:hover{background:var(--card2)}}
 .stat .sico{flex:none;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--sc,var(--accent)) 18%,transparent);color:var(--sc,var(--accent))}
 .stat b{display:block;font-size:1.35em;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .stat span{display:block;font-size:.8em;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
@@ -458,7 +458,7 @@ a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:c
 .modesbox{gap:22px}
 .mgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
 .mtile{display:flex;align-items:center;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:4px 6px 4px 4px;min-width:0}
-.mtile:hover{border-color:var(--mc,var(--accent));background:color-mix(in srgb,var(--mc,var(--accent)) 9%,var(--card));transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.16)}
+@media (hover:hover) and (pointer:fine){.mtile:hover{border-color:var(--mc,var(--accent));background:color-mix(in srgb,var(--mc,var(--accent)) 9%,var(--card));transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.16)}}
 .mmain{flex:1;display:flex;align-items:center;gap:12px;padding:8px;min-height:60px;text-decoration:none;min-width:0;border-radius:12px}
 .mico{flex:none;width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--mc,var(--accent)) 18%,transparent);color:var(--mc,var(--accent))}
 .mico.big{width:52px;height:52px;border-radius:16px}
@@ -466,7 +466,7 @@ a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:c
 .mtxt b{display:block;font-weight:800}
 .mtxt .small{display:block;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mbtn{flex:none;width:44px;height:44px;border:0;background:none;border-radius:50%;color:var(--muted);display:grid;place-items:center;padding:0}
-.mbtn:hover{background:var(--card2);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){.mbtn:hover{background:var(--card2);color:var(--fg)}}
 .mbtn.star[aria-pressed="true"]{color:#f5b400}
 .mbtn.star[aria-pressed="true"] svg{fill:currentColor}
 .modesbox>.stack:nth-of-type(5n+1){--mc:#8f7dff}.modesbox>.stack:nth-of-type(5n+2){--mc:#3b9bf6}.modesbox>.stack:nth-of-type(5n+3){--mc:#f08c3a}.modesbox>.stack:nth-of-type(5n+4){--mc:#18ae79}.modesbox>.stack:nth-of-type(5n){--mc:#e0529c}
@@ -488,7 +488,7 @@ a.card:hover,.grid .card.subject:hover{transform:translateY(-3px);border-color:c
 .cal.calx .day{position:relative;min-height:52px;border-radius:14px;background:var(--card2);gap:2px;overflow:hidden}
 .cal.calx button.day{background:var(--card2)}
 .cal.calx button.day:disabled{opacity:.42;background:transparent}
-.cal.calx button.day:not(:disabled):hover{background:var(--accent-soft);color:var(--accent-ink);transform:translateY(-2px)}
+@media (hover:hover) and (pointer:fine){.cal.calx button.day:not(:disabled):hover{background:var(--accent-soft);color:var(--accent-ink);transform:translateY(-2px)}}
 .cal.calx .day.now{background:var(--accent-soft);color:var(--accent-ink);box-shadow:inset 0 0 0 2px var(--accent)}
 .cal.calx .day.has{outline:0;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent)}
 .cal.calx .day.did::after{content:"";position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--mint-solid)}
@@ -515,7 +515,7 @@ kbd{font:inherit;font-size:.82em;font-weight:800;padding:4px 10px;border-radius:
 /* couleurs */
 .swatches{gap:6px}
 .chip.swatch{border-width:2px;border-color:transparent;background:transparent;min-height:44px}
-.chip.swatch:hover{background:var(--card2)}
+@media (hover:hover) and (pointer:fine){.chip.swatch:hover{background:var(--card2)}}
 .chip.swatch[aria-pressed="true"]{border-color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 18%,transparent)}
 .chip.swatch .dot{width:24px;height:24px}
 .chip.swatch.free{position:relative;cursor:pointer}
@@ -542,7 +542,8 @@ kbd{font:inherit;font-size:.82em;font-weight:800;padding:4px 10px;border-radius:
 .jobchip .spin{width:16px;height:16px;border-width:3px;border-color:rgba(255,255,255,.35);border-top-color:#fff}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:70;overflow:hidden}
 .confetti i{position:absolute;top:-16px;width:9px;height:14px;border-radius:2px;animation:fall 2s ease-in forwards}
-.drop{transition:border-color .15s,background-color .15s;border-radius:20px}.drop:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.drop{transition:border-color .15s,background-color .15s;border-radius:20px}
+@media (hover:hover) and (pointer:fine){.drop:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}}
 .filelist>div{border-radius:12px}
 
 @media (min-width:640px){
@@ -616,12 +617,12 @@ details.fold>summary{list-style:none;display:flex;align-items:center;justify-con
 details.fold>summary::-webkit-details-marker{display:none}
 details.fold>summary>svg{transform:rotate(-90deg);transition:transform .2s;color:var(--muted)}
 details.fold[open]>summary>svg{transform:rotate(90deg)}
-details.fold>summary:hover{background:var(--card2)}
+@media (hover:hover) and (pointer:fine){details.fold>summary:hover{background:var(--card2)}}
 details.fold>.pad{padding-top:4px}
 .musicbtn.on,.sidemusic.on{color:var(--accent-ink);background:var(--accent-soft)}
 .homemusic:empty{display:none}
 .sidemusic{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0 14px;margin-bottom:10px;border:0;border-radius:14px;background:none;color:var(--muted);font-weight:700;font-size:.92em}
-.sidemusic:hover{background:var(--card2);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){.sidemusic:hover{background:var(--card2);color:var(--fg)}}
 @media (min-width:900px){body.nav .tabs,body.nav .tabs[hidden]{display:flex!important}.homemusic{display:none}}
 
 /* v10 : niveau, plan, recherche, pomodoro, statistiques, schémas à légender, notes, surlignage */
@@ -648,7 +649,7 @@ details.fold>.pad{padding-top:4px}
 .srow b{text-align:right}
 .ogrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .othumb{display:flex;flex-direction:column;gap:8px;padding:10px;text-align:left;min-height:44px;color:inherit}
-.othumb:hover{border-color:var(--accent);transform:translateY(-2px)}
+@media (hover:hover) and (pointer:fine){.othumb:hover{border-color:var(--accent);transform:translateY(-2px)}}
 .oimg{display:grid;place-items:center;aspect-ratio:4/3;border-radius:10px;background:var(--card2);overflow:hidden}
 .oimg img{width:100%;height:100%;object-fit:cover}
 .occl{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);user-select:none;-webkit-user-select:none;max-width:1100px}
@@ -658,7 +659,7 @@ details.fold>.pad{padding-top:4px}
 .omask.ghost{background:rgba(148,131,255,.45);pointer-events:none}
 .omask.open{background:transparent;border-color:var(--mint-solid);box-shadow:none}
 .omask.open span{display:none}
-.occl.edit .omask:not(.ghost):hover{background:var(--red-solid)}
+@media (hover:hover) and (pointer:fine){.occl.edit .omask:not(.ghost):hover{background:var(--red-solid)}}
 .typedbox textarea{min-height:70px}
 .extra{padding:0 18px}
 .mnemo.mine{background:var(--card2);color:var(--fg)}
@@ -816,7 +817,7 @@ html::-webkit-scrollbar,body::-webkit-scrollbar,*::-webkit-scrollbar{width:0;hei
 /* Bouton retour flottant : apparaît quand on remonte dans une longue page */
 .floatback{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);background:var(--card);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.16);opacity:0;transform:translateY(-8px) scale(.92);pointer-events:none;transition:opacity .22s ease,transform .22s ease}
 .floatback.on{opacity:1;transform:none;pointer-events:auto}
-.floatback:hover{opacity:1}
+@media (hover:hover) and (pointer:fine){.floatback:hover{opacity:1}}
 @media (min-width:900px){body.nav .floatback{left:272px}}
 @media (prefers-reduced-motion:reduce){.floatback,html::after{transition:none}}
 /* Images sur les cartes */

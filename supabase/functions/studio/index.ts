@@ -3,6 +3,7 @@
 // Appels élève : jeton de connexion. Appels internes (étape suivante) : secret `cron` de la table app_secrets.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { autoTitle } from "./titre.mjs";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -174,8 +175,8 @@ async function step(id: string) {
   if (!job || !(job.status === "running" || (job.status === "done" && job.stage === "verify"))) return;
   const uid = job.user_id as string, P = job.payload ?? {}, st: Any = job.state ?? {}, segs: Any[] = P.segs ?? [];
   st.texts ??= {};
-  const { data: ch } = await admin.from("chapters").select("id,name").eq("id", job.chapter_id).maybeSingle();
-  const name = ch?.name ?? "ton cours";
+  const { data: ch } = await admin.from("chapters").select("*").eq("id", job.chapter_id).maybeSingle();
+  let name = ch?.name ?? "ton cours";
   let ready = job.status === "done";
   try {
     const sa = serviceAccount(), sys = await systemFor(uid), t0 = Date.now();
@@ -211,11 +212,12 @@ async function step(id: string) {
       st.ci ??= 0; st.cards ??= []; st.summary ??= "";
       const ci = st.ci as number, part = chunks[ci], want = Math.max(5, Math.round(n * part.length / Math.max(1, full.length)));
       const avoid = (P.avoid ?? []).concat(st.cards.map((c: Any) => c.front)).slice(-200).map((x: Any) => clip(x, 160));
-      const g = await askJson(uid, sa, sys, [{ text: cours(part) + `${REGLE}\nRéponds en JSON strict avec exactement ces clés :\n{"lang":"code langue du cours, ex. fr","summary":"résumé en Markdown de 250 à 500 mots","cards":[{"front":"question courte","back":"réponse courte et exacte","source_quote":"phrase EXACTE du cours qui justifie la réponse, 200 caractères max"}]}\nLe résumé doit faire comprendre le but et l'essence du chapitre : commence par une ou deux phrases « À quoi sert ce chapitre », puis les définitions principales et les notions clés incontournables (titres avec ## et listes avec -). Laisse de côté les détails superflus, les anecdotes et les exemples secondaires.\nCrée au maximum ${want} cartes, moins si le cours est court, en couvrant tout le cours (cours, diaporama, livret, vocabulaire : toutes les parties fournies). Une carte = une seule notion. Aucune carte sans source_quote tirée mot pour mot du cours.` + (avoid.length ? `\nCes questions existent déjà, ne les refais pas : ${JSON.stringify(avoid)}` : "") }], 0.2);
+      const g = await askJson(uid, sa, sys, [{ text: cours(part) + `${REGLE}\nRéponds en JSON strict avec exactement ces clés :\n{"lang":"code langue du cours, ex. fr","title":"titre court du chapitre, repris du cours s'il en a un, 60 caractères au plus","summary":"résumé en Markdown de 250 à 500 mots","cards":[{"front":"question courte","back":"réponse courte et exacte","source_quote":"phrase EXACTE du cours qui justifie la réponse, 200 caractères max"}]}\nLe résumé doit faire comprendre le but et l'essence du chapitre : commence par une ou deux phrases « À quoi sert ce chapitre », puis les définitions principales et les notions clés incontournables (titres avec ## et listes avec -). Laisse de côté les détails superflus, les anecdotes et les exemples secondaires.\nCrée au maximum ${want} cartes, moins si le cours est court, en couvrant tout le cours (cours, diaporama, livret, vocabulaire : toutes les parties fournies). Une carte = une seule notion. Aucune carte sans source_quote tirée mot pour mot du cours.` + (avoid.length ? `\nCes questions existent déjà, ne les refais pas : ${JSON.stringify(avoid)}` : "") }], 0.2);
       const pn = normQ(part);
       (g.cards ?? []).filter((c: Any) => c && c.front && c.back).slice(0, want).forEach((c: Any) => st.cards.push({ front: clip(c.front, 500), back: clip(c.back, 2000), q: c.source_quote ? clip(c.source_quote, 400) : null, bad: !quoteFits(c.source_quote, pn), ci }));
       if (g.summary) st.summary += (st.summary ? "\n\n" : "") + g.summary;
       if (ci === 0 && g.lang) st.lang = clip(g.lang, 8);
+      if (ci === 0 && g.title) st.title = clip(g.title, 120);
       st.ci = ci + 1;
       const more = st.ci < chunks.length;
       await setJob(id, { state: st, stage: more ? "gen" : "save", progress: Math.round(60 + 32 * st.ci / chunks.length), message: more ? `L'IA prépare le résumé et les cartes (partie ${st.ci + 1} sur ${chunks.length})…` : "Enregistrement…" });
@@ -236,7 +238,10 @@ async function step(id: string) {
       if (ins.error) throw new Error(ins.error.message);
       st.ids = (ins.data ?? []).map((r: Any) => r.id);
       st.cards = cards.map((c) => ({ front: c.front, back: c.back, ci: c.ci }));
-      await admin.from("chapters").update({ status: "ready", lang: st.lang || "fr", cards_target: n }).eq("id", job.chapter_id);
+      // Nom choisi automatiquement : seulement si l'élève l'a demandé à la création du chapitre (chapters.auto_name).
+      const auto = ch?.auto_name === true ? autoTitle(st.title, st.summary, P.label) : null;
+      await admin.from("chapters").update(Object.assign({ status: "ready", lang: st.lang || "fr", cards_target: n }, auto ? { name: auto, auto_name: false } : {})).eq("id", job.chapter_id);
+      if (auto) name = auto;
       const illisible = (full.match(/\[illisible\]/g) || []).length, bad = cards.filter((c) => c.bad || !c.q).length;
       if (illisible) notes.push(plural(illisible, "passage illisible", "passages illisibles") + " dans tes photos : corrige les cartes concernées ou reprends la photo avec plus de lumière.");
       await setJob(id, { status: "done", stage: "verify", progress: 100, message: "Prêt", state: st, result: { cards: cards.length, bad, notes } });

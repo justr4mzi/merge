@@ -743,6 +743,94 @@ async function rappels(browser) {
   }
 }
 
+async function matieresTactile(browser) {
+  // Bug iPhone du 14 nov. : après un appui, le survol restait « collé » sous le doigt et une puce décochée gardait l'air cochée
+  // (ou une autre, comme Allemand, semblait se cocher toute seule). Les effets de survol sont réservés aux souris.
+  const css = fs.readFileSync(path.join(ROOT, "css/app.css"), "utf8").split("\n");
+  const loose = css.filter(l => !l.startsWith(" ") && !l.startsWith("@media") && /:hover/.test(l));
+  ok(!loose.length, "tactile : tous les survols sont réservés aux souris", loose.slice(0, 2).join(" | "));
+  const { devices } = require("playwright");
+  const ctx = await browser.newContext({ ...devices["iPhone 13"], serviceWorkers: "block" }), page = await ctx.newPage(); page.errors = [];
+  page.on("pageerror", e => page.errors.push(String(e)));
+  await page.route("**/vendor/supabase.js", r => r.fulfill({ path: path.join(__dirname, "fake-supabase.js"), contentType: "text/javascript" }));
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  await page.addInitScript(() => { if (sessionStorage.getItem("init")) return; sessionStorage.setItem("init", "1"); localStorage.clear(); localStorage.setItem("fake.seed", "vide"); localStorage.setItem("fake.theme", "dark"); });
+  await page.goto(BASE + "/"); await page.waitForSelector("#app > *");
+  ok(!(await page.evaluate(() => matchMedia("(hover:hover) and (pointer:fine)").matches)), "tactile : l'iPhone simulé n'a pas de survol");
+  await page.tap("#next"); await page.fill("#prenom", "Ramzi"); await page.selectOption("#classe", "Terminale STI2D"); await page.tap("#next"); await page.waitForTimeout(300);
+  const look = m => page.evaluate(m => { const b = document.querySelector(`[data-m="${m}"]`), c = getComputedStyle(b); return { on: b.getAttribute("aria-pressed"), bg: c.backgroundColor, bd: c.borderColor }; }, m);
+  const off = await look("Espagnol");
+  for (const m of ["Allemand", "Allemand", "Maths", "Maths", "Anglais"]) { await page.tap(`[data-m="${m}"]`); await page.waitForTimeout(250); }
+  const a = await look("Allemand"), mt = await look("Maths"), an = await look("Anglais");
+  ok(a.on === "false" && a.bg === off.bg && a.bd === off.bd, "tactile : Allemand cochée puis décochée a bien l'air décochée", JSON.stringify([a, off]));
+  ok(mt.on === "true" && an.on === "true" && an.bg !== off.bg, "tactile : les matières cochées restent cochées", JSON.stringify([mt, an]));
+  ok(!page.errors.length, "tactile : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await ctx.close();
+}
+
+async function nomAuto(browser) {
+  const T = await import(require("url").pathToFileURL(path.join(ROOT, "supabase/functions/studio/titre.mjs")).href);
+  ok(T.autoTitle("Chapitre 3 : La mitose", "", "") === "Chapitre 3 : La mitose", "nom auto : titre de l'IA gardé");
+  ok(T.autoTitle("  **« Les ondes mécaniques. »**  ", "", "") === "Les ondes mécaniques", "nom auto : titre nettoyé (gras, guillemets, point)");
+  ok(T.autoTitle("", "", "Loi_d-ohm et mailles.pdf") === "Loi d ohm et mailles", "nom auto : sans titre de l'IA, nom du fichier", T.autoTitle("", "", "Loi_d-ohm et mailles.pdf"));
+  ok(T.autoTitle("", "## À quoi sert ce chapitre\nx\n## Adressage IPv4\n", "IMG_1234.jpg") === "Adressage IPv4", "nom auto : photo sans nom, premier vrai titre du résumé");
+  ok(T.autoTitle("", "## Notions clés", "Texte collé") === "Chapitre sans titre" && T.autoTitle("", "", "a.pdf, b.pdf") === "Chapitre sans titre", "nom auto : rien d'utilisable, « Chapitre sans titre »");
+  const long = T.autoTitle("Les transformations chimiques et les réactions d'oxydoréduction en solution aqueuse dans la vie courante", "", "");
+  ok(long.length <= 80 && !/\s$/.test(long) && long.startsWith("Les transformations"), "nom auto : 80 caractères au plus, coupé sur un mot", long);
+  const studio = fs.readFileSync(path.join(ROOT, "supabase/functions/studio/index.ts"), "utf8");
+  ok(/"title":"titre court du chapitre/.test(studio) && /ch\?\.auto_name === true/.test(studio), "nom auto : titre demandé dans l'appel existant, appliqué seulement si la case est cochée");
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "nom auto " + w;
+    await go(page, "#matiere-s1", 400);
+    ok(await page.locator('#cauto[aria-checked="false"]').count() === 1, tag + " : case décochée par défaut");
+    await page.click("#cauto"); await page.waitForTimeout(80);
+    if (w === 390) { await page.locator("#cauto").scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(SHOTS, "nom-auto-390.png") }); }
+    ok(await page.locator("#cname").isDisabled() && (await page.getAttribute("#cname", "placeholder")).includes("cours"), tag + " : champ du nom désactivé");
+    let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+    await page.click("#addCh"); await page.waitForTimeout(500);
+    const ch = await page.evaluate(() => window.__fake.DB.chapters.slice(-1)[0]);
+    ok(ch.auto_name === true && ch.name === "Nouveau chapitre" && (await page.evaluate(() => location.hash)) === "#import-" + ch.id, tag + " : chapitre créé, direction l'import", JSON.stringify(ch));
+    await page.click('[data-tab="text"]'); await page.fill("#txt", "La mitose est une division cellulaire qui donne deux cellules filles génétiquement identiques à la cellule mère. Elle comporte quatre phases.");
+    await page.click("#go"); await page.waitForFunction(() => /cartes créées/.test(document.getElementById("app").innerText), null, { timeout: 15000 }).catch(() => {});
+    const ch2 = await page.evaluate(id => window.__fake.DB.chapters.find(c => c.id === id), ch.id);
+    ok(ch2.name === "La mitose et la méiose" && ch2.auto_name === false && (await txt(page)).includes("La mitose et la méiose"), tag + " : nom donné par le cours après l'import", JSON.stringify(ch2));
+    await go(page, "#matiere-s1", 400); await page.fill("#cname", "Mon chapitre"); await page.click("#addCh"); await page.waitForTimeout(500);
+    const ch3 = await page.evaluate(() => window.__fake.DB.chapters.slice(-1)[0]);
+    ok(ch3.name === "Mon chapitre" && !ch3.auto_name && (await page.evaluate(() => location.hash)) === "#chapitre-" + ch3.id, tag + " : case décochée, nom écrit gardé comme avant");
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
+async function annulerCarte(browser) {
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "annuler " + w;
+    await go(page, "#cartes-c1", 500);
+    ok(await page.locator("#undo").count() === 0, tag + " : pas de bouton Annuler avant la première réponse");
+    const cid = await page.evaluate(() => document.querySelector("#flip .txt").textContent);
+    const before = await page.evaluate(t => { const c = window.__fake.DB.cards.find(x => x.front === t || document.createElement("div").textContent === t); return null; }, cid);
+    const snap = await page.evaluate(() => JSON.parse(JSON.stringify(window.__fake.DB.cards)));
+    const mist0 = await page.evaluate(() => window.__fake.DB.mistakes.length);
+    await page.click("#flip"); await page.click("#no"); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => window.__fake.DB.mistakes.length) === mist0 + 1, tag + " : « Faux » note l'erreur");
+    ok(await page.locator("#undo").count() === 1, tag + " : bouton Annuler après une réponse");
+    let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+    let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    await page.click("#undo"); await page.waitForTimeout(500);
+    const after = await page.evaluate(() => JSON.parse(JSON.stringify(window.__fake.DB.cards)));
+    const keys = ["due_at", "reps", "lapses", "state", "right_count", "wrong_count", "stability"];
+    const same = snap.every(a => { const b = after.find(x => x.id === a.id); return keys.every(k => (a[k] ?? null) === (b[k] ?? null)); });
+    ok(same, tag + " : la carte retrouve exactement son état d'avant");
+    ok(await page.evaluate(() => window.__fake.DB.mistakes.length) === mist0, tag + " : l'erreur est retirée du carnet");
+    ok(await page.evaluate(t => document.querySelector("#flip .txt").textContent === t && document.querySelector("#flip").classList.contains("back"), cid), tag + " : on revient sur la même carte, réponse visible");
+    ok(await page.locator(".counter.no").textContent() === "0" && await page.locator("#undo").count() === 0, tag + " : compteurs remis à zéro");
+    await page.click("#yes"); await page.waitForTimeout(300);
+    ok(await page.locator(".counter.yes").textContent() === "1", tag + " : la bonne réponse est comptée");
+    if (w === 1280) { await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(250); await page.keyboard.press("Control+z"); await page.waitForTimeout(300); ok(await page.locator(".counter.no").textContent() === "0" && await page.locator(".counter.yes").textContent() === "1", tag + " : Ctrl Z annule aussi"); }
+    if (w === 390) await page.screenshot({ path: path.join(SHOTS, "annuler-390.png") });
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -751,7 +839,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
