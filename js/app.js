@@ -108,6 +108,7 @@
     cal: svg('<rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10.5h16M8.5 4v3.5M15.5 4v3.5"/>'),
     chart: svg('<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 16v-3M12 16V8M15.5 16v-5"/>'),
     copy: svg('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/>'), share: svg('<path d="M12 15V4M8 8l4-4 4 4"/><path d="M6 12v6a2 2 0 002 2h8a2 2 0 002-2v-6"/>'),
+    coin: svg('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><path d="M12 9.5v5"/>'), gift: svg('<rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 9v11M3.5 13h17M12 9c-2.5 0-5-1-5-3s3-2 5 3c2-5 5-5 5-3s-2.5 3-5 3"/>'), shop: svg('<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v2a2.7 2.7 0 01-5.3 0 2.7 2.7 0 01-5.4 0A2.7 2.7 0 014 11z"/><path d="M5.5 13.5V20h13v-6.5"/>'),
     duo: svg('<circle cx="9" cy="8" r="3.6"/><circle cx="16.5" cy="8.6" r="2.9"/><path d="M3.5 20a5.5 5.5 0 0111 0M14.5 15.3A4.6 4.6 0 0120.5 20"/>'),
     ask: svg('<path d="M5 5h14v10H10l-5 4z"/><path d="M10 8.500a2 2 0 113 1.700c-.6.4-1 .8-1 1.300M12 13.200v.1"/>'),
     subj: svg('<rect x="3.2" y="5.5" width="3.8" height="14.5" rx="1.1"/><rect x="9.2" y="4" width="3.8" height="16" rx="1.1"/><rect x="15.2" y="7.3" width="3.4" height="13" rx="1.1" transform="rotate(-12 15.2 7.3)"/><path d="M3.2 9.5H7M9.2 8H13"/>'),
@@ -661,26 +662,73 @@
     { id: "m-aucune", type: "mascotte", n: "Pas de mascotte", pts: 0, v: "" }, { id: "m-mergo", type: "mascotte", n: "Mergo", pts: 150, v: "mergo" }, { id: "m-mergo-lunettes", type: "mascotte", n: "Mergo à lunettes", pts: 1500, v: "lunettes" }, { id: "m-mergo-couronne", type: "mascotte", n: "Mergo couronné", pts: 0, chest: true, v: "couronne" },
     { id: "k-hasard", type: "confettis", n: "Animations au hasard", pts: 0, v: "" }, { id: "k-feux", type: "confettis", n: "Toujours le feu d'artifice", pts: 700, v: "feux" }, { id: "k-etoiles", type: "confettis", n: "Toujours les étoiles", pts: 0, chest: true, v: "etoiles" },
   ];
-  const RTYPES = [["titre", "Titres"], ["couleur", "Couleurs"], ["fond", "Fonds animés"], ["mascotte", "Mascotte"], ["son", "Sons"], ["confettis", "Animations de réussite"]];
+  // ---------- boutique : articles achetés avec les pièces (gagnées en révisant) ----------
+  // price = prix en pièces. Les cadeaux en vrai (type « cadeau ») n'apparaissent que sur les comptes activés dans /admin.
+  const SHOP = [
+    { id: "c-sakura", type: "couleur", n: "Sakura", price: 150, v: "#e0609f" }, { id: "c-lagon", type: "couleur", n: "Lagon", price: 150, v: "#0aa5bd" }, { id: "c-citron", type: "couleur", n: "Citron vert", price: 200, v: "#4f9e22" },
+    { id: "c-framboise", type: "couleur", n: "Framboise", price: 200, v: "#d23369" }, { id: "c-ardoise", type: "couleur", n: "Ardoise", price: 200, v: "#55657d" }, { id: "c-ambre", type: "couleur", n: "Ambre", price: 250, v: "#d9801a" },
+    { id: "c-nuit", type: "couleur", n: "Nuit bleue", price: 250, v: "#3949c9" }, { id: "c-turquoise", type: "couleur", n: "Turquoise", price: 250, v: "#0f9f90" }, { id: "c-prune", type: "couleur", n: "Prune", price: 300, v: "#8e44ad" }, { id: "c-cerise", type: "couleur", n: "Cerise", price: 300, v: "#df3a3a" },
+    { id: "f-nuages", type: "fond", n: "Nuages", price: 350, v: "nuages" }, { id: "f-neige", type: "fond", n: "Neige", price: 400, v: "neige" }, { id: "f-bulles", type: "fond", n: "Bulles", price: 400, v: "bulles" }, { id: "f-pluie", type: "fond", n: "Pluie", price: 450, v: "pluie" },
+    { id: "f-lucioles", type: "fond", n: "Lucioles", price: 500, v: "lucioles" }, { id: "f-sakura", type: "fond", n: "Pétales de sakura", price: 600, v: "sakura" }, { id: "f-coucher", type: "fond", n: "Coucher de soleil", price: 650, v: "coucher" }, { id: "f-galaxie", type: "fond", n: "Galaxie", price: 800, v: "galaxie" },
+    { id: "m-noeud", type: "mascotte", n: "Mergo nœud papillon", price: 200, v: "noeud" }, { id: "m-fleur", type: "mascotte", n: "Mergo à la fleur", price: 250, v: "fleur" }, { id: "m-casquette", type: "mascotte", n: "Mergo casquette", price: 250, v: "casquette" },
+    { id: "m-casque", type: "mascotte", n: "Mergo au casque audio", price: 300, v: "casque" }, { id: "m-bonnet", type: "mascotte", n: "Mergo de Noël", price: 350, v: "bonnet" }, { id: "m-soleil", type: "mascotte", n: "Mergo lunettes de soleil", price: 400, v: "soleil" },
+    { id: "m-chapeau", type: "mascotte", n: "Mergo haut-de-forme", price: 500, v: "chapeau" }, { id: "m-sorcier", type: "mascotte", n: "Mergo sorcier", price: 600, v: "sorcier" }, { id: "m-aureole", type: "mascotte", n: "Mergo l'ange", price: 700, v: "aureole" },
+    { id: "d-papier", type: "carte", n: "Cartes papier", price: 300, v: "papier" }, { id: "d-bonbon", type: "carte", n: "Cartes bonbon", price: 350, v: "bonbon" }, { id: "d-tableau", type: "carte", n: "Cartes tableau noir", price: 400, v: "tableau" },
+    { id: "d-coucher", type: "carte", n: "Cartes coucher de soleil", price: 450, v: "coucher" }, { id: "d-neon", type: "carte", n: "Cartes néon", price: 500, v: "neon" }, { id: "d-galaxie", type: "carte", n: "Cartes galaxie", price: 700, v: "galaxie" },
+    { id: "l-bleue", type: "flamme", n: "Flamme bleue", price: 250, v: "bleue" }, { id: "l-verte", type: "flamme", n: "Flamme verte", price: 250, v: "verte" }, { id: "l-rose", type: "flamme", n: "Flamme rose", price: 300, v: "rose" },
+    { id: "l-or", type: "flamme", n: "Flamme dorée", price: 500, v: "or" }, { id: "l-arc", type: "flamme", n: "Flamme arc-en-ciel", price: 800, v: "arc" },
+    { id: "t-feu", type: "titre", n: "Cerveau en feu", price: 150 }, { id: "t-turbo", type: "titre", n: "Mode turbo", price: 200 }, { id: "t-machine", type: "titre", n: "Machine à réviser", price: 250 },
+    { id: "t-prof", type: "titre", n: "Prof en herbe", price: 300 }, { id: "t-ninja", type: "titre", n: "Ninja des flashcards", price: 350 }, { id: "t-reine", type: "titre", n: "Reine des fiches", price: 400 },
+    { id: "t-roi", type: "titre", n: "Roi des fiches", price: 400 }, { id: "t-zero", type: "titre", n: "Zéro oubli", price: 600 }, { id: "t-legende", type: "titre", n: "Légende du bac", price: 900 },
+    { id: "k-pluie", type: "confettis", n: "Toujours la pluie de confettis", price: 200, v: "pluie" }, { id: "k-serpentins", type: "confettis", n: "Toujours les serpentins", price: 250, v: "serpentins" }, { id: "k-explosion", type: "confettis", n: "Toujours l'explosion", price: 300, v: "explosion" },
+  ];
+  // Cadeaux en vrai : les plus gros paliers, volontairement difficiles (1 pièce ≈ 1 bonne réponse).
+  const GIFTS = [
+    { id: "reeses", n: "Des Reese's", d: "Un paquet de Reese's, rien que pour toi.", price: 1500 },
+    { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 3000 },
+    { id: "cinema", n: "Une place de cinéma", d: "Le film de ton choix, sur grand écran.", price: 4500 },
+    { id: "surprise", n: "La surprise", d: "Le plus gros palier. On ne dit rien : c'est une surprise.", price: 7000 },
+  ];
+  const CHEST_PRICE = 250;
+  SHOP.forEach(x => REWARDS.push(x));
+  REWARDS.push({ id: "d-classique", type: "carte", n: "Cartes classiques", pts: 0, v: "" }, { id: "l-classique", type: "flamme", n: "Flamme classique", pts: 0, v: "" });
+  const RTYPES = [["titre", "Titres"], ["couleur", "Couleurs"], ["fond", "Fonds animés"], ["mascotte", "Mascotte"], ["carte", "Style des flashcards"], ["flamme", "Flamme de série"], ["son", "Sons"], ["confettis", "Animations de réussite"]];
   const CHEST_EVERY = 500;
-  const rwState = () => { const d = jget("merge.rewards", null) || {}; return { equip: d.equip || {}, chest: d.chest || [], opened: d.opened || 0 }; };
+  const rwState = () => { const d = jget("merge.rewards", null) || {}; return { equip: d.equip || {}, chest: d.chest || [], opened: d.opened || 0, buys: d.buys || [], lvl: d.lvl == null ? null : d.lvl, freeChests: d.freeChests || 0 }; };
+  // Pièces : 1 par bonne réponse, 10 par chapitre maîtrisé (= points ÷ 10), plus 15 × niveau à chaque niveau passé ; moins ce qui a été dépensé.
+  const levelBonus = L => { let t = 0; for (let l = 2; l <= L; l++) t += 15 * l; return t; };
+  function coinsInfo() { const x = xpInfo(), st = rwState(), earned = Math.floor(x.xp / 10) + levelBonus(x.level), spent = st.buys.reduce((a, b) => a + (+b.price || 0), 0); return { earned, spent, balance: Math.max(0, earned - spent) }; }
   const rwSave = (st) => jset("merge.rewards", st);
-  const rwOwned = (r, xp, st) => r.chest ? st.chest.includes(r.id) : xp >= r.pts;
+  const rwOwned = (r, xp, st) => r.price ? st.buys.some(b => b.id === r.id) || st.chest.includes(r.id) : r.chest ? st.chest.includes(r.id) : xp >= r.pts;
   const rwEquipped = (type) => { const st = rwState(), id = st.equip[type], r = REWARDS.find(x => x.id === id && x.type === type); return r && rwOwned(r, xpInfo().xp, st) ? r : null; };
-  const MASCOT = (v) => !v ? "" : `<svg class="mascot" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="38" rx="22" ry="20" fill="var(--accent)"/><circle cx="24" cy="34" r="6" fill="#fff"/><circle cx="40" cy="34" r="6" fill="#fff"/><circle cx="25" cy="35" r="2.6" fill="#1a1d28"/><circle cx="41" cy="35" r="2.6" fill="#1a1d28"/><path d="M27 46q5 4 10 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M14 26l5-12 7 9M50 26l-5-12-7 9" fill="var(--accent)"/>${v === "lunettes" ? '<g fill="none" stroke="#1a1d28" stroke-width="2.2"><circle cx="24" cy="34" r="8"/><circle cx="40" cy="34" r="8"/><path d="M32 34h0"/></g>' : ""}${v === "couronne" ? '<path d="M20 14l4 8 8-10 8 10 4-8 2 14H18z" fill="#f5c542" stroke="#b8860b" stroke-width="1.2"/>' : ""}</svg>`;
+  const MASCOT_WEAR = {
+    casque: '<path d="M11 34a21 21 0 0142 0" stroke="#2b2d42" stroke-width="4" fill="none"/><rect x="6" y="30" width="9" height="14" rx="3.5" fill="#ef476f"/><rect x="49" y="30" width="9" height="14" rx="3.5" fill="#ef476f"/>',
+    bonnet: '<path d="M15 23q15-24 35-7l-2 8H17z" fill="#e03b3b"/><rect x="13" y="21" width="38" height="6" rx="3" fill="#fff"/><circle cx="51" cy="14" r="4.2" fill="#fff"/>',
+    casquette: '<path d="M16 23a16 13 0 0132 0z" fill="#3b82f6"/><path d="M45 21h14a3 3 0 01-3 4H45z" fill="#1d4ed8"/><circle cx="32" cy="11" r="1.8" fill="#1d4ed8"/>',
+    sorcier: '<path d="M18 23L34 1 46 23z" fill="#4b2a8a"/><rect x="11" y="20" width="42" height="5" rx="2.5" fill="#4b2a8a"/><path d="M28 13l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.3 1.3.4-2.6-1.9-1.8 2.6-.4z" fill="#f5c542"/>',
+    noeud: '<path d="M23 53l9 4.5-9 4.5zM41 53l-9 4.5 9 4.5z" fill="#e0529c"/><circle cx="32" cy="57.5" r="2.4" fill="#b02a73"/>',
+    soleil: '<g fill="#1a1d28"><rect x="14" y="28.5" width="17" height="11" rx="4.5"/><rect x="33" y="28.5" width="17" height="11" rx="4.5"/><rect x="29" y="31" width="6" height="2.4" rx="1"/></g><path d="M17 31l4 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>',
+    aureole: '<ellipse cx="32" cy="9" rx="14" ry="3.6" fill="none" stroke="#f5c542" stroke-width="2.6"/>',
+    chapeau: '<rect x="22" y="3" width="20" height="17" rx="2" fill="#1a1d28"/><rect x="15" y="18" width="34" height="4.5" rx="2.2" fill="#1a1d28"/><rect x="22" y="14" width="20" height="3.2" fill="#e03b3b"/>',
+    fleur: '<g transform="translate(47 21)"><circle r="3.4" cy="-4.2" fill="#f9a8d4"/><circle r="3.4" cx="4.2" fill="#f9a8d4"/><circle r="3.4" cy="4.2" fill="#f9a8d4"/><circle r="3.4" cx="-4.2" fill="#f9a8d4"/><circle r="2.6" fill="#f5c542"/></g>',
+  };
+  const MASCOT = (v) => !v ? "" : `<svg class="mascot" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="38" rx="22" ry="20" fill="var(--accent)"/><circle cx="24" cy="34" r="6" fill="#fff"/><circle cx="40" cy="34" r="6" fill="#fff"/><circle cx="25" cy="35" r="2.6" fill="#1a1d28"/><circle cx="41" cy="35" r="2.6" fill="#1a1d28"/><path d="M27 46q5 4 10 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M14 26l5-12 7 9M50 26l-5-12-7 9" fill="var(--accent)"/>${v === "lunettes" ? '<g fill="none" stroke="#1a1d28" stroke-width="2.2"><circle cx="24" cy="34" r="8"/><circle cx="40" cy="34" r="8"/><path d="M32 34h0"/></g>' : ""}${v === "couronne" ? '<path d="M20 14l4 8 8-10 8 10 4-8 2 14H18z" fill="#f5c542" stroke="#b8860b" stroke-width="1.2"/>' : ""}${MASCOT_WEAR[v] || ""}</svg>`;
   function applyRewards() {
     const r = document.documentElement, col = rwEquipped("couleur"), bg = rwEquipped("fond");
     if (col && col.v) { r.style.setProperty("--accent", col.v); r.style.setProperty("--btn-bg", col.v); r.style.setProperty("--today-bg", col.v); } else { ["--accent", "--btn-bg", "--today-bg"].forEach(k => r.style.removeProperty(k)); }
     document.body.dataset.bg = bg && bg.v ? bg.v : "";
+    const card = rwEquipped("carte"), fl = rwEquipped("flamme");
+    document.body.dataset.card = card && card.v ? card.v : ""; document.body.dataset.flame = fl && fl.v ? fl.v : "";
   }
   function screenRewards() {
     drawTabs("progres"); const xp = xpInfo().xp, st = rwState(), chests = Math.floor(xp / CHEST_EVERY) - st.opened;
     const next = REWARDS.filter(r => !r.chest && r.pts > xp).sort((a, b) => a.pts - b.pts)[0];
-    app.innerHTML = `<div class="row"><a class="iconbtn" href="#progres" aria-label="Retour">${I.back}</a><h1>Récompenses</h1></div>
+    app.innerHTML = `<div class="row"><a class="iconbtn" href="#progres" aria-label="Retour">${I.back}</a><h1 class="grow">Récompenses</h1><a class="btn sm" href="#boutique">${I.shop}Boutique</a></div>
+      <a class="card pad coinbar" href="#boutique"><span class="mico">${I.coin}</span><span class="grow"><b>${coinsInfo().balance} pièces</b><span class="small muted">À dépenser dans la boutique : thèmes, fonds, tenues de Mergo, styles de cartes…</span></span>${I.next}</a>
       <div class="card pad stack rwtop"><div class="row">${MASCOT((rwEquipped("mascotte") || {}).v || "mergo")}<div class="grow"><b class="big">${xp} points</b><p class="small muted">${next ? "Prochaine récompense : " + esc(next.n) + " à " + next.pts + " points" : "Tu as tout débloqué avec les points !"}</p></div></div>
         <div class="row chestrow"><span class="mico">${I.star}</span><p class="grow small">${chests > 0 ? plural(chests, "coffre surprise à ouvrir", "coffres surprise à ouvrir") : "Un coffre surprise tous les " + CHEST_EVERY + " points. Prochain à " + (Math.floor(xp / CHEST_EVERY) + 1) * CHEST_EVERY + "."}</p>${chests > 0 ? '<button class="btn sm" id="chest">Ouvrir</button>' : ""}</div></div>
       <p class="small muted">Les points viennent de tes révisions : 10 par bonne réponse, 2 par erreur, 100 par chapitre maîtrisé à 100 %. Rien à dépenser : ce que tu débloques reste à toi, sur tous tes appareils.</p>
-      ${RTYPES.map(([t, label]) => `<div class="stack"><h2>${label}</h2><div class="rwgrid">${REWARDS.filter(r => r.type === t).map(r => { const own = rwOwned(r, xp, st), on = (st.equip[t] || REWARDS.find(x => x.type === t).id) === r.id; return `<button class="rw${own ? "" : " locked"}" data-rw="${r.id}" aria-pressed="${on}" ${own ? "" : "disabled"}>${t === "couleur" ? `<span class="rwdot" style="--c:${r.v || "#4b39c8"}"></span>` : t === "mascotte" && r.v ? MASCOT(r.v) : ""}<b>${esc(r.n)}</b><span class="small">${own ? (on ? "Équipé" : "Équiper") : r.chest ? "Dans un coffre" : r.pts + " points"}</span></button>`; }).join("")}</div></div>`).join("")}`;
+      ${RTYPES.map(([t, label]) => `<div class="stack"><h2>${label}</h2><div class="rwgrid">${REWARDS.filter(r => r.type === t && (!r.price || rwOwned(r, xp, st))).map(r => { const own = rwOwned(r, xp, st), on = (st.equip[t] || REWARDS.find(x => x.type === t).id) === r.id; return `<button class="rw${own ? "" : " locked"}" data-rw="${r.id}" aria-pressed="${on}" ${own ? "" : "disabled"}>${t === "couleur" ? `<span class="rwdot" style="--c:${r.v || "#4b39c8"}"></span>` : t === "mascotte" && r.v ? MASCOT(r.v) : ""}<b>${esc(r.n)}</b><span class="small">${own ? (on ? "Équipé" : "Équiper") : r.chest ? "Dans un coffre" : r.pts + " points"}</span></button>`; }).join("")}</div></div>`).join("")}`;
     app.querySelectorAll("[data-rw]").forEach(b => b.onclick = () => { const r = REWARDS.find(x => x.id === b.dataset.rw), s2 = rwState(); s2.equip[r.type] = r.id; rwSave(s2); applyRewards(); if (r.type === "son") ping(true); if (r.type === "confettis") confetti(r.v || undefined); screenRewards(); });
     if ($("chest")) $("chest").onclick = () => {
       const s2 = rwState(), left = REWARDS.filter(r => r.chest && !s2.chest.includes(r.id)); s2.opened++;
@@ -688,11 +736,106 @@
       sheet(`<div class="badgewin">${MASCOT("couronne")}<h1>Coffre ouvert</h1><p>${got ? "Tu gagnes : <b>" + esc(got.n) + "</b>" : "Tu as déjà tout ce que contiennent les coffres. Bravo !"}</p><button class="btn" data-close>Super</button></div>`); screenRewards();
     };
   }
+  // ---------- boutique ----------
+  const STYPES = [["couleur", "Thèmes"], ["fond", "Fonds"], ["mascotte", "Mergo"], ["carte", "Cartes"], ["flamme", "Flamme"], ["titre", "Titres"], ["confettis", "Animations"], ["coffre", "Coffres"]];
+  let shopTab = "couleur";
+  function shopPreview(r) {
+    if (r.type === "couleur") return `<span class="swatch" style="background:${esc(r.v)}"></span>`;
+    if (r.type === "fond") return `<span class="bgprev bg-${esc(r.v)}"></span>`;
+    if (r.type === "mascotte") return MASCOT(r.v || "mergo");
+    if (r.type === "carte") return `<span class="cardprev" data-cardprev="${esc(r.v)}"><span class="face"><span class="txt">Aa</span></span></span>`;
+    if (r.type === "flamme") return `<span class="streak flameprev" data-flameprev="${esc(r.v)}">12 jours</span>`;
+    if (r.type === "titre") return `<span class="rwtitle">${esc(r.n)}</span>`;
+    return `<span class="mico">${I.star}</span>`;
+  }
+  async function screenShop() {
+    drawTabs("progres");
+    const here = location.hash;
+    let access = false, claims = [];
+    if (!state.offline) {
+      try { const a = await sb.from("gift_access").select("user_id").maybeSingle(); access = !a.error && !!a.data; } catch (e) { access = false; }
+      if (access) { try { const c = await sb.from("gift_claims").select("*").order("created_at", { ascending: false }); claims = c.data || []; } catch (e) { claims = []; } }
+    }
+    if (location.hash !== here) return;
+    function draw() {
+      const st = rwState(), xp = xpInfo().xp, co = coinsInfo(), bal = co.balance, lv = xpInfo().level;
+      const nextGift = GIFTS.find(g => g.price > bal);
+      const items = shopTab === "coffre" ? [] : SHOP.filter(r => r.type === shopTab);
+      const card = r => { const own = rwOwned(r, xp, st), on = st.equip[r.type] === r.id, can = bal >= r.price;
+        return `<div class="shopitem${own ? " own" : ""}"><div class="sprev">${shopPreview(r)}</div><b>${esc(r.n)}</b>
+          ${own ? `<button class="btn sm${on ? " ghost" : ""}" data-eq="${r.id}" ${on ? "disabled" : ""}>${on ? "Équipé" : "Équiper"}</button>` : `<button class="btn sm${can ? "" : " ghost"}" data-buy="${r.id}" ${can ? "" : "disabled"}>${I.coin}${r.price}</button>`}</div>`; };
+      app.innerHTML = `<div class="row"><a class="iconbtn" href="#recompenses" aria-label="Retour aux récompenses">${I.back}</a><h1 class="grow">Boutique</h1></div>
+        <div class="card pad stack coinhero"><div class="row"><span class="mico big">${I.coin}</span><div class="grow"><b class="big">${bal} pièces</b><p class="small muted">Gagnées en révisant : 1 par bonne réponse, 10 par chapitre maîtrisé, et ${15 * (lv + 1)} en bonus au niveau ${lv + 1}.</p></div></div>
+          ${access && nextGift ? `<div class="stack"><div class="row between small"><span>Prochain cadeau : <b>${esc(nextGift.n)}</b></span><span class="muted">${bal} / ${nextGift.price}</span></div><div class="bar"><i style="width:${Math.min(100, bal / nextGift.price * 100)}%"></i></div></div>` : ""}</div>
+        ${access ? `<div class="stack"><h2>${I.gift}Cadeaux en vrai</h2><div class="giftgrid">${GIFTS.map((g, k) => { const can = bal >= g.price; return `<div class="giftcard g${k + 1}${can ? " ready" : ""}"><span class="gtier">Palier ${k + 1}</span><b>${esc(g.n)}</b><span class="small">${esc(g.d)}</span><div class="bar"><i style="width:${Math.min(100, bal / g.price * 100)}%"></i></div><button class="btn sm" data-gift="${g.id}" ${can ? "" : "disabled"}>${can ? "Échanger " + g.price + " pièces" : "Encore " + (g.price - bal) + " pièces"}</button></div>`; }).join("")}</div>
+          ${claims.length ? `<div class="card pad stack"><h3>Mes bons</h3>${claims.map(c => { const g = GIFTS.find(x => x.id === c.gift) || { n: c.gift }; return `<div class="row between voucher"><span><b>${esc(g.n)}</b><span class="small muted"> · demandé le ${esc(fmtDate(String(c.created_at).slice(0, 10)))}</span></span><span class="pill${c.given_at ? "" : " warn"}">${c.given_at ? "Offert" : "En attente"}</span></div>`; }).join("")}</div>` : ""}</div>` : ""}
+        <div class="seg shoptabs" role="tablist" aria-label="Rayons de la boutique">${STYPES.map(t => `<button role="tab" data-st="${t[0]}" aria-selected="${shopTab === t[0]}">${t[1]}</button>`).join("")}</div>
+        ${shopTab === "coffre" ? `<div class="card pad stack chestshop"><div class="row"><span class="mico big">${I.star}</span><div class="grow"><b>Coffre surprise</b><p class="small muted">Un article de la boutique au hasard, que tu n'as pas encore. Parfois une très bonne affaire.</p></div></div>
+            <button class="btn" data-chest ${bal >= CHEST_PRICE || st.freeChests ? "" : "disabled"}>${st.freeChests ? "Ouvrir un coffre offert (" + st.freeChests + ")" : I.coin + CHEST_PRICE + " pièces"}</button><p class="note">Un coffre offert tous les 5 niveaux.</p></div>`
+          : `<div class="shopgrid">${items.map(card).join("")}</div>`}
+        <p class="note">Ce que tu achètes reste à toi, sur tous tes appareils. Plus tu révises, plus tu gagnes de pièces.</p>`;
+      app.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { shopTab = b.dataset.st; draw(); });
+      app.querySelectorAll("[data-eq]").forEach(b => b.onclick = () => { const r = REWARDS.find(x => x.id === b.dataset.eq), s2 = rwState(); s2.equip[r.type] = r.id; rwSave(s2); applyRewards(); if (r.type === "confettis") confetti(r.v); toast(r.n + " équipé."); draw(); });
+      app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => {
+        const r = SHOP.find(x => x.id === b.dataset.buy), s2 = rwState(); if (!r || rwOwned(r, xpInfo().xp, s2)) return;
+        if (coinsInfo().balance < r.price) return toast("Pas encore assez de pièces.");
+        s2.buys.push({ id: r.id, price: r.price, at: Date.now() }); s2.equip[r.type] = r.id; rwSave(s2); applyRewards(); ping(true); confetti(r.type === "confettis" ? r.v : "etoiles"); toast(r.n + " acheté et équipé."); draw();
+      });
+      const chest = app.querySelector("[data-chest]");
+      if (chest) chest.onclick = () => {
+        const s2 = rwState(), free = s2.freeChests > 0; if (!free && coinsInfo().balance < CHEST_PRICE) return;
+        const left = SHOP.filter(r => !rwOwned(r, xpInfo().xp, s2)); if (!left.length) return toast("Tu as déjà tout ce que contient la boutique !");
+        const got = left[Math.floor(Math.random() * left.length)];
+        if (free) s2.freeChests--; else s2.buys.push({ id: "coffre", price: CHEST_PRICE, at: Date.now() });
+        s2.buys.push({ id: got.id, price: 0, at: Date.now(), chest: true }); rwSave(s2); confetti("explosion");
+        sheet(`<div class="badgewin">${MASCOT("couronne")}<h1>Coffre ouvert</h1><div class="sprev big">${shopPreview(got)}</div><p>Tu gagnes : <b>${esc(got.n)}</b>${got.price > CHEST_PRICE ? " (vaut " + got.price + " pièces !)" : ""}</p><button class="btn" id="cheq">Équiper</button><button class="btn ghost" data-close>Plus tard</button></div>`, el => { el.querySelector("#cheq").onclick = () => { const s3 = rwState(); s3.equip[got.type] = got.id; rwSave(s3); applyRewards(); closeSheet(); draw(); }; });
+        draw();
+      };
+      app.querySelectorAll("[data-gift]").forEach(b => b.onclick = () => {
+        const g = GIFTS.find(x => x.id === b.dataset.gift); if (!g || coinsInfo().balance < g.price) return;
+        sheet(`<div class="badgewin"><span class="mico big">${I.gift}</span><h1>${esc(g.n)}</h1><p>Échanger <b>${g.price} pièces</b> contre ce cadeau ? Ta demande est envoyée, et le bon apparaît dans « Mes bons ».</p><button class="btn" id="gok">Oui, je le veux</button><button class="btn ghost" data-close>Pas maintenant</button></div>`, el => {
+          el.querySelector("#gok").onclick = async () => {
+            const r = await sb.from("gift_claims").insert({ gift: g.id, price: g.price }).select("*").single();
+            if (r.error) return fail(r.error, "Demande non envoyée");
+            const s2 = rwState(); s2.buys.push({ id: "cadeau-" + g.id, price: g.price, at: Date.now(), claim: r.data.id }); rwSave(s2);
+            claims.unshift(r.data); confetti("feux");
+            sheet(`<div class="badgewin voucherwin"><span class="mico big">${I.gift}</span><h1>Bon pour ${esc(g.n.replace(/^(Des|Une|La) /, m => m.toLowerCase()))}</h1><p>Bravo, tu l'as mérité. Ta demande est partie : montre ce bon pour récupérer ton cadeau.</p><p class="small muted">Demandé le ${esc(fmtDate(localDay()))}</p><button class="btn" data-close>Super</button></div>`); draw();
+          };
+        });
+      });
+    }
+    draw();
+  }
+  // Cadeaux de niveau : à chaque niveau passé, un article de la boutique offert (en plus du bonus de pièces), et un coffre tous les 5 niveaux.
+  function levelGifts(lvl) {
+    const st = rwState(); if (st.lvl == null) { st.lvl = lvl; rwSave(st); return null; }
+    if (lvl <= st.lvl) return null;
+    const out = { coins: 0, items: [], chests: 0, from: st.lvl, to: lvl };
+    for (let l = st.lvl + 1; l <= lvl; l++) {
+      out.coins += 15 * l;
+      const pool = SHOP.filter(r => !rwOwned(r, Infinity, st) && r.price <= 150 + 60 * l);
+      if (pool.length) { const got = pool[Math.floor(Math.random() * pool.length)]; st.buys.push({ id: got.id, price: 0, at: Date.now(), level: l }); out.items.push(got); }
+      if (l % 5 === 0) { st.freeChests++; out.chests++; }
+    }
+    st.lvl = lvl; rwSave(st); return out;
+  }
   // Fête un badge ou un niveau gagné depuis la dernière fois (jamais au tout premier passage).
   function celebrate() {
     const got = badges().filter(b => b[1]).map(b => b[0]), seen = jget("merge.badges", null), lvl = xpInfo().level, old = jget("merge.level", null);
-    jset("merge.badges", got); jset("merge.level", lvl); if (!seen || old == null) return;
-    const fresh = got.filter(b => !seen.includes(b)); if (!fresh.length && lvl <= old) return;
+    jset("merge.badges", got); jset("merge.level", lvl); if (!seen || old == null) { levelGifts(lvl); return; }
+    const fresh = got.filter(b => !seen.includes(b));
+    const gifts = levelGifts(lvl);
+    if (gifts && (gifts.items.length || gifts.coins)) {
+      const unlocked = REWARDS.filter(r => !r.price && !r.chest && r.pts > 0 && r.pts <= xpInfo().xp && r.pts > 100 * (gifts.from - 1) * gifts.from / 2);
+      sheet(`<div class="badgewin lvlwin">${MASCOT((rwEquipped("mascotte") || {}).v || "mergo")}<h1>Niveau ${lvl} !</h1><p class="muted">Tu passes au niveau ${lvl}. Voilà ce que tu gagnes :</p>
+        <div class="lvlgifts"><div class="lvlgift"><span class="mico">${I.coin}</span><b>+${gifts.coins} pièces</b></div>
+        ${gifts.items.map(r => `<div class="lvlgift"><span class="sprev">${shopPreview(r)}</span><b>${esc(r.n)}</b><span class="small muted">offert</span></div>`).join("")}
+        ${unlocked.map(r => `<div class="lvlgift"><span class="mico">${I.star}</span><b>${esc(r.n)}</b><span class="small muted">débloqué</span></div>`).join("")}
+        ${gifts.chests ? `<div class="lvlgift"><span class="mico">${I.gift}</span><b>${plural(gifts.chests, "coffre surprise", "coffres surprise")}</b><span class="small muted">à ouvrir dans la boutique</span></div>` : ""}</div>
+        ${fresh.length ? `<div class="chips">${fresh.map(b => `<span class="badge on">${esc(b)}</span>`).join("")}</div>` : ""}
+        <a class="btn" href="#boutique" data-close>Voir la boutique</a><button class="btn ghost" data-close>Plus tard</button></div>`); confetti("feux"); return;
+    }
+    if (!fresh.length && lvl <= old) return;
     sheet(`<div class="badgewin"><span class="mico big">${I.star}</span><h1>${fresh.length ? (fresh.length > 1 ? "Nouveaux badges" : "Nouveau badge") : "Niveau " + lvl}</h1>${fresh.length ? `<div class="chips">${fresh.map(b => `<span class="badge on">${esc(b)}</span>`).join("")}</div>` : ""}<p class="muted">${lvl > old ? "Tu passes au niveau " + lvl + ". " : "Tu es niveau " + lvl + ". "}Continue comme ça.</p><button class="btn" data-close>Super</button></div>`); confetti();
   }
   // Plan de révision : les chapitres de la matière répartis sur les jours qui restent, les moins maîtrisés d'abord.
@@ -842,7 +985,7 @@
     const yearNow = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1, newYear = p.school_year && p.school_year < yearNow;
     app.innerHTML = `<div class="row between"><div class="logo">${esc(C.NOM_APPLI)}<b>.</b></div><span class="grow"></span><span class="homemusic"><button class="iconbtn flat" data-qs aria-label="Recherche rapide">${I.search}</button><button class="iconbtn flat" data-pomo aria-label="Pomodoro">${I.clock}</button>${musicBtn()}</span>${state.offline ? '<span class="pill warn">Hors ligne</span>' : st ? `<span class="streak" title="${plural(st, "jour", "jours")} d'affilée">${plural(st, "jour", "jours")}<span class="stl">&nbsp;d'affilée</span></span>` : `<span class="pill">${esc(p.classe || "")}</span>`}</div>
       <div class="hello"><div class="row">${MASCOT((rwEquipped("mascotte") || {}).v || "")}<h1 class="grow">Salut ${esc(p.display_name || "")}${rwEquipped("titre") && rwEquipped("titre").pts ? ` <span class="rwtitle">${esc(rwEquipped("titre").n)}</span>` : ""}</h1></div><p class="muted">${esc(new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }).replace(/^./, c => c.toUpperCase()))} · ${esc(PEPS[new Date().getDate() % PEPS.length])}</p></div>
-      <div class="level"><a class="lvl" href="#recompenses" aria-label="Niveau ${lv.level}, voir les récompenses">Niveau ${lv.level}</a><div class="bar grow"><i style="width:${lv.pct}%"></i></div><span class="small muted">encore ${lv.left} points</span></div>
+      <div class="level"><a class="lvl" href="#recompenses" aria-label="Niveau ${lv.level}, voir les récompenses">Niveau ${lv.level}</a><a class="coinpill" href="#boutique" aria-label="${coinsInfo().balance} pièces, ouvrir la boutique">${I.coin}${coinsInfo().balance}</a><div class="bar grow"><i style="width:${lv.pct}%"></i></div><span class="small muted">encore ${lv.left} points</span></div>
       ${(() => { const tn = new Date().getHours() >= 15 ? tonightSuggestion() : null; return tn ? `<div class="banner"><div><h2>Ce soir</h2><p class="small">Demain tu as ${tn.subs.map(x => esc(x.name)).join(", ")}. Un petit tour avant ?</p></div><a class="btn sm" href="#revision-${tn.subs[0].id}">Réviser ${esc(tn.subs[0].name)}</a></div>` : ""; })()}${resumeHtml()}${[0, 1].includes(new Date().getDay()) && state.sessions.length ? `<div class="banner"><div><h2>Ton bilan de la semaine est prêt</h2><p class="small">Ce que tu as fait, et ton objectif pour la suite.</p></div><a class="btn sm" href="#bilan">Voir</a></div>` : ""}
       <div class="dash"><div class="card today"><div><p class="small muted">À réviser aujourd'hui</p><div class="big">${plural(due, "carte", "cartes")}</div></div>
         <div><div class="row between small muted" style="margin-bottom:6px"><span>Objectif du jour</span><span>${doneVal} / ${p.daily_goal_value} ${unit}</span></div><div class="bar"><i style="width:${Math.min(100, doneVal / p.daily_goal_value * 100)}%"></i></div></div>
@@ -907,7 +1050,7 @@
     const s = state.subjects.find(x => x.id === id); if (!s) { location.hash = "#accueil"; return; }
     tabs.hidden = true;
     const chs = state.chapters.filter(c => c.subject_id === id), groups = state.groups.filter(g => g.subject_id === id), loose = chs.filter(c => !groups.some(g => g.id === c.group_id));
-    app.innerHTML = `<div class="row"><a class="iconbtn" href="#matieres" aria-label="Retour aux matières">${I.back}</a></div>
+    app.innerHTML = `<div class="row"><a class="iconbtn" href="#matieres" aria-label="Retour aux matières">${I.back}</a><span class="grow"></span><button class="iconbtn flat" id="sAdd" aria-label="Ajouter un chapitre ou un dossier" title="Ajouter">${I.plus}</button><button class="iconbtn flat" id="sSet" aria-label="Réglages de la matière" title="Réglages">${I.gear}</button></div>
       <div class="stack" style="--c:${esc(s.color)}"><div class="row"><span class="dot"></span><h1>${esc(s.name)}</h1></div>
         <div class="row" style="flex-wrap:wrap">${examPill(s)}<button class="linkbtn" id="examBtn" aria-expanded="${!!openPicker}">${I.cal}Date du contrôle</button></div><div id="examBox"></div>
         ${chs.some(c => cardsOf(c.id).length) ? `<a class="btn revall" href="#revision-${id}">${I.cards}Réviser tous les chapitres de la matière</a>` : ""}
@@ -916,10 +1059,8 @@
         <div id="gform"></div>
         ${groups.length ? `<div class="grid">${groups.map(g => { const gc = chs.filter(c => c.group_id === g.id), cs = state.cards.filter(k => gc.some(c => c.id === k.chapter_id)), m = mastery(cs); return `<a class="card folder" style="--c:${esc(okColor(g.color) ? g.color : s.color)}" href="#dossier-${g.id}"><div class="row">${I.folder}<b class="grow">${esc(g.name)}</b></div><div class="row between small"><span>${plural(gc.length, "chapitre", "chapitres")}</span><span>${m} %</span></div><div class="bar"><i style="width:${m}%"></i></div></a>`; }).join("")}</div>` : '<p class="small muted">Range tes chapitres par thème, par exemple « Thème 1 : Génétique ». Touche + pour créer un dossier.</p>'}</div>
       <div class="stack"><div class="row between"><h2>${groups.length ? "Chapitres sans dossier" : "Chapitres"}</h2></div>
-      ${loose.length ? loose.map(c => chapterRow(c, s.color)).join("") : `<p class="muted">${chs.length ? "Tous tes chapitres sont rangés dans des dossiers." : "Aucun chapitre pour l'instant."}</p>`}
-      ${chapterField("Nouveau chapitre", "Ex. Les ondes mécaniques")}</div>
+      ${loose.length ? loose.map(c => chapterRow(c, s.color)).join("") : `<p class="muted">${chs.length ? "Tous tes chapitres sont rangés dans des dossiers." : "Aucun chapitre pour l'instant. Touche + en haut à droite pour en créer un."}</p>`}</div>
       ${subjectToolsHtml(s, chs)}`;
-    wireSubjectTools(s);
     const openExam = () => examPicker($("examBox"), { date: s.exam_date, free: isFree(s) }, async v => { const err = await saveExam(id, v); if (err) return fail(err, "Date non enregistrée"); toast(v.free ? "Révision libre activée." : v.date ? "Date enregistrée." : "Date retirée."); screenSubject(id, true); });
     if (openPicker) openExam();
     $("examBtn").onclick = () => { if ($("examBox").innerHTML) { $("examBox").innerHTML = ""; $("examBtn").setAttribute("aria-expanded", "false"); } else { openExam(); $("examBtn").setAttribute("aria-expanded", "true"); } };
@@ -933,7 +1074,11 @@
         await loadAll(); screenSubject(id); toast("Dossier créé.");
       };
     };
-    wireChapterField(id, null);
+    $("sAdd").onclick = () => sheet(`<div class="row"><span class="mico big">${I.plus}</span><h1>Ajouter</h1></div>${chapterField("Nouveau chapitre", "Ex. Les ondes mécaniques")}<button class="btn ghost" id="sAddG">${I.folder || I.plus}Nouveau dossier</button><button class="btn ghost" data-close>Fermer</button>`, () => {
+      wireChapterField(id, null); setTimeout(() => { const c = $("cname"); if (c && matchMedia("(pointer:fine)").matches) c.focus(); }, 50);
+      $("sAddG").onclick = () => { closeSheet(); $("addG").click(); $("gform").scrollIntoView({ block: "center", behavior: "smooth" }); };
+    });
+    $("sSet").onclick = () => sheet(subjectSettingsHtml(s), () => wireSubjectTools(s));
   }
 
   // ---------- dossier (sous-catégorie) : onglets Résumés, Flashcards, Quiz, Contrôles ----------
@@ -961,20 +1106,21 @@
     const loose = state.chapters.filter(c => c.subject_id === g.subject_id && !state.groups.some(x => x.id === c.group_id));
     function draw() {
       const cs = state.cards.filter(k => chs.some(c => c.id === k.chapter_id)), m = mastery(cs);
-      app.innerHTML = `<div class="row"><a class="iconbtn" href="#matiere-${s.id}" aria-label="Retour à la matière">${I.back}</a><span class="row small muted" style="--c:${esc(s.color)}"><span class="dot"></span>${esc(s.name)}</span></div>
+      app.innerHTML = `<div class="row"><a class="iconbtn" href="#matiere-${s.id}" aria-label="Retour à la matière">${I.back}</a><span class="row small muted" style="--c:${esc(s.color)}"><span class="dot"></span>${esc(s.name)}</span><span class="grow"></span><button class="iconbtn flat" id="gAdd" aria-label="Ajouter un chapitre dans ce dossier" title="Ajouter un chapitre">${I.plus}</button><button class="iconbtn flat" id="gSet" aria-label="Réglages du dossier" title="Réglages du dossier">${I.gear}</button></div>
         <div class="stack" style="--c:${esc(s.color)}"><h1>${esc(g.name)}</h1><div class="row"><div class="bar grow"><i style="width:${m}%;background:var(--c)"></i></div><span class="small muted">${plural(chs.length, "chapitre", "chapitres")} · ${m} %</span></div></div>
         <div class="seg" role="tablist" aria-label="Contenu du dossier">${TABS_G.map(t => `<button role="tab" data-gt="${t[0]}" aria-selected="${groupTab === t[0]}">${t[1]}</button>`).join("")}</div>
         <div class="stack" role="tabpanel">${list()}</div>
-        ${chapterField("Nouveau chapitre dans ce dossier", "Ex. Chapitre 1 : La mitose")}
-        <details class="card fold gset"${safeGet("merge.gset") === "1" ? " open" : ""}><summary><span class="row">${I.gear}<b>Réglages du dossier</b></span>${I.back}</summary><div class="pad stack">
-          ${loose.length ? `<div class="field"><label for="mv">Ranger un chapitre existant ici</label><div class="row"><select id="mv">${loose.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn sm" id="mvgo">Ranger</button></div></div>` : ""}
+`;
+      app.querySelectorAll("[data-gt]").forEach(b => b.onclick = () => { groupTab = b.dataset.gt; draw(); });
+      $("gAdd").onclick = () => sheet(`<div class="row"><span class="mico big">${I.plus}</span><h1>Ajouter</h1></div>${chapterField("Nouveau chapitre dans ce dossier", "Ex. Chapitre 1 : La mitose")}
+          ${loose.length ? `<div class="field"><label for="mv">Ou ranger un chapitre existant ici</label><div class="row"><select id="mv">${loose.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="btn sm" id="mvgo">Ranger</button></div></div>` : ""}<button class="btn ghost" data-close>Fermer</button>`, () => {
+        wireChapterField(g.subject_id, id); setTimeout(() => { const c = $("cname"); if (c && matchMedia("(pointer:fine)").matches) c.focus(); }, 50);
+        if ($("mvgo")) $("mvgo").onclick = async () => { const r = await sb.from("chapters").update({ group_id: id }).eq("id", $("mv").value); if (r.error) return fail(r.error, "Chapitre non rangé"); closeSheet(); await loadAll(); screenGroup(id); toast("Chapitre rangé dans le dossier."); };
+      });
+      $("gSet").onclick = () => sheet(`<div class="row"><span class="mico big">${I.gear}</span><h1>Réglages du dossier</h1></div>
           <div class="field"><label for="gn">Nom du dossier</label><div class="row"><input id="gn" type="text" maxlength="80" value="${esc(g.name)}"><button class="btn sm" id="gren">Renommer</button></div></div>
           <div class="field"><span class="label">Couleur du dossier</span><div id="gcol">${colorPick(okColor(g.color) ? g.color : s.color)}</div></div>
-          <button class="btn sm ghost" id="gdel" style="align-self:flex-start">Supprimer le dossier</button><p class="note">Supprimer le dossier ne supprime pas ses chapitres : ils reviennent dans la matière.</p></div></details>`;
-      app.querySelectorAll("[data-gt]").forEach(b => b.onclick = () => { groupTab = b.dataset.gt; draw(); });
-      app.querySelector(".gset").ontoggle = e => safeSet("merge.gset", e.target.open ? "1" : "0");
-      wireChapterField(g.subject_id, id);
-      if ($("mvgo")) $("mvgo").onclick = async () => { const r = await sb.from("chapters").update({ group_id: id }).eq("id", $("mv").value); if (r.error) return fail(r.error, "Chapitre non rangé"); await loadAll(); screenGroup(id); };
+          <button class="btn sm ghost" id="gdel" style="align-self:flex-start">Supprimer le dossier</button><p class="note">Supprimer le dossier ne supprime pas ses chapitres : ils reviennent dans la matière.</p><button class="btn ghost" data-close>Fermer</button>`, () => {
       wireColor($("gcol"), async c => { const r = await sb.from("groups").update({ color: c }).eq("id", id); if (r.error) return fail(r.error, "Couleur non enregistrée"); g.color = c; toast("Couleur du dossier enregistrée."); });
       $("gren").onclick = async () => { const name = $("gn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const r = await sb.from("groups").update({ name }).eq("id", id); if (r.error) return fail(r.error, "Nom non enregistré"); g.name = name; draw(); toast("Dossier renommé."); };
       $("gdel").onclick = async () => {
@@ -983,6 +1129,7 @@
         const r2 = await sb.from("groups").delete().eq("id", id); if (r2.error) return fail(r2.error, "Suppression impossible");
         await loadAll(); location.hash = "#matiere-" + s.id;
       };
+      });
     }
     draw();
   }
@@ -2129,14 +2276,19 @@
   function subjectToolsHtml(s, chs) {
     const j = daysUntil(s.exam_date), weak = chs.map(c => ({ c, m: mastery(cardsOf(c.id)), n: cardsOf(c.id).length })).filter(x => x.n).sort((a, b) => a.m - b.m);
     return `${j != null && j >= 0 && weak.length ? `<div class="card pad stack"><h2>Plan de révision</h2><p class="muted">${j === 0 ? "Le contrôle est aujourd'hui." : "Il reste " + plural(j, "jour", "jours") + "."} Commence par les chapitres les moins maîtrisés.</p>${weak.slice(0, 5).map((x, i) => `<a class="row between" style="text-decoration:none;min-height:44px" href="#cartes-${x.c.id}"><span><b>${i + 1}.</b> ${esc(x.c.name)}</span><span class="pill ${x.m < 50 ? "warn" : ""}">${x.m} %</span></a>`).join("")}</div>` : ""}
-      <details class="card fold"><summary><span class="row">${I.gear}<b>Réglages de la matière</b></span>${I.back}</summary><div class="pad stack"><div class="field"><label for="sn">Nom</label><input id="sn" type="text" maxlength="60" value="${esc(s.name)}"></div>
+`;
+  }
+  // Réglages de la matière (fenêtre ouverte par l'engrenage en haut à droite).
+  function subjectSettingsHtml(s) {
+    return `<div class="row"><span class="mico big">${I.gear}</span><h1>Réglages de la matière</h1></div><div class="field"><label for="sn">Nom</label><input id="sn" type="text" maxlength="60" value="${esc(s.name)}"></div>
         <div class="field"><span class="label">Couleur</span><div id="scol">${colorPick(s.color)}</div></div>
-        <div class="row"><button class="btn sm" id="ssave">Enregistrer</button><button class="btn sm ghost" id="sdel">Supprimer la matière</button></div><div id="sbox"></div></div></details>`;
+        <div class="row"><button class="btn sm" id="ssave">Enregistrer</button><button class="btn sm ghost" id="sdel">Supprimer la matière</button></div><div id="sbox"></div><button class="btn ghost" data-close>Fermer</button>`;
   }
   function wireSubjectTools(s) {
     let col = s.color;
+    if (!$("ssave")) return;
     if ($("scol")) wireColor($("scol"), c => { col = c; });
-    $("ssave").onclick = async () => { const name = $("sn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const { error } = await sb.from("subjects").update({ name, color: col }).eq("id", s.id); if (error) return fail(error, "Matière non enregistrée"); await loadAll(); screenSubject(s.id); toast("Matière enregistrée."); };
+    $("ssave").onclick = async () => { const name = $("sn").value.trim(); if (!name) return toast("Le nom ne peut pas être vide."); const { error } = await sb.from("subjects").update({ name, color: col }).eq("id", s.id); if (error) return fail(error, "Matière non enregistrée"); closeSheet(); await loadAll(); screenSubject(s.id); toast("Matière enregistrée."); };
     $("sdel").onclick = () => {
       $("sbox").innerHTML = `<div class="stack"><p>Supprimer « ${esc(s.name)} » et ses chapitres de ton appli ?</p><div class="row"><button class="btn sm peach" id="sdy">Oui, supprimer</button><button class="btn sm ghost" id="sdn">Annuler</button></div></div>`;
       $("sdn").onclick = () => { $("sbox").innerHTML = ""; };
@@ -3317,7 +3469,7 @@
     if (safeGet("merge.duoin") && location.hash !== "#duo") { location.hash = "#duo"; return; }
     const h = location.hash.replace("#", ""), arg = h.slice(h.indexOf("-") + 1);
     document.body.classList.add("nav"); closeSheet();
-    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "corbeille" ? "reglages" : h === "bilan" || h === "minuteur" || h === "recompenses" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
+    drawTabs(/^(calendrier|progres|duo|reglages)$/.test(h) ? h : h === "edt" ? "calendrier" : h === "corbeille" ? "reglages" : h === "bilan" || h === "minuteur" || h === "recompenses" || h === "boutique" ? "progres" : !h || h === "accueil" || h === "cartes-jour" || h === "melange" ? "accueil" : "matieres");
     screenSession.key = null;
     if (busStop) busStop();
     stopSpeak();
@@ -3356,6 +3508,7 @@
     else if (h.startsWith("revision-")) screenSession(arg, false, true);
     else if (h === "melange") screenSession("melange");
     else if (h === "recompenses") screenRewards();
+    else if (h === "boutique") screenShop();
     else if (h === "edt") screenEdt();
     else if (h === "corbeille") screenTrash();
     else if (h.startsWith("methode-")) screenMethode(arg);

@@ -867,9 +867,9 @@ html,body,a,button,input,select,textarea,label,summary,[role="button"]{touch-act
 .pstep b{text-align:center;font-size:1.15em}
 .pstep span{font-weight:700}
 #pomoset button:disabled{opacity:.45}
-/* Musique de fond : photo d'ambiance (Unsplash, voir NOTICE.md), qui change à chaque morceau et avance doucement pendant la lecture. */
+/* Musique de fond : image d'ambiance de l'ambiance choisie (voir NOTICE.md), qui avance doucement pendant la lecture. */
 .np-art{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:16/9;max-height:34vh;width:100%;background:#15122b;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.np-art img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.04);transition:transform 8s ease}
+.np-art img{width:100%;height:100%;object-fit:cover;object-position:58% 45%;display:block;transform:scale(1.04);transition:transform 8s ease}
 .np-art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(18,14,40,.55)),linear-gradient(135deg,rgba(75,57,200,.22),transparent 60%);pointer-events:none}
 .np-art.on img{animation:npzoom 24s ease-in-out infinite alternate}
 @keyframes npzoom{from{transform:scale(1.04)}to{transform:scale(1.14) translate(-2%,-1%)}}
@@ -880,3 +880,85 @@ html,body,a,button,input,select,textarea,label,summary,[role="button"]{touch-act
 .duocode .row.wrap{flex-wrap:wrap}
 .duocode .row.wrap .btn{flex:1 1 170px;white-space:nowrap}
 .duoin{border:1px solid color-mix(in srgb,var(--accent) 45%,transparent)}
+/* ---------- boutique ---------- */
+.coinpill{display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:4px 10px;border-radius:99px;font-weight:900;font-size:.85em;background:color-mix(in srgb,#f5c542 18%,transparent);color:#c98a00;text-decoration:none;white-space:nowrap}
+[data-theme="dark"] .coinpill,.dark .coinpill{color:#f5c542}
+.coinpill svg,.coinbar .mico svg,.coinhero .mico svg{color:#e0a800}
+.coinpill svg{width:16px;height:16px}
+.coinbar{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
+.coinbar .grow{display:flex;flex-direction:column}
+.coinhero{background:linear-gradient(135deg,color-mix(in srgb,#4b39c8 22%,var(--card)),var(--card))}
+.shoptabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
+.shoptabs::-webkit-scrollbar{display:none}
+.shoptabs button{flex:none}
+.shopgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.shopitem{display:flex;flex-direction:column;gap:8px;align-items:stretch;padding:12px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-align:center}
+.shopitem b{font-size:.92em;line-height:1.2;min-height:2.4em;display:flex;align-items:center;justify-content:center;overflow-wrap:anywhere}
+.shopitem.own{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.shopitem .btn svg{width:16px;height:16px}
+.sprev{height:78px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,transparent);overflow:hidden}
+.sprev.big{height:110px;width:100%}
+.sprev .mascot{width:64px;height:64px}
+.swatch{width:46px;height:46px;border-radius:50%;box-shadow:0 0 0 4px color-mix(in srgb,currentColor 0%,var(--card)),0 6px 16px rgba(0,0,0,.25)}
+.bgprev{width:100%;height:100%;position:relative;background:#16132c}
+.cardprev{width:56px;height:70px;position:relative;display:block}
+.cardprev .face{position:absolute;inset:0;border-radius:12px;display:flex;align-items:center;justify-content:center;backface-visibility:visible;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.cardprev .txt{font-weight:900;font-size:1.2em;padding:0}
+.flameprev{font-size:.8em}
+h2 > svg{width:20px;height:20px;vertical-align:-3px;margin-right:6px}
+.giftgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.giftcard{position:relative;display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:20px;color:#fff;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.25)}
+.giftcard.g1{background:linear-gradient(135deg,#f08c3a,#b8451b)}
+.giftcard.g2{background:linear-gradient(135deg,#e0533b,#7d1f12)}
+.giftcard.g3{background:linear-gradient(135deg,#3949c9,#1b1f5e)}
+.giftcard.g4{background:linear-gradient(135deg,#9483ff,#4b39c8 55%,#e0529c)}
+.giftcard b{font-size:1.15em}
+.giftcard .small{opacity:.9}
+.giftcard .gtier{font-size:.72em;font-weight:900;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.giftcard .bar{background:rgba(255,255,255,.25)}
+.giftcard .bar i{background:#fff}
+.giftcard .btn{background:rgba(255,255,255,.95);color:#1a1730;border:0}
+.giftcard .btn:disabled{background:rgba(255,255,255,.22);color:#fff;opacity:1}
+.giftcard.ready{outline:3px solid #f5c542;outline-offset:2px}
+.voucher{gap:10px;flex-wrap:wrap}
+.lvlgifts{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;width:100%}
+.lvlgift{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,transparent);text-align:center}
+.lvlgift .sprev{height:60px;width:100%}
+.lvlgift b{font-size:.88em;line-height:1.2}
+.lvlwin .mascot{width:84px;height:84px}
+
+/* Nouveaux fonds animés (achetés dans la boutique) */
+body[data-bg="nuages"]::after,.bg-nuages{background:radial-gradient(30% 18% at 20% 25%,rgba(255,255,255,.22),transparent 70%),radial-gradient(35% 20% at 70% 40%,rgba(255,255,255,.18),transparent 70%),radial-gradient(30% 16% at 40% 75%,rgba(255,255,255,.16),transparent 70%);background-size:200% 100%;animation:nuages 40s linear infinite}
+@keyframes nuages{to{background-position:200% 0}}
+body[data-bg="neige"]::after,.bg-neige{background-image:radial-gradient(2px 2px at 10% 10%,#fff,transparent),radial-gradient(1.5px 1.5px at 30% 40%,#fff,transparent),radial-gradient(2.5px 2.5px at 60% 20%,#fff,transparent),radial-gradient(1.5px 1.5px at 80% 60%,#fff,transparent),radial-gradient(2px 2px at 45% 80%,#fff,transparent),radial-gradient(1.5px 1.5px at 90% 15%,#fff,transparent);background-size:220px 220px;animation:neige 14s linear infinite}
+@keyframes neige{to{background-position:30px 220px}}
+body[data-bg="bulles"]::after,.bg-bulles{background-image:radial-gradient(circle at 20% 80%,transparent 8px,color-mix(in srgb,var(--accent) 40%,transparent) 9px,transparent 10px),radial-gradient(circle at 70% 60%,transparent 13px,color-mix(in srgb,var(--accent) 35%,transparent) 14px,transparent 15px),radial-gradient(circle at 45% 30%,transparent 5px,rgba(255,255,255,.3) 6px,transparent 7px);background-size:240px 240px;animation:bulles 18s linear infinite}
+@keyframes bulles{to{background-position:0 -240px}}
+body[data-bg="pluie"]::after,.bg-pluie{background-image:linear-gradient(105deg,transparent 48%,rgba(160,190,255,.35) 49%,transparent 50%);background-size:26px 90px;animation:pluie .9s linear infinite}
+@keyframes pluie{to{background-position:-12px 90px}}
+body[data-bg="lucioles"]::after,.bg-lucioles{background-image:radial-gradient(3px 3px at 15% 30%,#ffe27a,transparent),radial-gradient(2.5px 2.5px at 55% 65%,#ffe27a,transparent),radial-gradient(3px 3px at 85% 25%,#fff3b0,transparent),radial-gradient(2px 2px at 35% 85%,#ffe27a,transparent),radial-gradient(2.5px 2.5px at 70% 45%,#fff3b0,transparent);background-size:300px 300px;animation:lucioles 6s ease-in-out infinite alternate}
+@keyframes lucioles{0%{opacity:.25;background-position:0 0}100%{opacity:.75;background-position:20px -18px}}
+body[data-bg="sakura"]::after,.bg-sakura{background-image:radial-gradient(4px 3px at 12% 18%,#f9a8d4,transparent),radial-gradient(3px 2.5px at 42% 52%,#fbcfe8,transparent),radial-gradient(4px 3px at 72% 28%,#f9a8d4,transparent),radial-gradient(3px 2.5px at 88% 78%,#fbcfe8,transparent),radial-gradient(3.5px 3px at 28% 88%,#f9a8d4,transparent);background-size:260px 260px;animation:sakura 16s linear infinite}
+@keyframes sakura{to{background-position:-120px 260px}}
+body[data-bg="coucher"]::after,.bg-coucher{background:linear-gradient(180deg,rgba(75,57,200,.45),rgba(224,82,156,.35) 55%,rgba(240,140,58,.35));background-size:100% 200%;animation:coucher 20s ease-in-out infinite alternate}
+@keyframes coucher{to{background-position:0 100%}}
+body[data-bg="galaxie"]::after,.bg-galaxie{background:radial-gradient(40% 30% at 30% 40%,rgba(148,131,255,.45),transparent 70%),radial-gradient(30% 25% at 70% 60%,rgba(224,82,156,.35),transparent 70%),radial-gradient(1.5px 1.5px at 20% 20%,#fff,transparent),radial-gradient(1px 1px at 80% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 60% 85%,#fff,transparent);animation:galaxie 30s linear infinite}
+@keyframes galaxie{50%{filter:hue-rotate(40deg)}}
+.bgprev{animation-duration:inherit}
+@media (prefers-reduced-motion:reduce){body[data-bg]::after,.bgprev{animation:none!important}}
+
+/* Styles des flashcards (boutique) : body[data-card] pour les cartes, data-cardprev pour les aperçus */
+body[data-card="papier"] .face,[data-cardprev="papier"] .face{background:repeating-linear-gradient(180deg,#fffdf5 0 26px,#cfe0f5 26px 27px);color:#2b2a26}
+body[data-card="bonbon"] .face,[data-cardprev="bonbon"] .face{background:linear-gradient(135deg,#ffd1e8,#c9e4ff);color:#3a2a52}
+body[data-card="tableau"] .face,[data-cardprev="tableau"] .face{background:radial-gradient(120% 80% at 50% 0%,#2f5a44,#1d3b2c);color:#f2f5ee;border-color:#8a6a43}
+body[data-card="coucher"] .face,[data-cardprev="coucher"] .face{background:linear-gradient(160deg,#4b39c8,#e0529c 60%,#f08c3a);color:#fff}
+body[data-card="neon"] .face,[data-cardprev="neon"] .face{background:#0e0b1f;color:#e9e4ff;box-shadow:0 0 0 2px #9483ff,0 0 22px rgba(148,131,255,.6)}
+body[data-card="galaxie"] .face,[data-cardprev="galaxie"] .face{background:radial-gradient(60% 50% at 30% 30%,rgba(148,131,255,.55),transparent 70%),radial-gradient(1.5px 1.5px at 70% 20%,#fff,transparent),radial-gradient(1px 1px at 20% 80%,#fff,transparent),#120f2a;color:#fff}
+body[data-card]:not([data-card=""]) .face header,body[data-card]:not([data-card=""]) .face footer{color:inherit;opacity:.8}
+
+/* Couleurs de flamme de série */
+body[data-flame="bleue"] .streak,[data-flameprev="bleue"]{background:rgba(59,130,246,.18);color:#3b82f6}
+body[data-flame="verte"] .streak,[data-flameprev="verte"]{background:rgba(34,195,142,.18);color:#13a676}
+body[data-flame="rose"] .streak,[data-flameprev="rose"]{background:rgba(224,82,156,.18);color:#e0529c}
+body[data-flame="or"] .streak,[data-flameprev="or"]{background:linear-gradient(135deg,#f5c542,#e0a800);color:#3a2a00}
+body[data-flame="arc"] .streak,[data-flameprev="arc"]{background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e,#3b82f6,#a855f7);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35)}

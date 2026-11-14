@@ -5,7 +5,7 @@
   const legacy = opt("legacy") === "1", UID = "user-1";
   let quotaLeft = opt("quota") == null ? 40 : +opt("quota"), calls = 0, n = 0;
   const id = p => (p || "id") + "-" + (++n);
-  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [], user_kv: [], chapter_shares: [] };
+  const DB = { profiles: [], subjects: [], groups: [], chapters: [], cards: [], sources: [], summaries: [], study_sessions: [], quizzes: [], quiz_results: [], exams: [], push_subscriptions: [], ai_cache: [], mistakes: [], import_jobs: [], gift_access: [], gift_claims: [], user_kv: [], chapter_shares: [] };
   const PK = { profiles: ["user_id"], study_sessions: ["user_id", "day"], ai_cache: ["chapter_id", "kind"], summaries: ["chapter_id"], push_subscriptions: ["endpoint"], user_kv: ["user_id", "key"], chapter_shares: ["chapter_id"] };
   if (opt("trash") === "1") DB.card_trash = [];
   const NEWCOLS = { cards: ["mastered", "mnemonic"], subjects: ["free_revision"] }, NEWTABLES = ["ai_cache", "mistakes", "import_jobs", "user_kv"];
@@ -154,6 +154,8 @@
     DB.summaries.push(defaults("summaries", { chapter_id: "c1", markdown: "## À quoi sert ce chapitre\nComprendre comment une cellule se divise.\n\n## Notions clés\n- **Mitose** : deux cellules filles identiques\n- **Méiose** : quatre cellules haploïdes" }));
     if (!legacy) DB.mistakes.push(defaults("mistakes", { chapter_id: "c1", question: "Que donne la méiose ?", expected: "Quatre cellules haploïdes", given: "Deux cellules identiques", mode: "quiz", times: 2 }));
   }
+  // fake.gifts = "1" : compte autorisé aux cadeaux en vrai (table gift_access).
+  if (opt("gifts") === "1") DB.gift_access.push({ user_id: UID, created_at: new Date().toISOString() });
   // fake.sessions : jours de révision imposés par un test, ex. [{"ago":1,"seconds":240,"cards_reviewed":6}] (ago = jours avant aujourd'hui).
   try { const ss = JSON.parse(opt("sessions") || "null"); if (ss) DB.study_sessions = ss.map(x => { const d = new Date(); d.setDate(d.getDate() - (x.ago || 0)); return { user_id: UID, day: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"), seconds: x.seconds || 0, cards_reviewed: x.cards_reviewed || 0, chapters_touched: [] }; }); } catch (e) { /* option facultative */ }
 

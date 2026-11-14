@@ -1,5 +1,6 @@
 // Fonction `admin` de Merge : données du tableau de bord /admin. Protégée par un mot de passe dont seule l'empreinte SHA-256
-// est stockée (table app_secrets, name = 'admin_pw_sha256'). Lecture seule.
+// est stockée (table app_secrets, name = 'admin_pw_sha256'). Lecture, plus la gestion des cadeaux en vrai de la boutique
+// (activer un compte : gift_access ; marquer un cadeau comme offert : gift_claims.given_at).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CORS = {
@@ -26,6 +27,22 @@ Deno.serve(async (req) => {
     const { data: sec } = await admin.from("app_secrets").select("value").eq("name", "admin_pw_sha256").maybeSingle();
     if (!sec?.value || !pw || !same(await sha256(pw), sec.value)) { await new Promise((r) => setTimeout(r, 600)); return json({ error: "mot_de_passe" }, 401); }
 
+    const body: Any = await req.json().catch(() => ({}));
+    if (body.action === "gift_access") {
+      const uid = String(body.user ?? "");
+      if (!/^[0-9a-f-]{36}$/.test(uid)) return json({ error: "requete" }, 400);
+      const r = body.on ? await admin.from("gift_access").upsert({ user_id: uid }) : await admin.from("gift_access").delete().eq("user_id", uid);
+      if (r.error) throw r.error;
+      return json({ ok: true });
+    }
+    if (body.action === "gift_given") {
+      const id = String(body.id ?? "");
+      if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "requete" }, 400);
+      const r = await admin.from("gift_claims").update({ given_at: body.undo ? null : new Date().toISOString() }).eq("id", id);
+      if (r.error) throw r.error;
+      return json({ ok: true });
+    }
+
     const today = new Date(); const iso = (d: Date) => d.toISOString().slice(0, 10);
     const day = iso(today);
     const wk = new Date(today); wk.setUTCDate(wk.getUTCDate() - ((wk.getUTCDay() + 6) % 7)); // lundi
@@ -37,10 +54,12 @@ Deno.serve(async (req) => {
       users.push(...data.users);
       if (data.users.length < 200) break;
     }
-    const [prof, st, tts] = await Promise.all([
+    const [prof, st, tts, ga, gc] = await Promise.all([
       admin.from("profiles").select("user_id,display_name,classe,created_at,last_seen_at,last_seen_place"),
       admin.rpc("admin_user_stats", { p_day: day, p_week: iso(wk), p_month: iso(mo) }),
       admin.from("tts_usage").select("chars,files").eq("month", day.slice(0, 7)).maybeSingle(),
+      admin.from("gift_access").select("user_id"),
+      admin.from("gift_claims").select("id,user_id,gift,price,created_at,given_at").order("created_at", { ascending: false }).limit(200),
     ]);
     if (st.error) throw st.error;
     const P: Record<string, Any> = {}; (prof.data ?? []).forEach((p: Any) => (P[p.user_id] = p));
@@ -54,7 +73,7 @@ Deno.serve(async (req) => {
         screen: t, ai: a, cards: n(r.cards), chapters: n(r.chapters),
       };
     }).sort((x: Any, y: Any) => String(y.last_seen_at ?? "").localeCompare(String(x.last_seen_at ?? "")));
-    return json({ users: out, voix: { chars: Number(tts.data?.chars ?? 0), files: Number(tts.data?.files ?? 0), limit: Number(Deno.env.get("TTS_MONTHLY_FREE") ?? "950000") }, generated_at: new Date().toISOString() });
+    return json({ users: out, gifts: { ready: !ga.error && !gc.error, access: (ga.data ?? []).map((r: Any) => r.user_id), claims: gc.data ?? [] }, voix: { chars: Number(tts.data?.chars ?? 0), files: Number(tts.data?.files ?? 0), limit: Number(Deno.env.get("TTS_MONTHLY_FREE") ?? "950000") }, generated_at: new Date().toISOString() });
   } catch (e) {
     console.error(e);
     return json({ error: "erreur", detail: String((e as Error).message).slice(0, 300) }, 500);

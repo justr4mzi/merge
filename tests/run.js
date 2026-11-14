@@ -71,9 +71,9 @@ async function flows(browser) {
   ok(await page.locator(".folder").count() === 1, "matière : dossier créé avec le bouton +");
   await page.click(".folder"); await page.waitForTimeout(250);
   ok(await page.locator('[role="tab"]').count() === 5 && await page.locator('[role="tab"][aria-selected="true"]').textContent() === "Chapitres", "dossier : 5 onglets, « Chapitres » ouvert en premier");
-  ok(!(await page.locator(".gset").evaluate(e => e.open)) && !(await page.locator("#gn").isVisible()), "dossier : réglages repliés dans un menu");
-  await page.click(".gset summary"); await page.waitForTimeout(100); ok(await page.locator("#gn").isVisible() && await page.locator("#gcol").isVisible(), "dossier : réglages visibles une fois le menu ouvert");
-  await page.click(".gset summary");
+  ok(await page.locator("#gn").count() === 0 && await page.locator("#cname").count() === 0, "dossier : plus de champ ni de réglages dans la page");
+  await page.click("#gSet"); await page.waitForTimeout(150); ok(await page.locator("#sheet #gn").isVisible() && await page.locator("#sheet #gcol").isVisible(), "dossier : réglages dans la fenêtre de l'engrenage");
+  await page.keyboard.press("Escape"); await page.click("#gAdd"); await page.waitForTimeout(150);
   await page.fill("#cname", "Chapitre 1 : La mitose"); await page.click("#addCh"); await page.waitForTimeout(400);
   const ch = (await page.evaluate(() => location.hash)).replace("#chapitre-", "");
   await go(page, "#import-" + ch); await page.click('[data-tab="text"]');
@@ -238,7 +238,7 @@ async function v7(browser) {
   ok(!page.errors.length, "v7 inscription : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 
   page = await open(browser, { w: 390, h: 844, theme: "dark" });
-  await go(page, "#matiere-s1");
+  await go(page, "#matiere-s1"); await page.click("#sSet"); await page.waitForTimeout(150);
   ok(await page.locator("#scol [data-col]").count() >= 20, "v7 matière : au moins 20 couleurs");
   ok(await page.locator("#scol [data-free] input[type=color]").count() === 1, "v7 matière : couleur libre");
   let s = await small(page); ok(!s.length, "v7 matière : boutons de 44 px minimum", s.join(" | "));
@@ -432,7 +432,7 @@ async function chapitre(browser) {
   await page.click("#tools summary"); await page.click("#tColor"); await page.waitForTimeout(100); await page.click('#ccol [data-col="#e0529c"]'); await page.waitForTimeout(200);
   ok(await page.evaluate(() => window.__fake.DB.chapters.find(c => c.id === "c1").color === "#e0529c"), "chapitre : couleur enregistrée");
   let sm = await small(page); ok(!sm.length, "chapitre : boutons de 44 px minimum", sm.join(" | "));
-  await go(page, "#dossier-g1", 400); if (!(await page.locator(".gset").evaluate(e => e.open))) await page.click(".gset summary"); await page.click('#gcol [data-col="#0ea5a4"]'); await page.waitForTimeout(200);
+  await go(page, "#dossier-g1", 400); await page.click("#gSet"); await page.waitForTimeout(150); await page.click('#gcol [data-col="#0ea5a4"]'); await page.waitForTimeout(200);
   ok(await page.evaluate(() => window.__fake.DB.groups.find(g => g.id === "g1").color === "#0ea5a4"), "dossier : couleur enregistrée");
   ok(!page.errors.length, "chapitre : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
@@ -783,7 +783,7 @@ async function nomAuto(browser) {
   ok(/"title":"titre court du chapitre/.test(studio) && /ch\?\.auto_name === true/.test(studio), "nom auto : titre demandé dans l'appel existant, appliqué seulement si la case est cochée");
   for (const [w, h] of [[390, 844], [1280, 800]]) {
     const page = await open(browser, { w, h, theme: "dark" }), tag = "nom auto " + w;
-    await go(page, "#matiere-s1", 400);
+    await go(page, "#matiere-s1", 400); await page.click("#sAdd"); await page.waitForTimeout(150);
     ok(await page.locator('#cauto[aria-checked="false"]').count() === 1, tag + " : case décochée par défaut");
     await page.click("#cauto"); await page.waitForTimeout(80);
     if (w === 390) { await page.locator("#cauto").scrollIntoViewIfNeeded(); await page.screenshot({ path: path.join(SHOTS, "nom-auto-390.png") }); }
@@ -797,7 +797,7 @@ async function nomAuto(browser) {
     await page.click("#go"); await page.waitForFunction(() => /cartes créées/.test(document.getElementById("app").innerText), null, { timeout: 15000 }).catch(() => {});
     const ch2 = await page.evaluate(id => window.__fake.DB.chapters.find(c => c.id === id), ch.id);
     ok(ch2.name === "La mitose et la méiose" && ch2.auto_name === false && (await txt(page)).includes("La mitose et la méiose"), tag + " : nom donné par le cours après l'import", JSON.stringify(ch2));
-    await go(page, "#matiere-s1", 400); await page.fill("#cname", "Mon chapitre"); await page.click("#addCh"); await page.waitForTimeout(500);
+    await go(page, "#matiere-s1", 400); await page.click("#sAdd"); await page.waitForTimeout(150); await page.fill("#cname", "Mon chapitre"); await page.click("#addCh"); await page.waitForTimeout(500);
     const ch3 = await page.evaluate(() => window.__fake.DB.chapters.slice(-1)[0]);
     ok(ch3.name === "Mon chapitre" && !ch3.auto_name && (await page.evaluate(() => location.hash)) === "#chapitre-" + ch3.id, tag + " : case décochée, nom écrit gardé comme avant");
     ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
@@ -944,6 +944,46 @@ async function pomodoroReglable(browser) {
   ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function boutique(browser) {
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "boutique " + w;
+    await page.evaluate(() => { localStorage.setItem("fake.gifts", "1"); localStorage.setItem("merge.rewards", JSON.stringify({ buys: [{ id: "test-bonus", price: -5000 }] })); location.reload(); });
+    await page.waitForSelector("#app > *"); await go(page, "#boutique", 600);
+    const bal0 = await page.evaluate(() => parseInt(document.querySelector(".coinhero b.big").textContent, 10));
+    ok(bal0 >= 5000, tag + " : solde de pièces affiché", String(bal0));
+    ok(await page.locator(".giftcard").count() === 4 && await page.locator('[data-gift="reeses"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 4 cadeaux en vrai, Reese's échangeable, surprise trop chère");
+    let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+    let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    if (w === 390) await page.screenshot({ path: path.join(SHOTS, "boutique-390.png"), fullPage: true });
+    await page.click('[data-st="fond"]'); await page.click('[data-buy="f-neige"]'); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => document.body.dataset.bg) === "neige" && await page.evaluate(() => parseInt(document.querySelector(".coinhero b.big").textContent, 10)) === bal0 - 400, tag + " : fond acheté (400 pièces) et équipé");
+    await page.click('[data-st="mascotte"]'); await page.click('[data-buy="m-casque"]'); await page.waitForTimeout(150);
+    await page.click('[data-st="carte"]'); await page.click('[data-buy="d-neon"]'); await page.waitForTimeout(150);
+    await page.click('[data-st="flamme"]'); await page.click('[data-buy="l-arc"]'); await page.waitForTimeout(150);
+    ok(await page.evaluate(() => document.body.dataset.card === "neon" && document.body.dataset.flame === "arc"), tag + " : style de cartes et flamme équipés");
+    if (w === 390) await page.screenshot({ path: path.join(SHOTS, "boutique-flamme-390.png") });
+    await page.click('[data-st="coffre"]'); const before = await page.evaluate(() => JSON.parse(localStorage.getItem("merge.rewards")).buys.length);
+    await page.click("[data-chest]"); await page.waitForTimeout(250);
+    ok(await page.locator(".badgewin h1").textContent() === "Coffre ouvert" && await page.evaluate(() => JSON.parse(localStorage.getItem("merge.rewards")).buys.length) === before + 2, tag + " : coffre surprise ouvert");
+    await page.keyboard.press("Escape"); await page.click('[data-gift="reeses"]'); await page.click("#gok"); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => window.__fake.DB.gift_claims.length === 1 && window.__fake.DB.gift_claims[0].gift === "reeses"), tag + " : demande de cadeau enregistrée");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+    ok((await txt(page)).includes("Mes bons") && (await txt(page)).includes("En attente"), tag + " : le bon apparaît dans « Mes bons »");
+    await go(page, "#recompenses", 300); ok(await page.locator('a[href="#boutique"]').count() >= 1 && (await txt(page)).includes("Mergo au casque audio"), tag + " : les achats apparaissent dans les récompenses");
+    await go(page, "#accueil", 300); ok(await page.locator(".coinpill").count() === 1, tag + " : pièces affichées sur l'accueil");
+    // Passage de niveau : pièces, articles offerts et récompenses débloquées.
+    await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("merge.rewards")); r.lvl = 0; localStorage.setItem("merge.rewards", JSON.stringify(r)); localStorage.setItem("merge.level", "0"); localStorage.setItem("merge.badges", "[]"); });
+    await go(page, "#calendrier", 200); await go(page, "#accueil", 500);
+    ok(await page.locator(".lvlwin").count() === 1 && await page.locator(".lvlgift").count() >= 2, tag + " : passage de niveau avec pièces et cadeaux", await page.locator(".lvlwin").count() ? await page.locator(".lvlwin").innerText() : "pas de fenêtre");
+    if (w === 390 && await page.locator(".lvlwin").count()) await page.screenshot({ path: path.join(SHOTS, "niveau-390.png") });
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+  // Sans accès : aucun cadeau en vrai.
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" }); await go(page, "#boutique", 500);
+  ok(await page.locator(".giftcard").count() === 0 && await page.locator(".shopitem").count() > 0, "boutique : sans accès, pas de cadeaux en vrai (seulement la boutique)");
+  await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -952,7 +992,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte, leurres, iphoneAppli, semaine, duoLien, pomodoroReglable };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels, matieresTactile, nomAuto, annulerCarte, leurres, iphoneAppli, semaine, duoLien, pomodoroReglable, boutique };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

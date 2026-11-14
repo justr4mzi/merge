@@ -10,7 +10,7 @@ window.CONFIG = {
   // Musiques de fond : un fichier par morceau dans audio/ (qualité d'origine, 128 kbit/s, copiée sans réencodage).
   // Chaque morceau : [fichier sans « .mp3 », titre, artiste]. Titre vide = « Lofi de Noël ».
   LOFI: [
-    { nom: "Lofi", images: ["lampe", "bureau", "ruelle"], tracks: [
+    { nom: "Lofi", images: ["lofi-etude"], tracks: [
       ["lofi-00", "evening glow", "Rook1e, softy, Lofi Girl"],
       ["lofi-01", "schooltrips", "mell-ø"],
       ["lofi-02", "Brioche", "Lazlow, Oaty."],
@@ -90,7 +90,7 @@ window.CONFIG = {
       ["lofi-76", "Callisto", "slowburn"],
       ["lofi-77", "you've changed", "Blurred Figures, another silent weekend"]
     ] },
-    { nom: "Christmas Lofi", images: ["noel-lumieres", "noel-fenetre"], tracks: [
+    { nom: "Christmas Lofi", images: ["lofi-noel"], tracks: [
       ["noel-00", "The First Noel", ""],
       ["noel-01", "Joy to the World", ""],
       ["noel-02", "Jingle Bells", ""],
