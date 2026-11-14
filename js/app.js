@@ -1539,7 +1539,7 @@
       <div class="card pad stack"><h2>Révision</h2>
         <div class="field"><span class="label">Sons et vibrations</span>${chips("snd", [["1", "Activés"], ["0", "Coupés"]], p.sounds === false ? "0" : "1")}</div>
         <div class="field"><span class="label">Voix qui lit tes cartes</span><div class="chips"><button class="chip" data-ve="merge" aria-pressed="${neuralWanted()}">Voix Merge (Laomedeia)</button><button class="chip" data-ve="appareil" aria-pressed="${!neuralWanted()}">Voix de mon appareil</button></div><div class="row"><button class="btn sm ghost" id="vtry">Écouter un exemple</button></div><p class="note">La voix Merge est plus naturelle. Sans réseau, c'est la voix de ton appareil qui prend le relais.</p></div>
-        ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de l'appareil</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.7" max="1.3" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
+        ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de l'appareil</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.5" max="2" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
         <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
         <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
@@ -2214,7 +2214,7 @@
     const [cards, sum, src] = await Promise.all([chapterCards(id), sb.from("summaries").select("markdown").eq("chapter_id", id).maybeSingle(), sb.from("sources").select("extracted_text").eq("chapter_id", id)]);
     const clean = s => String(s || "").replace(/[#*_>`]/g, "").replace(/\s+/g, " ").trim();
     const parts = { resume: sum.data ? String(sum.data.markdown).split(/\n+/).map(clean).filter(Boolean) : [], cartes: cards.flatMap(c => [clean(c.front), clean(c.back)]), cours: (src.data || []).map(x => x.extracted_text || "").join("\n").replace(/\[\[PAGE\]\]/g, "\n").split(/(?<=[.!?])\s+|\n+/).map(clean).filter(x => x.length > 2) };
-    const L = { what: parts.resume.length ? "resume" : "cartes", i: 0, rate: 1, playing: false, sleep: 0, sleepAt: 0 };
+    const L = { what: parts.resume.length ? "resume" : "cartes", i: 0, rate: voiceRate(), playing: false, sleep: 0, sleepAt: 0 };
     const saved = (safeGet("merge.ecoute." + id) || "").split(":"); if (parts[saved[0]] && +saved[1] < parts[saved[0]].length) { L.what = saved[0]; L.i = +saved[1] || 0; }
     const lang = (ch.lang || "fr").startsWith("fr") ? "fr-FR" : ch.lang;
     function speak() {
@@ -2229,7 +2229,7 @@
         <div class="chips">${[["resume", "Le résumé"], ["cartes", "Les cartes"], ["cours", "Le cours complet"]].map(t => `<button class="chip" data-w="${t[0]}" aria-pressed="${L.what === t[0]}" ${parts[t[0]].length ? "" : "disabled"}>${t[1]}</button>`).join("")}</div>
         <div class="card pad stack"><p class="small muted">${list.length ? (L.i + 1) + " sur " + list.length : "Rien à lire"}</p><p class="qtxt" aria-live="polite">${esc(list[L.i] || "")}</p><div class="bar"><i style="width:${list.length ? (L.i / list.length * 100) : 0}%"></i></div>
           <div class="row" style="justify-content:center"><button class="btn ghost sm" id="prevp">Précédent</button><button class="btn" id="play">${L.playing ? "Pause" : "Lire"}</button><button class="btn ghost sm" id="nextp">Suivant</button></div></div>
-        <div class="field"><span class="label">Vitesse</span><div class="chips">${[0.75, 1, 1.25, 1.5].map(r => `<button class="chip" data-r="${r}" aria-pressed="${L.rate === r}">${String(r).replace(".", ",")}x</button>`).join("")}</div></div>
+        <div class="field"><span class="label">Vitesse</span><div class="chips">${[0.75, 1, 1.25, 1.5, 2].map(r => `<button class="chip" data-r="${r}" aria-pressed="${L.rate === r}">${String(r).replace(".", ",")}x</button>`).join("")}</div></div>
         <div class="field"><span class="label">Arrêt automatique</span><div class="chips">${[[0, "Jamais"], [15, "15 min"], [30, "30 min"]].map(t => `<button class="chip" data-sl="${t[0]}" aria-pressed="${L.sleep === t[0]}">${t[1]}</button>`).join("")}</div></div>
         <p class="note">${neuralWanted() ? "Lecture avec la voix Merge (la voix de ton appareil prend le relais hors ligne)." : "Lecture avec la voix de ton appareil."} Elle reprend là où tu t'es arrêté.</p>`;
       app.querySelectorAll("[data-sl]").forEach(b => b.onclick = () => { L.sleep = +b.dataset.sl; L.sleepAt = L.sleep ? Date.now() + L.sleep * 60000 : 0; draw(); });
@@ -2237,7 +2237,7 @@
       $("prevp").onclick = () => { L.i = Math.max(0, L.i - 1); L.playing ? speak() : draw(); };
       $("nextp").onclick = () => { L.i = Math.min(Math.max(0, list.length - 1), L.i + 1); L.playing ? speak() : draw(); };
       app.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { L.what = b.dataset.w; L.i = 0; L.playing = false; stopSpeak(); draw(); });
-      app.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { L.rate = +b.dataset.r; L.playing ? speak() : draw(); });
+      app.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { L.rate = +b.dataset.r; safeSet("merge.rate", String(L.rate)); if (spk.el && !spk.el.paused) { spk.el.defaultPlaybackRate = spk.el.playbackRate = L.rate; draw(); } else if (L.playing) speak(); else draw(); });
     }
     draw();
   }
@@ -2295,8 +2295,8 @@
   function voicesFor(lang) { if (!("speechSynthesis" in window)) return []; const p = (lang || "fr").slice(0, 2).toLowerCase(); return speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith(p)); }
   function voiceScore(v) { const n = v.name || ""; let k = 0; if (/natural|neural|online|premium|enhanced|améliorée|siri/i.test(n)) k += 100; if (/google/i.test(n)) k += 60; if (/hortense|julie|paul|compact|espeak/i.test(n)) k -= 30; if (!v.localService) k += 10; if (/fr[-_]FR/i.test(v.lang)) k += 5; return k; }
   function pickVoice(lang) { const vs = voicesFor(lang); if (!vs.length) return null; const want = (lang || "fr").slice(0, 2).toLowerCase() === "fr" ? safeGet("merge.voice") : null; return vs.find(v => v.voiceURI === want) || vs.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0]; }
-  const voiceRate = () => Math.min(1.4, Math.max(0.6, parseFloat(safeGet("merge.rate")) || 1));
-  function utter(t, lang, rate) { const u = new SpeechSynthesisUtterance(t); u.lang = lang || "fr-FR"; const v = pickVoice(u.lang); if (v) { u.voice = v; u.lang = v.lang; } u.rate = (rate || 1) * voiceRate(); return u; }
+  const voiceRate = () => Math.min(2, Math.max(0.5, parseFloat(safeGet("merge.rate")) || 1));
+  function utter(t, lang, rate) { const u = new SpeechSynthesisUtterance(t); u.lang = lang || "fr-FR"; const v = pickVoice(u.lang); if (v) { u.voice = v; u.lang = v.lang; } u.rate = Math.min(2, rate || voiceRate()); return u; }
   if ("speechSynthesis" in window) { try { speechSynthesis.getVoices(); } catch (e) { /* voix chargées plus tard */ } }
   // Les longues phrases sont lues par morceaux : certaines voix en ligne se coupent après une quinzaine de secondes.
   // Lecture à voix haute. Voix Merge (Laomedeia, fonction `voix`, chaque phrase gardée sur le serveur) si elle est disponible,
@@ -2333,7 +2333,7 @@
       let url; try { url = await neuralUrl(chunks[k], lang); } catch (e) { return fallback(); }
       if (my !== spk.token) return; k++;
       if (k < chunks.length) neuralUrl(chunks[k], lang).catch(() => {});
-      const a = spk.el || (spk.el = new Audio()); a.src = url; a.playbackRate = rate || voiceRate(); a.onended = next; a.onerror = () => { k--; fallback(); };
+      const a = spk.el || (spk.el = new Audio()); a.preservesPitch = true; a.defaultPlaybackRate = rate || voiceRate(); a.src = url; a.playbackRate = rate || voiceRate(); a.onended = next; a.onerror = () => { k--; fallback(); };
       const pr = a.play(); if (pr && pr.catch) pr.catch(() => { k--; fallback(); });
     };
     next();

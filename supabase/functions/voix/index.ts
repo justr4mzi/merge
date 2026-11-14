@@ -1,4 +1,4 @@
-// Fonction `voix` de Merge : lit un texte avec la voix Laomedeia (Google Cloud Text-to-Speech, Chirp 3 HD).
+// Fonction `voix` de Merge : lit un texte avec la voix Aoede (Google Cloud Text-to-Speech, Chirp 3 HD).
 // Chaque phrase lue est gardée dans le compartiment privé « voix » : la même phrase n'est jamais payée deux fois, pour personne.
 // Plafond mensuel (TTS_MONTHLY_FREE, 950 000 caractères par défaut) : au-delà, l'appli repasse sur la voix de l'appareil, on reste dans le gratuit.
 // Essais (mot de passe admin) : { engine: "gemini", voice, text } pour comparer avec les voix Gemini.
@@ -9,7 +9,7 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const admin = createClient(URL_, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const LIMIT = Number(Deno.env.get("TTS_MONTHLY_FREE") ?? "950000");
-const VOICE = Deno.env.get("TTS_VOICE") ?? "Laomedeia";
+const VOICE = Deno.env.get("TTS_VOICE") ?? "Aoede";
 const LOCALES: Record<string, string> = { fr: "fr-FR", en: "en-US", es: "es-ES", de: "de-DE", it: "it-IT", pt: "pt-BR", nl: "nl-NL" };
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 const b64url = (input: ArrayBuffer | string) => { const bytes = typeof input === "string" ? new TextEncoder().encode(input) : new Uint8Array(input); let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };

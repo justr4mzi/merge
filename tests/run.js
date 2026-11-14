@@ -593,6 +593,17 @@ async function corbeille(browser) {
   ok(!page.errors.length, "corbeille : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
 }
 
+async function vitesse(browser) {
+  const page = await open(browser, { w: 390, h: 844, theme: "dark" });
+  await go(page, "#ecouter-c1", 500);
+  ok(await page.locator('[data-r="2"]').count() === 1, "vitesse : x2 proposé");
+  await page.click('[data-r="1.5"]'); await page.waitForTimeout(100);
+  ok(await page.evaluate(() => localStorage.getItem("merge.rate") === "1.5"), "vitesse : x1,5 gardé");
+  await go(page, "#ecouter-c1", 400); ok(await page.locator('[data-r="1.5"][aria-pressed="true"]').count() === 1, "vitesse : retrouvée au retour");
+  const r = await page.evaluate(() => { const u = new SpeechSynthesisUtterance("a"); return 0; });
+  ok(!page.errors.length, "vitesse : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -601,7 +612,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();
