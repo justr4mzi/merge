@@ -947,11 +947,12 @@ async function pomodoroReglable(browser) {
 async function boutique(browser) {
   for (const [w, h] of [[390, 844], [1280, 800]]) {
     const page = await open(browser, { w, h, theme: "dark" }), tag = "boutique " + w;
-    await page.evaluate(() => { localStorage.setItem("fake.gifts", "1"); localStorage.setItem("merge.rewards", JSON.stringify({ buys: [{ id: "test-bonus", price: -5000 }] })); location.reload(); });
+    await page.evaluate(() => { localStorage.setItem("fake.gifts", "1"); localStorage.setItem("merge.rewards", JSON.stringify({ buys: [{ id: "test-bonus", price: -4600 }] })); location.reload(); });
     await page.waitForSelector("#app > *"); await go(page, "#boutique", 600);
     const bal0 = await page.evaluate(() => parseInt(document.querySelector(".coinhero b.big").textContent, 10));
-    ok(bal0 >= 5000, tag + " : solde de pièces affiché", String(bal0));
-    ok(await page.locator(".giftcard").count() === 8 && await page.locator('[data-gift="bisou"]:not([disabled])').count() === 1 && await page.locator('[data-gift="tasty"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 8 cadeaux en vrai, les moins chers échangeables, surprise trop chère");
+    ok(bal0 >= 4600 && bal0 < 5000, tag + " : solde de pièces affiché", String(bal0));
+    ok(await page.locator(".giftcard").count() === 20 && await page.locator('[data-gift="bisou"]:not([disabled])').count() === 1 && await page.locator('[data-gift="balade"]:not([disabled])').count() === 1 && await page.locator('[data-gift="surprise"][disabled]').count() === 1, tag + " : 20 cadeaux en vrai sur 3 rayons, balade à portée, surprise trop chère");
+    ok((await txt(page)).includes("Petits plaisirs") && (await txt(page)).includes("Gros cadeaux") && (await txt(page)).includes("El Mordjene") && (await txt(page)).includes("Black and White") && (await txt(page)).includes("Kazdal23") && (await txt(page)).includes("coquillettes"), tag + " : rayons et nouveaux cadeaux affichés");
     let sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
     let o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
     if (w === 390) await page.screenshot({ path: path.join(SHOTS, "boutique-390.png"), fullPage: true });
@@ -967,8 +968,11 @@ async function boutique(browser) {
     ok(await page.locator(".badgewin h1").textContent() === "Coffre ouvert" && await page.evaluate(() => JSON.parse(localStorage.getItem("merge.rewards")).buys.length) === before + 2, tag + " : coffre surprise ouvert");
     await page.keyboard.press("Escape"); await page.click('[data-gift="reeses"]'); await page.click("#gok"); await page.waitForTimeout(400);
     ok(await page.evaluate(() => window.__fake.DB.gift_claims.length === 1 && window.__fake.DB.gift_claims[0].gift === "reeses"), tag + " : demande de cadeau enregistrée");
+    ok(await page.locator("#sheet .voucher-card").isVisible() && (await page.locator("#sheet").innerText()).includes("envoie-la à Ramzi"), tag + " : bon à envoyer en capture à Ramzi");
+    if (w === 390) await page.locator("#sheet .sheet").screenshot({ path: path.join(SHOTS, "bon-cadeau-390.png") });
     await page.keyboard.press("Escape"); await page.waitForTimeout(150);
-    ok((await txt(page)).includes("Mes bons") && (await txt(page)).includes("En attente"), tag + " : le bon apparaît dans « Mes bons »");
+    ok((await txt(page)).includes("Mes bons") && (await txt(page)).includes("À envoyer à Ramzi"), tag + " : le bon apparaît dans « Mes bons »");
+    await page.click("[data-bon]"); await page.waitForTimeout(150); ok(await page.locator("#sheet .voucher-card").isVisible(), tag + " : on peut rouvrir le bon"); await page.keyboard.press("Escape");
     await go(page, "#recompenses", 300); ok(await page.locator('a[href="#boutique"]').count() >= 1 && (await txt(page)).includes("Mergo au casque audio"), tag + " : les achats apparaissent dans les récompenses");
     await go(page, "#accueil", 300); ok(await page.locator(".coinpill").count() === 1, tag + " : pièces affichées sur l'accueil");
     // Passage de niveau : pièces, articles offerts et récompenses débloquées.

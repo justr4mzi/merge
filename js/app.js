@@ -682,17 +682,40 @@
     { id: "t-roi", type: "titre", n: "Roi des fiches", price: 400 }, { id: "t-zero", type: "titre", n: "Zéro oubli", price: 600 }, { id: "t-legende", type: "titre", n: "Légende du bac", price: 900 },
     { id: "k-pluie", type: "confettis", n: "Toujours la pluie de confettis", price: 200, v: "pluie" }, { id: "k-serpentins", type: "confettis", n: "Toujours les serpentins", price: 250, v: "serpentins" }, { id: "k-explosion", type: "confettis", n: "Toujours l'explosion", price: 300, v: "explosion" },
   ];
-  // Cadeaux en vrai : les plus gros paliers, volontairement difficiles (1 pièce ≈ 1 bonne réponse).
+  // Cadeaux en vrai (comptes activés dans /admin) : du petit plaisir au gros cadeau, 1 pièce ≈ 1 bonne réponse.
+  // À échanger avec Ramzi : le bon affiché sert de capture d'écran à lui envoyer, et la demande apparaît dans /admin.
+  const GIFT_GIVER = "Ramzi";
   const GIFTS = [
-    { id: "bisou", n: "Un gros bisou", d: "Le plus doux des paliers. À réclamer quand tu veux.", price: 500 },
-    { id: "milkyway", n: "Un Milky Way", d: "Une petite pause sucrée bien méritée.", price: 1000 },
-    { id: "reeses", n: "Des Reese's", d: "Un paquet de Reese's, rien que pour toi.", price: 1500 },
-    { id: "massage", n: "Un massage", d: "Pour détendre les épaules après les révisions.", price: 2000 },
-    { id: "tasty", n: "Un Tasty Crousty", d: "Un repas Tasty Crousty, offert.", price: 2500 },
-    { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 3000 },
-    { id: "cinema", n: "Une place de cinéma", d: "Le film de ton choix, sur grand écran.", price: 4500 },
-    { id: "surprise", n: "La surprise", d: "Le plus gros palier. On ne dit rien : c'est une surprise.", price: 7000 },
+    { id: "bisou", n: "Un gros bisou", d: "Le plus doux des cadeaux. À réclamer quand tu veux.", price: 300 },
+    { id: "gout", n: "Ramzi goûte un truc qu'il n'aime pas", d: "Tu choisis le truc. Il goûte. Sans discuter.", price: 400 },
+    { id: "cocazero", n: "Un Coca Zéro", d: "Bien frais.", price: 500 },
+    { id: "icedtea", n: "Un Ice Tea", d: "Pour une pause rafraîchissante.", price: 500 },
+    { id: "milkyway", n: "Un Milky Way", d: "Une petite pause sucrée bien méritée.", price: 600 },
+    { id: "kinder", n: "Des Kinder", d: "Un paquet de Kinder rien que pour toi.", price: 800 },
+    { id: "redbull", n: "Une Red Bull pêche", d: "Le coup de boost des longues révisions.", price: 800 },
+    { id: "bretznature", n: "Des chips Bretz crêpe nature", d: "Le paquet de chips Bretz saveur crêpe nature.", price: 900 },
+    { id: "bretzpesto", n: "Des chips Bretz pesto mozzarella", d: "Le paquet de chips Bretz pesto mozzarella.", price: 900 },
+    { id: "reeses", n: "Des Reese's", d: "Un paquet de Reese's, rien que pour toi.", price: 1000 },
+    { id: "massage", n: "Un massage", d: "Pour détendre les épaules après les révisions.", price: 1300 },
+    { id: "tacoscoq", n: "Un tacos aux coquillettes", d: "Le tacos aux coquillettes, offert.", price: 1400 },
+    { id: "crepes", n: "Des crêpes maison à l'El Mordjene", d: "Faites maison par Ramzi, avec de l'El Mordjene.", price: 1500 },
+    { id: "kazdal", n: "Un repas chez Kazdal23", d: "Ramzi va te le chercher, puisque tu ne peux pas aller à la Guillotière.", price: 1700 },
+    { id: "tasty", n: "Un Tasty Crousty", d: "Un repas Tasty Crousty, offert.", price: 1800 },
+    { id: "blackwhite", n: "Un Black and White", d: "Un repas au Black and White, offert.", price: 2000 },
+    { id: "pizza", n: "Une pizza au feu de bois", d: "Une vraie pizza cuite au feu de bois.", price: 2200 },
+    { id: "cinema", n: "Une place de cinéma", d: "Le film de ton choix, sur grand écran.", price: 3000 },
+    { id: "balade", n: "Une balade en voiture", d: "Dès que Ramzi a le permis, il t'emmène où tu veux.", price: 3500 },
+    { id: "surprise", n: "La surprise", d: "Le plus gros palier. On ne dit rien : c'est une surprise.", price: 5000 },
   ];
+  const GIFT_SHELVES = [["Petits plaisirs", 0, 999], ["Cadeaux", 1000, 1999], ["Gros cadeaux", 2000, Infinity]];
+  // Bon à envoyer en capture d'écran : nom du cadeau, prénom, date, numéro du bon.
+  function voucherHtml(c, g) {
+    const who = String((state.profile && state.profile.display_name) || "").trim();
+    return `<div class="voucher-card"><span class="vtop">Merge<b>.</b> · Bon cadeau</span><span class="mico big">${I.gift}</span><b class="vname">${esc(g.n)}</b>
+      <span class="vfor">${who ? "Pour " + esc(who) + " · " : ""}${esc(fmtDate(String(c.created_at || "").slice(0, 10) || localDay()))}</span><span class="vcode">N° ${esc(String(c.id || "").slice(0, 8).toUpperCase())}</span>
+      <span class="vstate${c.given_at ? " ok" : ""}">${c.given_at ? "Offert" : "Gagné avec " + c.price + " pièces"}</span></div>
+      ${c.given_at ? "" : `<p class="vsend">Fais une capture de ce bon et envoie-la à ${GIFT_GIVER} pour qu'il te le fasse.</p>`}`;
+  }
   const CHEST_PRICE = 250;
   SHOP.forEach(x => REWARDS.push(x));
   REWARDS.push({ id: "d-classique", type: "carte", n: "Cartes classiques", pts: 0, v: "" }, { id: "l-classique", type: "flamme", n: "Flamme classique", pts: 0, v: "" });
@@ -771,8 +794,9 @@
       app.innerHTML = `<div class="row"><a class="iconbtn" href="#recompenses" aria-label="Retour aux récompenses">${I.back}</a><h1 class="grow">Boutique</h1></div>
         <div class="card pad stack coinhero"><div class="row"><span class="mico big">${I.coin}</span><div class="grow"><b class="big">${bal} pièces</b><p class="small muted">Gagnées en révisant : 1 par bonne réponse, 10 par chapitre maîtrisé, et ${15 * (lv + 1)} en bonus au niveau ${lv + 1}.</p></div></div>
           ${access && nextGift ? `<div class="stack"><div class="row between small"><span>Prochain cadeau : <b>${esc(nextGift.n)}</b></span><span class="muted">${bal} / ${nextGift.price}</span></div><div class="bar"><i style="width:${Math.min(100, bal / nextGift.price * 100)}%"></i></div></div>` : ""}</div>
-        ${access ? `<div class="stack"><h2>${I.gift}Cadeaux en vrai</h2><div class="giftgrid">${GIFTS.map((g, k) => { const can = bal >= g.price; return `<div class="giftcard g${k + 1}${can ? " ready" : ""}"><span class="gtier">Palier ${k + 1}</span><b>${esc(g.n)}</b><span class="small">${esc(g.d)}</span><div class="bar"><i style="width:${Math.min(100, bal / g.price * 100)}%"></i></div><button class="btn sm" data-gift="${g.id}" ${can ? "" : "disabled"}>${can ? "Échanger " + g.price + " pièces" : "Encore " + (g.price - bal) + " pièces"}</button></div>`; }).join("")}</div>
-          ${claims.length ? `<div class="card pad stack"><h3>Mes bons</h3>${claims.map(c => { const g = GIFTS.find(x => x.id === c.gift) || { n: c.gift }; return `<div class="row between voucher"><span><b>${esc(g.n)}</b><span class="small muted"> · demandé le ${esc(fmtDate(String(c.created_at).slice(0, 10)))}</span></span><span class="pill${c.given_at ? "" : " warn"}">${c.given_at ? "Offert" : "En attente"}</span></div>`; }).join("")}</div>` : ""}</div>` : ""}
+        ${access ? `<div class="stack"><h2>${I.gift}Cadeaux en vrai</h2>
+          ${claims.length ? `<div class="card pad stack"><h3>Mes bons</h3>${claims.map(c => { const g = GIFTS.find(x => x.id === c.gift) || { n: c.gift }; return `<button class="row between voucher" data-bon="${esc(c.id)}"><span><b>${esc(g.n)}</b><span class="small muted"> · ${esc(fmtDate(String(c.created_at).slice(0, 10)))}</span></span><span class="pill${c.given_at ? "" : " warn"}">${c.given_at ? "Offert" : "À envoyer à " + GIFT_GIVER}</span></button>`; }).join("")}</div>` : ""}
+          ${GIFT_SHELVES.map(([title, lo, hi], si) => `<h3>${title}</h3><div class="giftgrid">${GIFTS.filter(g => g.price >= lo && g.price <= hi).map(g => { const can = bal >= g.price; return `<div class="giftcard s${si + 1}${can ? " ready" : ""}"><b>${esc(g.n)}</b><span class="small">${esc(g.d)}</span><div class="bar"><i style="width:${Math.min(100, bal / g.price * 100)}%"></i></div><button class="btn sm" data-gift="${g.id}" ${can ? "" : "disabled"}>${can ? "Échanger " + g.price + " pièces" : "Encore " + (g.price - bal) + " pièces"}</button></div>`; }).join("")}</div>`).join("")}</div>` : ""}
         <div class="seg shoptabs" role="tablist" aria-label="Rayons de la boutique">${STYPES.map(t => `<button role="tab" data-st="${t[0]}" aria-selected="${shopTab === t[0]}">${t[1]}</button>`).join("")}</div>
         ${shopTab === "coffre" ? `<div class="card pad stack chestshop"><div class="row"><span class="mico big">${I.star}</span><div class="grow"><b>Coffre surprise</b><p class="small muted">Un article de la boutique au hasard, que tu n'as pas encore. Parfois une très bonne affaire.</p></div></div>
             <button class="btn" data-chest ${bal >= CHEST_PRICE || st.freeChests ? "" : "disabled"}>${st.freeChests ? "Ouvrir un coffre offert (" + st.freeChests + ")" : I.coin + CHEST_PRICE + " pièces"}</button><p class="note">Un coffre offert tous les 5 niveaux.</p></div>`
@@ -795,15 +819,16 @@
         sheet(`<div class="badgewin">${MASCOT("couronne")}<h1>Coffre ouvert</h1><div class="sprev big">${shopPreview(got)}</div><p>Tu gagnes : <b>${esc(got.n)}</b>${got.price > CHEST_PRICE ? " (vaut " + got.price + " pièces !)" : ""}</p><button class="btn" id="cheq">Équiper</button><button class="btn ghost" data-close>Plus tard</button></div>`, el => { el.querySelector("#cheq").onclick = () => { const s3 = rwState(); s3.equip[got.type] = got.id; rwSave(s3); applyRewards(); closeSheet(); draw(); }; });
         draw();
       };
+      app.querySelectorAll("[data-bon]").forEach(b => b.onclick = () => { const c = claims.find(x => x.id === b.dataset.bon), g = c && (GIFTS.find(x => x.id === c.gift) || { n: c.gift }); if (c) sheet(`<div class="badgewin voucherwin">${voucherHtml(c, g)}<button class="btn" data-close>Fermer</button></div>`); });
       app.querySelectorAll("[data-gift]").forEach(b => b.onclick = () => {
         const g = GIFTS.find(x => x.id === b.dataset.gift); if (!g || coinsInfo().balance < g.price) return;
-        sheet(`<div class="badgewin"><span class="mico big">${I.gift}</span><h1>${esc(g.n)}</h1><p>Échanger <b>${g.price} pièces</b> contre ce cadeau ? Ta demande est envoyée, et le bon apparaît dans « Mes bons ».</p><button class="btn" id="gok">Oui, je le veux</button><button class="btn ghost" data-close>Pas maintenant</button></div>`, el => {
+        sheet(`<div class="badgewin"><span class="mico big">${I.gift}</span><h1>${esc(g.n)}</h1><p>Échanger <b>${g.price} pièces</b> contre ce cadeau ? Tu reçois un bon à envoyer en capture d'écran à ${GIFT_GIVER}, et il le voit aussi de son côté.</p><button class="btn" id="gok">Oui, je le veux</button><button class="btn ghost" data-close>Pas maintenant</button></div>`, el => {
           el.querySelector("#gok").onclick = async () => {
             const r = await sb.from("gift_claims").insert({ gift: g.id, price: g.price }).select("*").single();
             if (r.error) return fail(r.error, "Demande non envoyée");
             const s2 = rwState(); s2.buys.push({ id: "cadeau-" + g.id, price: g.price, at: Date.now(), claim: r.data.id }); rwSave(s2);
             claims.unshift(r.data); confetti("feux");
-            sheet(`<div class="badgewin voucherwin"><span class="mico big">${I.gift}</span><h1>Bon pour ${esc(g.n.replace(/^(Des|Une|La) /, m => m.toLowerCase()))}</h1><p>Bravo, tu l'as mérité. Ta demande est partie : montre ce bon pour récupérer ton cadeau.</p><p class="small muted">Demandé le ${esc(fmtDate(localDay()))}</p><button class="btn" data-close>Super</button></div>`); draw();
+            sheet(`<div class="badgewin voucherwin"><h1>Bravo, tu l'as mérité</h1>${voucherHtml(r.data, g)}<button class="btn" data-close>Fermer</button></div>`); draw();
           };
         });
       });
