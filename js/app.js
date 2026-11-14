@@ -32,7 +32,35 @@
   const MED = ["Sémiologie", "Cardiologie", "Pneumologie", "Appareil digestif", "Neurologie", "Néphrologie", "Hématologie", "Immunologie", "Bactériologie-virologie", "Pharmacologie", "Anatomie pathologique", "Génétique", "Endocrinologie-nutrition", "Anglais médical"];
   MATIERES["PASS (1re année de médecine)"] = ["Chimie-biochimie", "Biologie cellulaire", "Biophysique", "Histologie-embryologie", "Anatomie", "Physiologie", "Biostatistiques", "Pharmacologie", "Santé publique et SHS", "Anglais", "Mineure"];
   MATIERES["Médecine 2e année"] = MED; MATIERES["Médecine 3e année"] = MED;
-  const matieresFor = (classe) => MATIERES[classe] || MATIERES["Terminale générale"];
+  // Formations du supérieur écrites à la main (« Autre formation ») : matières proposées selon les mots de l'intitulé.
+  const SUP = [
+    [/\b(mpsi|pcsi|mp2i|ptsi|tsi|mp\*?|pc\*?|psi\*?|pt\*?)\b|pr[eé]pa (scientifique|maths?|physique)|cpge/i, ["Mathématiques", "Physique", "Chimie", "Sciences de l'ingénieur", "Informatique", "Français-philosophie", "Anglais", "LV2"]],
+    [/\b(ecg|ect|hec)\b|pr[eé]pa (commerce|eco|éco)/i, ["Mathématiques appliquées", "Mathématiques approfondies", "ESH", "HGGMC", "Culture générale", "Anglais", "LV2"]],
+    [/\bbcpst\b|pr[eé]pa (bio|agro|v[eé]to)/i, ["Mathématiques", "Physique-chimie", "Biologie", "Géologie", "Informatique", "Français-philosophie", "Anglais"]],
+    [/\b(a\/l|khâgne|khagne|hypokh[aâ]gne)\b|pr[eé]pa litt/i, ["Lettres", "Philosophie", "Histoire", "Géographie", "Langues anciennes", "Anglais", "LV2"]],
+    [/informatique|\binfo\b|\bmiage\b|\bsio\b|\bciel\b|d[eé]veloppe|\bdev\b|cyber|num[eé]rique|\bnsi\b|data|\bia\b|intelligence artificielle/i, ["Algorithmique", "Programmation", "Bases de données", "Réseaux", "Systèmes d'exploitation", "Mathématiques discrètes", "Architecture des ordinateurs", "Génie logiciel", "Développement web", "Analyse", "Algèbre linéaire", "Probabilités et statistiques", "Anglais", "Communication"]],
+    [/math/i, ["Analyse", "Algèbre", "Algèbre linéaire", "Probabilités", "Statistiques", "Géométrie", "Topologie", "Calcul différentiel", "Informatique", "Anglais"]],
+    [/physique|chimie|\bpc\b/i, ["Mécanique", "Électromagnétisme", "Thermodynamique", "Optique", "Physique quantique", "Chimie générale", "Chimie organique", "Mathématiques pour la physique", "Anglais"]],
+    [/pharma/i, ["Chimie analytique", "Chimie organique", "Biochimie", "Pharmacologie", "Galénique", "Microbiologie", "Physiologie", "Toxicologie", "Botanique", "Anglais"]],
+    [/infirmi|ifsi|soins/i, ["Sciences humaines", "Biologie fondamentale", "Processus traumatiques", "Processus infectieux", "Pharmacologie et thérapeutiques", "Soins infirmiers", "Législation et éthique", "Santé publique", "Anglais"]],
+    [/kin[eé]|masso/i, ["Anatomie", "Physiologie", "Biomécanique", "Kinésithérapie musculo-squelettique", "Neurologie", "Cardio-respiratoire", "Sciences humaines", "Anglais"]],
+    [/m[eé]decin|sant[eé]|las\b|pass\b|dentaire|sage-femme|ma[iï]eutique/i, ["Anatomie", "Physiologie", "Biologie cellulaire", "Biochimie", "Biophysique", "Histologie", "Pharmacologie", "Santé publique", "Anglais"]],
+    [/droit|juri|\bcapa\b/i, ["Introduction au droit", "Droit civil", "Droit constitutionnel", "Droit administratif", "Droit pénal", "Droit des obligations", "Histoire du droit", "Institutions européennes", "Anglais juridique"]],
+    [/[eé]co(nomie)?\b|gestion|commerce|\baes\b|\bgea\b|\btc\b|management|finance|compta|\bmco\b|\bndrc\b|marketing|business/i, ["Microéconomie", "Macroéconomie", "Comptabilité", "Finance", "Marketing", "Management", "Statistiques", "Mathématiques", "Droit des affaires", "Anglais"]],
+    [/psycho/i, ["Psychologie cognitive", "Psychologie sociale", "Psychologie du développement", "Psychologie clinique", "Neurosciences", "Statistiques", "Méthodologie", "Anglais"]],
+    [/bio|svt|vie|environnement|agro/i, ["Biologie cellulaire", "Biochimie", "Génétique", "Physiologie", "Écologie", "Microbiologie", "Chimie", "Statistiques", "Anglais"]],
+    [/staps|sport/i, ["Anatomie", "Physiologie de l'effort", "Biomécanique", "Psychologie du sport", "Sociologie du sport", "Entraînement", "Pratiques sportives", "Anglais"]],
+    [/histoire|g[eé]o/i, ["Histoire ancienne", "Histoire médiévale", "Histoire moderne", "Histoire contemporaine", "Géographie", "Méthodologie", "Anglais"]],
+    [/lettres|lit+[eé]rature|\blla\b|\bllcer\b|\blea\b|langues?/i, ["Littérature française", "Littérature comparée", "Grammaire et linguistique", "Langue vivante 1", "Langue vivante 2", "Civilisation", "Traduction", "Méthodologie"]],
+    [/socio|anthropo|sciences? po|politi/i, ["Sociologie", "Science politique", "Histoire", "Économie", "Droit public", "Statistiques", "Culture générale", "Anglais"]],
+    [/[eé]lectr|geii|m[eé]ca|g[eé]nie|ing[eé]nieur|industri|\bcrsa\b|\bcira\b|automat/i, ["Mathématiques", "Électronique", "Électrotechnique", "Automatisme", "Mécanique", "Informatique industrielle", "Physique", "Anglais", "Communication"]],
+  ];
+  const SUP_DEFAUT = ["Mathématiques", "Méthodologie", "Culture générale", "Anglais", "Communication", "Projet"];
+  const matieresFor = (classe) => {
+    if (MATIERES[classe]) return MATIERES[classe];
+    const c = String(classe || ""); for (const [re, list] of SUP) if (re.test(c)) return list;
+    return /licence|\bl[123]\b|master|\bm[12]\b|bts|\bbut\b|dut|iut|pr[eé]pa|[eé]cole|universit|\bfac\b|bachelor|dipl[oô]me|formation/i.test(c) ? SUP_DEFAUT : MATIERES["Terminale générale"];
+  };
   const okColor = (c) => /^#[0-9a-f]{6}$/i.test(c || "");
   function colorPick(cur) {
     const free = okColor(cur) && !COULEURS.includes(cur);
@@ -379,7 +407,7 @@
   function screenOnboarding() {
     tabs.hidden = true;
     const meta = state.user.user_metadata || {}, N = 4;
-    const d = { step: 1, prenom: (meta.given_name || (meta.full_name || "").split(" ")[0] || ""), classe: "Terminale générale", matieres: new Set(["Maths", "Physique-chimie", "SVT"]), touched: false, extra: [], shared: [], sharedFor: null, exams: {}, cur: null, kind: "minutes", value: 15, theme: "system" };
+    const d = { step: 0, remind: false, rtime: "18:00", prenom: (meta.given_name || (meta.full_name || "").split(" ")[0] || ""), classe: "Terminale générale", matieres: new Set(["Maths", "Physique-chimie", "SVT"]), touched: false, extra: [], shared: [], sharedFor: null, exams: {}, cur: null, kind: "minutes", value: 15, theme: "system" };
     const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
     const props = () => { const out = matieresFor(d.classe).slice(); d.shared.concat(d.extra, [...d.matieres]).forEach(m => { if (!out.some(x => same(x, m))) out.push(m); }); return out; };
     function addOwn() {
@@ -401,22 +429,39 @@
     function draw() {
       let body = "";
       const list = [...d.matieres]; if (!list.includes(d.cur)) d.cur = list[0] || null;
-      if (d.step === 1) body = `<h1>Bienvenue sur ${esc(C.NOM_APPLI)}<b class="dotc">.</b></h1>
+      if (d.step === 0) body = `<h1>Bienvenue sur ${esc(C.NOM_APPLI)}<b class="dotc">.</b></h1>
+        <p>Merge t'aide à réviser tes vrais cours, sans te prendre la tête.</p>
+        <div class="welcome stack">
+          <div class="row wl"><span class="mico">${I.up}</span><p><b>Tu importes ton cours</b><br><span class="muted">PDF, photos de ton cahier, diaporama… Merge en fait un résumé, des flashcards et des quiz, uniquement à partir de ce que ton prof a donné.</span></p></div>
+          <div class="row wl"><span class="mico">${I.cal}</span><p><b>Il te dit quoi réviser chaque jour</b><br><span class="muted">Selon tes contrôles à venir et les cartes que tu connais moins bien.</span></p></div>
+          <div class="row wl"><span class="mico">${I.cards}</span><p><b>Tu révises comme tu préfères</b><br><span class="muted">Cartes, interro écrite, jeux, à l'oral ou en écoutant, sur ton téléphone comme sur ton ordi.</span></p></div>
+        </div>
+        <div class="card pad stack soft"><h2>Pourquoi quelques questions ?</h2><p class="small">Ta classe sert à adapter les explications à ton niveau et à te proposer tes matières. Tes dates de contrôle servent à préparer ton plan de révision. Ça prend une minute, et rien n'est définitif.</p></div>`;
+      if (d.step === 1) body = `<h1>On fait connaissance</h1><p class="muted">Pour que Merge te parle comme il faut.</p>
         <div class="field"><label for="prenom">Ton prénom</label><input id="prenom" type="text" autocomplete="given-name" value="${esc(d.prenom)}"></div>
         <div class="field"><label for="classe">Ta classe</label><select id="classe">${classOpts(d.classe)}</select>${classeFree()}</div>`;
-      if (d.step === 2) body = `<h1>Tes matières</h1><p class="muted">Choisis celles que tu veux réviser.</p>
+      if (d.step === 2) body = `<h1>Tes matières</h1><p class="muted">Choisis celles que tu veux réviser. Chaque matière aura ses chapitres, ses cartes et son plan. Tu pourras en ajouter quand tu veux.</p>
         <div class="chips">${props().map(m => `<button class="chip" data-m="${esc(m)}" aria-pressed="${d.matieres.has(m)}">${esc(m)}</button>`).join("")}</div>
         <form class="field" id="ownf"><label for="newm">Il en manque une ? Ajoute-la</label><div class="row"><input id="newm" class="grow" type="text" maxlength="40" placeholder="Ex. Arts plastiques" value="${esc(draftNew)}"><button class="btn sm" id="addm">${I.plus}Ajouter</button></div></form>
         <p class="small muted">${plural(d.matieres.size, "matière choisie", "matières choisies")}. Les matières ajoutées par les élèves de ta classe sont proposées à tout le monde.</p>`;
-      if (d.step === 3) body = `<h1>Tes prochains contrôles</h1><p class="muted">Choisis une matière, puis touche le jour du contrôle dans le calendrier. Rien de prévu ? Passe en révision libre.</p>
+      if (d.step === 3) body = `<h1>Tes prochains contrôles</h1><p class="muted">Si tu connais une date, Merge répartit tes révisions jusqu'au jour J. Choisis une matière, puis touche le jour dans le calendrier. Pas de date ? Aucun souci, passe en révision libre.</p>
         ${list.length ? `<div class="chips" id="xchips">${xchips(list)}</div><div id="pick"></div>` : '<p class="note">Tu n\'as choisi aucune matière : tu pourras en ajouter depuis l\'accueil.</p>'}`;
-      if (d.step === 4) body = `<h1>Ton objectif par jour</h1>
+      if (d.step === 4) body = `<h1>Ton rythme</h1><p class="muted">Un petit objectif tenu chaque jour vaut mieux qu'une grosse séance la veille.</p>
         <div class="chips"><button class="chip" data-k="minutes" aria-pressed="${d.kind === "minutes"}">En minutes</button><button class="chip" data-k="cards" aria-pressed="${d.kind === "cards"}">En cartes</button></div>
         <div class="field"><label for="val">${d.kind === "minutes" ? "Minutes par jour" : "Cartes par jour"}</label><input id="val" type="number" inputmode="numeric" min="1" max="500" value="${d.value}"></div>
+        <div class="card pad stack soft"><h2>Un petit rappel chaque jour ?</h2><p class="small">Merge t'envoie une notification à l'heure choisie, plus un rappel avant chaque contrôle. Tu peux l'arrêter quand tu veux dans Réglages.</p>
+          <div class="row"><label class="small muted" for="rtime">Chaque jour à</label><input id="rtime" type="time" value="${esc(d.rtime)}" style="max-width:150px"></div><button class="btn" id="remon"${d.remind ? " disabled" : ""}>${d.remind ? "Rappels activés" : "Activer les rappels"}</button><p class="note" id="remmsg" role="status"></p></div>
         <div class="field"><span class="label">Apparence</span><div class="chips">${[["light", "Clair"], ["dark", "Sombre"], ["system", "Comme mon téléphone"]].map(t => `<button class="chip" data-t="${t[0]}" aria-pressed="${d.theme === t[0]}">${t[1]}</button>`).join("")}</div></div>`;
-      app.innerHTML = `<div class="center"><p class="small muted">Étape ${d.step} sur ${N}</p><div class="bar"><i style="width:${d.step / N * 100}%"></i></div>${body}
-        <p class="note">Tu pourras tout changer plus tard.</p>
-        <div class="row">${d.step > 1 ? '<button class="btn ghost" id="prev">Retour</button>' : ""}<button class="btn grow" id="next">${d.step < N ? "Continuer" : "Commencer"}</button></div></div>`;
+      app.innerHTML = `<div class="center">${d.step ? `<p class="small muted">Étape ${d.step} sur ${N}</p><div class="bar"><i style="width:${d.step / N * 100}%"></i></div>` : ""}${body}
+        ${d.step ? '<p class="note">Tu pourras tout changer plus tard.</p>' : ""}
+        <div class="row">${d.step > 0 ? '<button class="btn ghost" id="prev">Retour</button>' : ""}<button class="btn grow" id="next">${d.step === 0 ? "C'est parti" : d.step < N ? "Continuer" : "Commencer"}</button></div></div>`;
+      if ($("rtime")) $("rtime").onchange = e => { d.rtime = e.target.value || "18:00"; };
+      if ($("remon")) $("remon").onclick = async () => {
+        const msg = $("remmsg"); d.rtime = $("rtime").value || "18:00";
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) { msg.textContent = "Ce navigateur ne gère pas les notifications. Sur iPhone, installe d'abord Merge sur l'écran d'accueil, puis active-les dans Réglages."; return; }
+        const okp = await ensurePush(true);
+        if (okp) { d.remind = true; keep(); draw(); } else msg.textContent = Notification.permission === "denied" ? "Notifications refusées : tu pourras les autoriser plus tard dans les réglages du navigateur." : "Impossible de les activer ici. Tu pourras réessayer dans Réglages.";
+      };
       draftNew = "";
       app.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { keepNew(); const m = b.dataset.m; d.matieres.has(m) ? d.matieres.delete(m) : d.matieres.add(m); d.touched = true; draw(); });
       if ($("ownf")) { $("ownf").onsubmit = (e) => { e.preventDefault(); addOwn(); }; loadShared(); }
@@ -436,7 +481,7 @@
         if (d.step < N) { d.step++; return draw(); }
         $("next").disabled = true;
         const year = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
-        const up = await sb.from("profiles").upsert({ user_id: state.user.id, display_name: d.prenom.trim(), classe: d.classe, school_year: year, daily_goal_kind: d.kind, daily_goal_value: d.value, theme: d.theme, onboarded_at: new Date().toISOString() });
+        const up = await sb.from("profiles").upsert(Object.assign({ user_id: state.user.id, display_name: d.prenom.trim(), classe: d.classe, school_year: year, daily_goal_kind: d.kind, daily_goal_value: d.value, theme: d.theme, onboarded_at: new Date().toISOString() }, d.remind ? { reminder_time: d.rtime } : {}));
         if (up.error) { $("next").disabled = false; return fail(up.error, "Enregistrement impossible"); }
         const rows = [...d.matieres].map((m, i) => { const e = d.exams[m] || {}; return { name: m, color: colorFor(m, i), school_year: year, exam_date: e.free ? null : (e.date || null) }; });
         if (rows.length) {
@@ -1443,7 +1488,7 @@
   // ---------- tutoriel (3 écrans) ----------
   function tutorial() {
     tabs.hidden = true; let i = 0;
-    const steps = [[I.up, "Importe ton cours", "Un PDF, des photos de ton cahier, un PowerPoint ou du texte collé. Merge lit tout, même les schémas et l'écriture à la main."], [I.cards, "Révise comme tu veux", "Flashcards, quiz, feuille blanche, combat de boss, khôlle au micro : tout vient de ton cours, rien n'est inventé. Une carte ratée revient jusqu'à ce que tu la réussisses, et à 100 % le contrôle se débloque."], [I.listen, "Écoute et pose tes questions", "Révise les mains libres dans le bus, et demande à ton professeur IA de t'expliquer ce que tu n'as pas compris, avec des exemples concrets."]];
+    const steps = [[I.up, "Commence par un cours", "Ouvre une matière, crée un chapitre et importe ton cours : un PDF, des photos de ton cahier, un diaporama ou du texte. Merge lit tout, même les schémas et l'écriture à la main, et prépare un résumé et des cartes."], [I.cards, "Révise un peu chaque jour", "L'accueil te montre les cartes du jour et ton plan avant les contrôles. Une carte ratée revient jusqu'à ce que tu la réussisses. Pas besoin de tout faire d'un coup : quelques minutes suffisent."], [I.listen, "Choisis ta façon de réviser", "Interro écrite, quiz, jeux, khôlle à l'oral, écoute dans le bus, ou des questions à ton professeur IA. Tout vient de ton cours, rien n'est inventé. Et tout te suit du téléphone à l'ordi."]];
     function draw() {
       const s = steps[i];
       app.innerHTML = `<div class="center" style="text-align:center;align-items:center"><div class="tutoicon">${s[0]}</div><h1>${s[1]}</h1><p class="muted">${s[2]}</p><div class="row">${steps.map((_, k) => `<span class="dot" style="--c:${k === i ? "var(--accent)" : "var(--track)"}"></span>`).join("")}</div><button class="btn" id="tn" style="align-self:stretch">${i < 2 ? "Suivant" : "C'est parti"}</button>${i < 2 ? '<button class="linkbtn" id="ts">Passer</button>' : ""}</div>`;

@@ -715,3 +715,11 @@ span.m.md{display:block;margin:.4em 0;overflow-x:auto;overflow-y:hidden;text-ali
 .cmore>summary::-webkit-details-marker{display:none}
 .cmore>summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
 .cmore[open]>summary::after{transform:rotate(-135deg) translateY(-2px)}
+/* Inscription : écran d'accueil qui explique Merge */
+.welcome .wl{align-items:flex-start;gap:12px;flex-wrap:nowrap}
+.welcome .wl p{margin:0;line-height:1.4}
+.card.soft{background:var(--accent-soft);border-color:transparent}
+.card.soft h2{margin:0}
+/* Interro écrite */
+.interro .qtxt{font-size:1.15em;font-weight:700;margin:0}
+.interro input#ians{font-size:1.1em}
