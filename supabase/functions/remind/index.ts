@@ -1,8 +1,12 @@
 // Fonction `remind` de Merge : envoie les rappels (notifications push).
 // Appelée toutes les 15 minutes par la base. Protégée par un secret interne (table app_secrets).
-// Rappel chaque jour avec le prénom (18 h par défaut), contrôles à J-7, J-3 et la veille, et le matin du contrôle à 7 h 30.
+// Rappel du jour à l'heure choisie (18 h par défaut) seulement si l'élève n'a pas encore révisé (sinon un « Bien joué »
+// une fois par semaine au plus), série en danger à 21 h, contrôles à J-7, J-3, la veille et le matin à 7 h 30.
+// Réglages de l'élève (profiles) : rappels activés, silence le week-end, silence pendant les vacances (zone A, B ou C).
+// Toute la décision est dans logic.mjs (testée par tests/run.js).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { addDays, decide, prefsOf, slots, streakOf } from "./logic.mjs";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -31,7 +35,7 @@ Deno.serve(async (req) => {
     const { data: subs } = await admin.from("push_subscriptions").select("*");
     if (!subs?.length) return json({ sent: 0, subscriptions: 0 });
     const ids = [...new Set(subs.map((s: Any) => s.user_id))];
-    const { data: profs } = await admin.from("profiles").select("user_id,reminder_time,display_name").in("user_id", ids);
+    const { data: profs } = await admin.from("profiles").select("*").in("user_id", ids);
     const byUser = Object.fromEntries((profs ?? []).map((p: Any) => [p.user_id, p]));
     const now = new Date();
     let sent = 0, removed = 0;
@@ -46,44 +50,31 @@ Deno.serve(async (req) => {
         else console.error("push", code, (e as Error).message);
       }
     };
-    // Messages variés : on en tire un différent chaque jour, selon la situation (cartes à revoir, série en cours, rien à faire).
-    const pick = (list: string[], seed: number) => list[seed % list.length];
-    const DUE = ["{n} à revoir aujourd'hui. Dix minutes et c'est réglé.", "au programme : {n}. Une par une, ça passe vite.", "{n} à revoir. On s'y met ?", "petit rappel : {n} aujourd'hui. Ton toi du contrôle te dira merci.", "{n} à revoir. Lance la musique et c'est parti.", "{n} à revoir : le temps d'un épisode, en plus utile.", "{n} au programme. Tu peux les faire dans le bus.", "{n} à revoir. Ce que tu révises aujourd'hui, tu le sais encore dans un mois."];
-    const STREAK = ["{s} jours d'affilée. Ne casse pas ta série maintenant.", "ta série de {s} jours t'attend. Une petite session suffit.", "{s} jours de suite, c'est solide. On continue ?"];
-    const NONE = ["tu es à jour. Un petit quiz pour garder la forme ?", "rien à revoir aujourd'hui. Et si tu importais ton prochain cours ?", "aucune carte en retard. Un tour en mode Flash 60 secondes ?", "tout est à jour. Profite-en pour faire une carte mentale de ton dernier chapitre."];
-    const streakOf = async (uid: string, day: string) => {
-      const { data } = await admin.from("study_sessions").select("day,cards_reviewed").eq("user_id", uid).gt("cards_reviewed", 0).order("day", { ascending: false }).limit(60);
-      const days = new Set((data ?? []).map((r: Any) => String(r.day))); let n = 0; const d = new Date(day + "T12:00:00Z");
-      if (!days.has(day)) d.setUTCDate(d.getUTCDate() - 1);
-      while (days.has(d.toISOString().slice(0, 10))) { n++; d.setUTCDate(d.getUTCDate() - 1); }
-      return n;
+    // Jours révisés (cards_reviewed > 0), lus une seule fois par élève même s'il a plusieurs appareils.
+    const daysCache = new Map<string, Promise<Set<string>>>();
+    const studyDays = (uid: string) => {
+      if (!daysCache.has(uid)) daysCache.set(uid, (async () => {
+        const { data } = await admin.from("study_sessions").select("day").eq("user_id", uid).gt("cards_reviewed", 0).order("day", { ascending: false }).limit(120);
+        return new Set<string>((data ?? []).map((r: Any) => String(r.day)));
+      })());
+      return daysCache.get(uid)!;
     };
     const dueOf = async (uid: string) => { const { count } = await admin.from("cards").select("id", { count: "exact", head: true }).eq("user_id", uid).lte("due_at", now.toISOString()); return count ?? 0; };
-    const plus = (here: Any, n: number) => { const [y, m, d] = here.day.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return t.toISOString().slice(0, 10); };
     for (const s of subs as Any[]) {
-      const p = byUser[s.user_id], here = local(s.tz, now), name = String(p?.display_name ?? "").trim();
-      const hi = name ? name + ", " : "";
-      // Le matin du contrôle (7 h 30) : un dernier encouragement.
-      if (here.minutes >= 450 && here.minutes < 465 && s.last_exam_sent !== here.day) {
-        const { data: today } = await admin.from("subjects").select("id,name").eq("user_id", s.user_id).eq("archived", false).eq("exam_date", here.day);
-        if (today?.length) { await push(s, `${hi}c'est le jour du contrôle de ${today.map((x: Any) => x.name).join(", ")}. Un dernier tour de tes cartes avant d'y aller ?`, today.length === 1 ? "./#matiere-" + today[0].id : "./#accueil", { last_exam_sent: here.day }); continue; }
-      }
-      // Rappel du jour, à l'heure choisie (18 h par défaut), avec les contrôles à J-7, J-3 et la veille.
-      const [rh, rm] = String(p?.reminder_time ?? "18:00").split(":").map(Number);
-      const target = rh * 60 + rm;
-      if (here.minutes < target || here.minutes >= target + 15 || s.last_sent === here.day) continue;
-      const { data: soon } = await admin.from("subjects").select("id,name,exam_date").eq("user_id", s.user_id).eq("archived", false).in("exam_date", [plus(here, 1), plus(here, 3), plus(here, 7)]);
-      const due = await dueOf(s.user_id), cards = due > 0 ? `${due} carte${due > 1 ? "s" : ""} à revoir` : "un petit tour de révision";
-      let body: string, url = "./#accueil";
-      if (soon?.length) {
-        const x = soon.sort((a: Any, b: Any) => String(a.exam_date).localeCompare(String(b.exam_date)))[0], j = x.exam_date === plus(here, 1) ? "demain" : x.exam_date === plus(here, 3) ? "dans 3 jours" : "dans une semaine";
-        body = `${hi}contrôle de ${x.name} ${j}. ${due > 0 ? cards[0].toUpperCase() + cards.slice(1) + " ce soir." : "Un petit tour de révision ce soir ?"}`; url = "./#matiere-" + x.id;
-      } else {
-        const seed = Number(here.day.replaceAll("-", "")) + s.endpoint.length, st = await streakOf(s.user_id, here.day), n = `${due} carte${due > 1 ? "s" : ""}`;
-        const msg = st >= 2 && seed % 3 === 0 ? pick(STREAK, seed).replace("{s}", String(st)) : due > 0 ? pick(DUE, seed).replace("{n}", n) : pick(NONE, seed);
-        body = hi ? hi + msg : msg[0].toUpperCase() + msg.slice(1);
-      }
-      await push(s, body, url, { last_sent: here.day });
+      const p = byUser[s.user_id], prefs = prefsOf(p), here = local(s.tz, now);
+      if (!prefs.enabled) continue;
+      const open = slots(here.minutes, prefs);
+      if (!open.exam && !open.daily && !open.streak) continue; // rien à envoyer à cette heure : on ne lit pas la base
+      const days = await studyDays(s.user_id);
+      const exams = open.exam || open.daily
+        ? (await admin.from("subjects").select("id,name,exam_date").eq("user_id", s.user_id).eq("archived", false).in("exam_date", [here.day, addDays(here.day, 1), addDays(here.day, 3), addDays(here.day, 7)])).data ?? []
+        : [];
+      const r = decide({
+        minutes: here.minutes, day: here.day, prefs, sub: s, name: String(p?.display_name ?? "").trim(),
+        studied: days.has(here.day), streak: streakOf(days, here.day), due: open.daily ? await dueOf(s.user_id) : 0,
+        examToday: exams.filter((x: Any) => x.exam_date === here.day), examSoon: exams.filter((x: Any) => x.exam_date !== here.day),
+      });
+      if (r) await push(s, r.body, r.url, r.patch);
     }
     return json({ sent, removed, subscriptions: subs.length });
   } catch (e) {

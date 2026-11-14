@@ -1,6 +1,6 @@
 // Service worker : garde la coquille de l'appli pour un démarrage rapide et hors ligne.
 // Ne met jamais en cache les appels Supabase ou IA.
-const CACHE = "merge-shell-v50";
+const CACHE = "merge-shell-v51";
 const SHELL = ["./", "index.html", "css/app.css", "js/config.js", "js/app.js", "vendor/supabase.js", "vendor/ts-fsrs.js", "vendor/pdf.min.js", "vendor/pdf.worker.min.js", "vendor/jszip.min.js", "icons/icon.svg", "manifest.webmanifest"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });

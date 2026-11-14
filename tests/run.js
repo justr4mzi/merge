@@ -677,6 +677,65 @@ async function fenetres(browser) {
   }
 }
 
+async function rappels(browser) {
+  // 1. Logique de la fonction `remind` (supabase/functions/remind/logic.mjs), sans base ni vraie notification.
+  const L = await import(require("url").pathToFileURL(path.join(ROOT, "supabase/functions/remind/logic.mjs")).href);
+  const appJs = fs.readFileSync(path.join(ROOT, "js/app.js"), "utf8"), zm = appJs.match(/const VACANCES_ZONES = (\{[\s\S]*?\n  \});/);
+  ok(zm && JSON.stringify(new Function("return " + zm[1])()) === JSON.stringify(L.VACANCES_ZONES), "rappels : mêmes vacances dans l'appli et dans la fonction");
+  const emoji = /\p{Extended_Pictographic}/u;
+  for (const [k, list] of Object.entries(L.MESSAGES)) {
+    ok(list.length >= 12 && new Set(list).size === list.length, "rappels : au moins 12 messages différents (" + k + ")", String(list.length));
+    ok(list.every(t => t.includes("{p}") && !emoji.test(t)), "rappels : prénom dans chaque message, sans emoji (" + k + ")");
+    ok(list.every(t => { const a = L.fill(t, "", { n: 3, c: "2 cartes", m: "SVT" }); return !a.includes("{") && a[0] === a[0].toUpperCase() && !a.startsWith(","); }), "rappels : messages corrects sans prénom (" + k + ")");
+  }
+  ok(L.MESSAGES.danger[0] === "{p}, ta série de {n} jours se termine ce soir. 5 minutes suffisent.", "rappels : message de série demandé");
+  const prefs = o => Object.assign(L.prefsOf({ reminder_time: "18:00:00" }), o), SAT = "2026-11-14", TUE = "2026-11-17";
+  const base = o => Object.assign({ minutes: 18 * 60 + 5, day: TUE, prefs: prefs(), sub: { endpoint: "https://push/x" }, name: "Ramzi", studied: false, streak: 0, due: 3, examToday: [], examSoon: [] }, o);
+  ok(JSON.stringify(L.prefsOf({})) === JSON.stringify({ enabled: true, quietWeekend: false, quietHolidays: false, zone: "A", reminderTime: "18:00" }), "rappels : réglages par défaut");
+  let r = L.decide(base()); ok(r && r.kind === "due" && r.body.includes("Ramzi") && r.body.includes("3 cartes") && r.patch.last_sent === TUE, "rappels : rappel du jour si pas encore révisé", JSON.stringify(r));
+  ok(L.decide(base({ minutes: 17 * 60 })) === null, "rappels : rien avant l'heure choisie");
+  ok(L.decide(base({ sub: { endpoint: "e", last_sent: TUE } })) === null, "rappels : un seul rappel du jour");
+  r = L.decide(base({ studied: true })); ok(r && r.kind === "praise" && r.patch.last_praise_sent === TUE, "rappels : déjà révisé, « Bien joué » si pas cette semaine", JSON.stringify(r));
+  ok(L.decide(base({ studied: true, sub: { endpoint: "e", last_praise_sent: "2026-11-12" } })) === null, "rappels : déjà révisé, rien si « Bien joué » il y a moins de 7 jours");
+  ok(L.decide(base({ studied: true, sub: { endpoint: "e", last_praise_sent: "2026-11-10" } }))?.kind === "praise", "rappels : « Bien joué » de nouveau après 7 jours");
+  const at21 = o => base(Object.assign({ minutes: 21 * 60 + 2, streak: 4 }, o));
+  r = L.decide(at21()); ok(r && r.kind === "danger" && /Ramzi.*4 jours/.test(r.body) && r.patch.last_streak_sent === TUE && !r.patch.last_sent, "rappels : série en danger à 21 h", JSON.stringify(r));
+  ok(L.decide(at21({ studied: true })) === null && L.decide(at21({ streak: 1 })) === null && L.decide(at21({ sub: { endpoint: "e", last_streak_sent: TUE } })) === null, "rappels : série en danger seulement si pas révisé, série de 2 jours et une fois par jour");
+  r = L.decide(at21({ prefs: prefs({ reminderTime: "21:00" }) })); ok(r && r.kind === "danger" && r.patch.last_sent === TUE, "rappels : à 21 h le rappel de série remplace celui du jour", JSON.stringify(r));
+  const we = prefs({ quietWeekend: true });
+  ok(L.decide(base({ day: SAT, prefs: we })) === null && L.decide(at21({ day: SAT, prefs: we })) === null, "rappels : silence le week-end");
+  ok(L.decide(base({ day: SAT }))?.kind === "due", "rappels : le week-end sans le réglage, rappel normal");
+  r = L.decide(base({ day: SAT, prefs: we, examSoon: [{ id: "s1", name: "SVT", exam_date: "2026-11-15" }] })); ok(r && r.kind === "exam1" && r.body.includes("SVT") && r.url === "./#matiere-s1", "rappels : contrôle de demain envoyé même le week-end", JSON.stringify(r));
+  ok(L.decide(base({ day: SAT, prefs: we, examSoon: [{ id: "s1", name: "SVT", exam_date: "2026-11-17" }] }))?.kind === "exam3" && L.decide(base({ day: SAT, prefs: we, examSoon: [{ id: "s1", name: "SVT", exam_date: "2026-11-21" }] }))?.kind === "exam7", "rappels : J-3 et J-7 envoyés même le week-end");
+  r = L.decide(base({ day: SAT, prefs: we, minutes: 7 * 60 + 31, examToday: [{ id: "s1", name: "SVT" }] })); ok(r && r.kind === "examToday" && r.patch.last_exam_sent === SAT, "rappels : matin du contrôle à 7 h 30 même le week-end", JSON.stringify(r));
+  const vac = z => prefs({ quietHolidays: true, zone: z }), MAR5 = "2027-03-05"; // vendredi : vacances d'hiver en zone B seulement
+  ok(L.decide(base({ day: MAR5, prefs: vac("B") })) === null && L.decide(base({ day: MAR5, prefs: vac("A") }))?.kind === "due" && L.decide(base({ day: MAR5, prefs: vac("C") }))?.kind === "due", "rappels : silence pendant les vacances de la zone choisie");
+  ok(L.decide(base({ day: "2027-02-08", prefs: vac("C") })) === null && L.decide(base({ day: "2026-12-22", prefs: vac("A") })) === null, "rappels : vacances d'hiver zone C et de Noël");
+  ok(L.decide(base({ day: MAR5, prefs: vac("B"), examSoon: [{ id: "s1", name: "Maths", exam_date: "2027-03-08" }] }))?.kind === "exam3", "rappels : contrôle envoyé même pendant les vacances");
+  const off = prefs({ enabled: false });
+  ok([base({ prefs: off }), at21({ prefs: off }), base({ prefs: off, minutes: 451, examToday: [{ id: "s1", name: "SVT" }] })].every(c => L.decide(c) === null), "rappels : rappels coupés, plus rien n'est envoyé");
+  ok(L.streakOf(new Set(["2026-11-13", "2026-11-12", "2026-11-10", "2026-11-09"]), SAT) === 4 && L.streakOf(new Set(["2026-11-14", "2026-11-13"]), SAT) === 2 && L.streakOf(new Set(["2026-11-12"]), SAT) === 0, "rappels : série calculée comme dans l'appli (gel compris)");
+  const week = new Set(); for (let i = 0; i < 12; i++) week.add(L.decide(base({ day: L.addDays(TUE, i), due: 5, streak: 0 })).body); ok(week.size === 12, "rappels : 12 jours de suite, 12 messages différents");
+
+  // 2. Écran Réglages > Rappels, enregistré dans le profil (donc le même sur tous les appareils).
+  for (const [w, h] of [[320, 700], [390, 844], [1280, 800]]) {
+    const page = await open(browser, { w, h, theme: "dark" }), tag = "rappels " + w;
+    await go(page, "#reglages", 400);
+    ok(await page.locator('#remOn[aria-checked="true"]').count() === 1 && await page.locator('#qWe[aria-checked="false"]').count() === 1 && await page.locator('#qVac[aria-checked="false"]').count() === 1 && await page.locator('[data-zone="A"][aria-pressed="true"]').count() === 1, tag + " : réglages par défaut affichés");
+    const prof = () => page.evaluate(() => window.__fake.DB.profiles[0]);
+    await page.click("#qWe"); await page.waitForTimeout(250); await page.click("#qVac"); await page.waitForTimeout(250); await page.click('[data-zone="C"]'); await page.waitForTimeout(250);
+    let pr = await prof(); ok(pr.quiet_weekend === true && pr.quiet_holidays === true && pr.holiday_zone === "C", tag + " : week-end, vacances et zone enregistrés dans le profil", JSON.stringify(pr));
+    ok(await page.locator('#qWe[aria-checked="true"]').count() === 1 && await page.locator('[data-zone="C"][aria-pressed="true"]').count() === 1, tag + " : écran à jour");
+    const o = await overflow(page); ok(o.sw <= o.iw, tag + " : pas de débordement", JSON.stringify(o));
+    const sm = await small(page); ok(!sm.length, tag + " : boutons de 44 px minimum", sm.join(" | "));
+    await page.click("#remOn"); await page.waitForTimeout(250); pr = await prof();
+    ok(pr.reminders_enabled === false && !(await page.locator("#remOpts").isVisible()), tag + " : rappels coupés et options masquées", JSON.stringify(pr));
+    await page.click("#remOn"); await page.waitForTimeout(250); ok((await prof()).reminders_enabled === true && await page.locator("#remOpts").isVisible(), tag + " : rappels réactivés");
+    if (w === 390) await page.screenshot({ path: path.join(SHOTS, "reglages-rappels-390.png"), fullPage: true });
+    ok(!page.errors.length, tag + " : aucune erreur JavaScript", page.errors.slice(0, 3).join(" | ")); await page.context().close();
+  }
+}
+
 let BASE;
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -685,7 +744,7 @@ let BASE;
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null, want = n => !only || only.includes(n);
     if (want("sweep")) for (const [w, h] of [[390, 844], [1280, 800]]) for (const theme of ["light", "dark"]) await sweep(browser, w, h, theme);
-    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres };
+    const SUITES = { flows, v7, v8, v10, sync, formules, interro, sup, musique, chapitre, tempsEcran, melange, recherche, horsligne, recompenses, edt, methodeBac, partage, petitEcran, voixMerge, retourFlottant, corbeille, vitesse, redressement, imageCarte, animations, fenetres, rappels };
     for (const [n, f] of Object.entries(SUITES)) if (want(n)) await f(browser);
   } catch (e) { failures++; log.push("EXCEPTION " + (e.stack || e)); }
   await browser.close(); server.close();

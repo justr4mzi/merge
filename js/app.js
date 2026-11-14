@@ -257,6 +257,11 @@
   function mastery(cards) { if (!cards.length) return 0; return Math.floor(cards.filter(isMastered).length / cards.length * 100); }
   function cardsOf(chapterId) { return state.cards.filter(c => c.chapter_id === chapterId); }
   function dueCards(list) { const now = Date.now(); return list.filter(c => new Date(c.due_at).getTime() <= now); }
+  const VACANCES_ZONES = {
+    A: [["Toussaint", "2026-10-17", "2026-11-01"], ["Noël", "2026-12-19", "2027-01-03"], ["Hiver", "2027-02-13", "2027-02-28"], ["Printemps", "2027-04-10", "2027-04-25"], ["Été", "2027-07-03", "2027-08-31"]],
+    B: [["Toussaint", "2026-10-17", "2026-11-01"], ["Noël", "2026-12-19", "2027-01-03"], ["Hiver", "2027-02-20", "2027-03-07"], ["Printemps", "2027-04-17", "2027-05-02"], ["Été", "2027-07-03", "2027-08-31"]],
+    C: [["Toussaint", "2026-10-17", "2026-11-01"], ["Noël", "2026-12-19", "2027-01-03"], ["Hiver", "2027-02-06", "2027-02-21"], ["Printemps", "2027-04-03", "2027-04-18"], ["Été", "2027-07-03", "2027-08-31"]],
+  };
   // Série de jours révisés. Gel de série : un jour raté par semaine (du lundi au dimanche) ne casse pas la série.
   function streakInfo() {
     const days = new Set(state.sessions.filter(s => s.cards_reviewed > 0).map(s => s.day)); let n = 0, frozen = 0; const d = new Date(), used = new Set();
@@ -1544,6 +1549,13 @@
   }
 
   // ---------- réglages ----------
+  // Vacances en cours ou à venir dans la zone choisie (affichées sous le choix de zone).
+  function remindVac(p) {
+    const zone = ["A", "B", "C"].includes(p.holiday_zone) ? p.holiday_zone : "A", today = localDay(), list = VACANCES_ZONES[zone];
+    const v = list.find(x => today >= x[1] && today <= x[2]) || list.find(x => x[1] > today); if (!v) return null;
+    const fd = d => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    return { zone, label: (v[0] === "Été" ? "été, à partir du " + fd(v[1]) : v[0] + ", du " + fd(v[1]) + " au " + fd(v[2])) };
+  }
   function screenSettings() {
     drawTabs("reglages");
     const p = state.profile;
@@ -1561,9 +1573,18 @@
         <div class="field"><span class="label">Sons et vibrations</span>${chips("snd", [["1", "Activés"], ["0", "Coupés"]], p.sounds === false ? "0" : "1")}</div>
         <div class="field"><span class="label">Voix qui lit tes cartes</span><div class="chips"><button class="chip" data-ve="merge" aria-pressed="${neuralWanted()}">Voix Merge (Laomedeia)</button><button class="chip" data-ve="appareil" aria-pressed="${!neuralWanted()}">Voix de mon appareil</button></div><div class="row"><button class="btn sm ghost" id="vtry">Écouter un exemple</button></div><p class="note">La voix Merge est plus naturelle. Sans réseau, c'est la voix de ton appareil qui prend le relais.</p></div>
         ${"speechSynthesis" in window ? `<div class="field"><label for="voice">Voix de l'appareil</label><select id="voice"><option value="">Chargement des voix…</option></select><div class="row"><label class="small muted" for="vrate">Vitesse</label><input id="vrate" class="grow" type="range" min="0.5" max="2" step="0.05" value="${voiceRate()}"><button class="btn sm ghost" id="vtest">Écouter</button></div><p class="note">Les voix viennent de ton appareil et de ton navigateur. Merge choisit la plus naturelle. Sur PC, Microsoft Edge en propose de bien meilleures que Chrome.</p></div>` : ""}
-        <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"></div>
-        <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
         <button class="btn sm ghost" id="tuto">Revoir le tutoriel</button></div>
+      <div class="card pad stack" id="rappels"><h2>Rappels</h2>
+        <button type="button" class="switch" role="switch" id="remOn" aria-checked="${p.reminders_enabled !== false}"><i></i><span>Recevoir les rappels</span></button>
+        <div class="stack" id="remOpts"${p.reminders_enabled === false ? ' style="display:none"' : ""}>
+          <div class="field"><label for="rem">Heure du rappel quotidien</label><input id="rem" type="time" value="${esc((p.reminder_time || "").slice(0, 5))}"><p class="note">Seulement si tu n'as pas encore révisé ce jour-là. À 21 h, un dernier rappel si ta série est en danger.</p></div>
+          <button type="button" class="switch" role="switch" id="qWe" aria-checked="${p.quiet_weekend === true}"><i></i><span>Silence le week-end</span></button>
+          <button type="button" class="switch" role="switch" id="qVac" aria-checked="${p.quiet_holidays === true}"><i></i><span>Silence pendant les vacances scolaires</span></button>
+          <div class="field"><span class="label">Ta zone de vacances</span>${chips("zone", [["A", "Zone A"], ["B", "Zone B"], ["C", "Zone C"]], ["A", "B", "C"].includes(p.holiday_zone) ? p.holiday_zone : "A")}<p class="note">Zone A : Lyon, Bordeaux, Grenoble… Zone B : Lille, Marseille, Nantes… Zone C : Paris, Créteil, Versailles, Montpellier, Toulouse.${(() => { const v = remindVac(p); return v ? " Prochaines vacances (zone " + v.zone + ") : " + v.label + "." : ""; })()}</p></div>
+          <p class="note">Les rappels de contrôle (une semaine avant, 3 jours avant, la veille et le matin à 7 h 30) arrivent même le week-end et pendant les vacances.</p>
+          <button class="btn sm" id="pushon">Activer les rappels sur cet appareil</button><p class="note" id="pushmsg">Sur iPhone, ajoute d'abord Merge à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil »).</p>
+        </div>
+        <p class="note">Ces réglages sont les mêmes sur ton téléphone et ton ordinateur.</p></div>
       <div class="card pad stack"><h2>IA</h2><p class="muted" id="quota">Appels IA aujourd'hui : …</p><p class="note">Tout ce que l'IA prépare (résumés, quiz, fiches, cartes mentales…) est gardé : rouvrir un contenu ne coûte aucun appel.</p><a class="btn sm ghost" href="${esc(C.CONTACT_CREATEUR)}" target="_blank" rel="noopener" style="align-self:flex-start">${I.mail}Contacter le créateur</a></div>
       <div class="card pad stack"><h2>Ce qui est partagé</h2><p class="muted">Tes cours, résumés et cartes restent toujours privés. Le partage de statistiques à deux se règle dans l'onglet Duo.</p><a class="btn sm ghost" href="#duo">Ouvrir Duo</a></div>
       <div class="card pad stack"><h2>Archives</h2><p class="muted">En fin d'année, range tes anciennes matières. Elles restent consultables et tu peux les restaurer.</p><div class="row" style="flex-wrap:wrap"><button class="btn sm ghost" id="archShow">Voir mes archives</button><a class="btn sm ghost" href="#corbeille">Corbeille</a><button class="btn sm ghost" id="archAll">Archiver toutes mes matières</button></div><div id="archBox" class="stack"></div></div>
@@ -1577,6 +1598,10 @@
     app.querySelectorAll("[data-s]").forEach(b => b.onclick = () => patch({ text_size: b.dataset.s }));
     app.querySelectorAll("[data-snd]").forEach(b => b.onclick = () => patch({ sounds: b.dataset.snd === "1" }));
     $("rem").onchange = () => patch({ reminder_time: $("rem").value || null }, "Heure enregistrée.");
+    $("remOn").onclick = () => { const on = p.reminders_enabled === false; patch({ reminders_enabled: on }, on ? "Rappels activés." : "Rappels coupés. Plus aucune notification."); };
+    $("qWe").onclick = () => { const on = p.quiet_weekend !== true; patch({ quiet_weekend: on }, on ? "Pas de rappel le samedi et le dimanche." : "Rappels aussi le week-end."); };
+    $("qVac").onclick = () => { const on = p.quiet_holidays !== true; patch({ quiet_holidays: on }, on ? "Pas de rappel pendant les vacances." : "Rappels aussi pendant les vacances."); };
+    app.querySelectorAll("[data-zone]").forEach(b => b.onclick = () => patch({ holiday_zone: b.dataset.zone }, "Zone " + b.dataset.zone + " enregistrée."));
     $("tuto").onclick = tutorial; wireClasse();
     if ($("voice")) {
       const fill = () => { const sel = $("voice"); if (!sel) return; const vs = voicesFor("fr").sort((a, b) => voiceScore(b) - voiceScore(a)), cur = pickVoice("fr"); sel.innerHTML = vs.length ? vs.map((v, i) => `<option value="${esc(v.voiceURI)}"${cur && v.voiceURI === cur.voiceURI ? " selected" : ""}>${esc(v.name.replace(/^Microsoft |^Google /, m => m))}${i === 0 ? " (recommandée)" : ""}</option>`).join("") : '<option value="">Aucune voix française sur cet appareil</option>'; };
@@ -2042,8 +2067,10 @@
   }
 
   // ---------- calendrier ----------
-  // Vacances scolaires, zone A (calendrier officiel 2026-2027, service-public.gouv.fr). Dernier jour inclus.
-  const VACANCES = [["Toussaint", "2026-10-17", "2026-11-01"], ["Noël", "2026-12-19", "2027-01-03"], ["Hiver", "2027-02-13", "2027-02-28"], ["Printemps", "2027-04-10", "2027-04-25"], ["Été", "2027-07-03", "2027-08-31"]];
+  // Vacances scolaires 2026-2027 par zone (arrêté du 22 octobre 2025). Premier et dernier jour inclus.
+  // Mêmes dates que VACANCES_ZONES dans supabase/functions/remind/logic.mjs (un test vérifie qu'elles sont identiques).
+  // Le calendrier affiche la zone A ; la zone choisie dans Réglages sert aux rappels.
+  const VACANCES = VACANCES_ZONES.A;
   const vacOf = key => VACANCES.find(v => key >= v[1] && key <= v[2]);
   function screenCalendar() {
     drawTabs("calendrier");
