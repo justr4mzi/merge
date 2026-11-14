@@ -56,3 +56,9 @@ Musique servie par le site ; synchronisation `user_kv` (favoris, notes, surligna
 28. Sauvegarde de la base avant les grosses modifications (export des tables principales), notée dans `DECISIONS.md`.
 29. Optimiser `js/app.js` (plus de 200 Ko) : découpage en modules chargés à la demande ou autre, démarrage plus rapide sur téléphone, AUCUN bug, tous les tests repassent.
 30. Chasse aux bugs sur tout le site, téléphone et PC : chaque écran, thème clair et sombre, petits écrans, hors ligne, première connexion, compte vide.
+
+
+A faire aussi : 
+rajouter POSsibilite de mettre des couleurs au chapitre et au dossier de chapitre  
+En bas quand on est sur un chapitre , tout ce qui est en dessous de carte dans ce chapitre le mettre dans un menu deroulant car il prend bcp de place la 
+Il y a Outils de chapitre. En fait, ça va dans tous les sens. C'est des trucs qui n'ont rien à voir, supprimer ca va pas avec , créer une fiche A4 alors qu'il y a déjà un bouton au-dessus. Euh, Il y a aussi genre créer d'autres cartes avec l'IA. C'est pas là, ca devrai aller a chaque categorie et un bouton special Enfin, ça devrait être dans la catégorie en fonction, tu vois. Fais en sorte que ce soit un menu deroulant et garde uniquement ce qui est utile et le reste deplace le ou bien c deja existant autre part ou bien c a deplacer ( par exemple cree d'autres cartes avec l'ia ) 
